@@ -10,6 +10,7 @@
 const UINT16 MAX_CLIENT_NUM = 10;
 const UINT32 MAX_IO_WORKER_THREADS = 4;
 
+
 int main()
 {
 	IOCPServer server;
@@ -28,5 +29,6 @@ int main()
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
+	LOG_INFO("Server Closed!");
 	return 0;
 }

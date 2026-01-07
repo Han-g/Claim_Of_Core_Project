@@ -17,6 +17,8 @@ void IOCPServer::InitLogger() {
 	config["file_name"] = "ServerLog.txt";
 
 	logging::configure(config);
+
+	LOG_INFO("------------- LOGGING START -------------");
 }
 
 bool IOCPServer::Init(int port, int maxSessionCount) {
@@ -59,6 +61,7 @@ void IOCPServer::Start() {
 	}
 
 	m_AcceptThread = std::thread([this]() { this->AcceptThread(); });
+	LOG_INFO("Server Start Successful!");
 }
 
 void IOCPServer::AcceptThread() {
@@ -74,6 +77,7 @@ void IOCPServer::AcceptThread() {
 
 		// Check Session connected User
 		if (m_Sessions.size() >= m_MaxSessionCount) {
+			LOG_ERROR("User can't connect by Session is full!");
 			closesocket(clientSocket);
 			continue;
 		}
@@ -94,7 +98,10 @@ void IOCPServer::WorkerThread() {
 		OverlappedEx* p_Ex = static_cast<OverlappedEx*> (p_Overlapped);
 
 		if (!ret || (ret && transferredBytes == 0)) {
-			if (session) { OnDisconnect(session->sessionID); }
+			if (session) { 
+				LOG_ERROR("[ID: %d] Fail to Register IOCP handle", session->sessionID); 
+				OnDisconnect(session->sessionID); 
+			}
 
 			continue;
 		}
@@ -130,6 +137,8 @@ void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
 	char clientIP[32];
 	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, sizeof(clientIP));
 
+	LOG_INFO("Client Session Connect with IOCP handle successful!");
+
 	// Request Asyn Recv
 	DWORD flags = 0;
 	DWORD recvBytes = 0;
@@ -163,7 +172,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	Session* recvSession = m_Sessions[sessionIndex];
 
 	// Recv Data Progressing
-
+	LOG_INFO("Recv Data");
 
 	// After Recv Data need to Recv again
 
@@ -179,6 +188,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	if (WSARecv(recvSession->socket, &wsaBuf, 1, &recvBytes, &flags,
 		(LPWSAOVERLAPPED)&recvSession->recvOverlapped, nullptr) == SOCKET_ERROR &&
 		WSAGetLastError() != ERROR_IO_PENDING) {
+		LOG_ERROR("[ID: %d] Failed to Register IOCP Recv Process", sessionIndex);
 		OnDisconnect(sessionIndex);
 	}
 }
