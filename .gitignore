@@ -10,7 +10,6 @@ Saved/
 # ===============================
 # Unreal Build Files
 # ===============================
-*.sln
 *.xcodeproj
 *.xcworkspace
 *.opensdf
@@ -18,8 +17,6 @@ Saved/
 *.suo
 *.user
 *.userprefs
-*.vcxproj
-*.vcxproj.filters
 *.vcxproj.user
 
 # ===============================
