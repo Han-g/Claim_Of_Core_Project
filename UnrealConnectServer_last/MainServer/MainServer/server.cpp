@@ -334,10 +334,8 @@ void IOCPServer::GameFrameProtocol() {
 	std::vector<GameData> roomSnapshot;
 
 	for (Session* data : m_Sessions) {
-		OnRecv(data->sessionID, (DWORD)sizeof(GameData));
 		roomSnapshot.push_back(data->gameDatas);
 	}
-
 
 	{
 		std::lock_guard<std::mutex> lock(m_SessionLock);

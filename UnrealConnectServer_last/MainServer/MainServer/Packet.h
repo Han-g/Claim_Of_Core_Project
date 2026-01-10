@@ -17,5 +17,6 @@ struct PacketHeader {
 
  0 : Connect 
  1 : Synchronization Data
- 2 : Event Process
+ 2 : Event Process (Move)
+
 */
