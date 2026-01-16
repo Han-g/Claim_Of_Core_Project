@@ -11,6 +11,8 @@
 
 #include <queue>
 #include <mutex>
+#include "Packet.h"
+#include "RoomManager.h"
 
 #include <windows.h>
 
@@ -118,12 +120,6 @@ struct OverlappedEx : public WSAOVERLAPPED {
 	IO_OPERATION type;
 };
 
-
-struct GameData {
-	bool isConnected = false;
-	float x, y, z;
-
-};
 
 // Client Session Info (need to contain at "session.h")
 struct Session {

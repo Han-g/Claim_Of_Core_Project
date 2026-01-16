@@ -61,6 +61,9 @@ void IOCPServer::Start() {
 
 	m_AcceptThread = std::thread([this]() { this->AcceptThread(); });
 	LOG_INFO("Server Start Successful!");
+
+	m_DBConnectThread = std::thread([this]() {this->DBWorkerThread(); });
+	LOG_INFO("DB Connect Successful!");
 }
 
 void IOCPServer::AcceptThread() {
@@ -147,11 +150,10 @@ void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
 
 	LOG_INFO("Client Session Connect with IOCP handle successful!");
 
-	LoginPacket loginPacket;
+	GameDataPacket loginPacket;
 	loginPacket.Session_ID = newSession->sessionID;
-	loginPacket.packet_ID = 0;
 
-	SendPacket(newSession->sessionID, loginPacket.packet_ID, (char*)&loginPacket, sizeof(LoginPacket));
+	SendPacket(newSession->sessionID, PKT_S2C_LOGIN, (char*)&loginPacket, sizeof(GameDataPacket));
 
 	// Request Asyn Recv
 	DWORD flags = 0;
@@ -186,7 +188,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	Session* recvSession = m_Sessions[sessionIndex];
 
 	// Recv Data Progressing
-	LOG_INFO("Recv Data");
+	//LOG_INFO("Recv Data");
 
 	// After Recv Data need to Recv again
 	if (RingBufPush(&recvSession->recvBuffer, recvSession->TempBuffer, transferredBytes) == false) {
@@ -213,6 +215,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 
 		// Packet assamble Complete
 		std::vector<char> packetData(header.packet_size);
+
 		RingBufPeek(&recvSession->recvBuffer, packetData.data(), header.packet_size);
 
 		RingBufpop(&recvSession->recvBuffer, header.packet_size);
@@ -221,14 +224,8 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 			sessionIndex, header.packet_ID, header.packet_size);
 
 		// Call Packet Process Function
-		switch (header.packet_ID)
-		{
-		case 1:
-			break;
-		default:
-			LOG_WARN("Not Valid Pakcet ID");
-			break;
-		}
+		PacketProcess(sessionIndex, header.packet_ID, packetData);
+
 		// -----------------------------
 	}
 
@@ -314,6 +311,51 @@ void IOCPServer::SendProtocol(Session* session) {
 	}
 }
 
+void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
+{
+	switch (packetID)
+	{
+	case PKT_S2C_LOGIN:
+		// Login Packet
+
+		break;
+	case PKT_S2C_UPDATE:
+		// Update Packet
+
+		break;
+	case PKT_C2S_MOVE:
+		// (Move) Event Packet
+
+		break;
+	case PKT_C2S_ATTACK:
+		// (Attack) Event Packet
+
+		break;
+	default:
+		LOG_WARN("Not Valid Pakcet ID");
+		break;
+	}
+}
+
+void IOCPServer::DBWorkerThread()
+{
+	// 1. 서버 켜질 때 DB 연결 시도
+	if (!m_DB.Connect()) {
+		LOG_ERROR("DB Connection Failed!");
+	}
+
+	while (m_IsRunning) {
+		// ... 큐에서 작업 꺼내기 ...
+
+		// 2. DB 작업 수행
+		// bool result = db.CheckLogin(L"TestUser");
+
+		// ... 결과 처리 ...
+	}
+
+	// 3. 소멸자에서 자동으로 Disconnect 됨
+}
+
 void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 	Session* session = m_Sessions[sessionIndex];
 
@@ -323,7 +365,7 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 	if (!session->sendQueue.empty()) { SendProtocol(session); }
 	else { session->isSending = false; }
 
-	LOG_INFO("Send Data");
+	//LOG_INFO("Send Data");
 }
 
 void IOCPServer::GameFrameProtocol() {

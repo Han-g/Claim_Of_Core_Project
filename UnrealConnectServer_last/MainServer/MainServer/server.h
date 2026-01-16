@@ -10,6 +10,7 @@
 #include "Packet.h"
 #include "logger.h"
 #include "session.h"
+#include "Database.h"
 
 class IOCPServer {
 public:
@@ -35,14 +36,19 @@ private:
 
 	void SendProtocol(Session* session);
 
-	void UpdateGameData();
+	void PacketProcess(int sessionIndex, int packetID, std::vector<char>& data);
+
+	void DBWorkerThread();
 
 private:
 	HANDLE m_hIOCP;
 	SOCKET m_ListenSocket;
+	DBHelper m_DB;
+
 	std::vector<Session*> m_Sessions;
 	std::vector<std::thread> m_WorkerThreads;
 	std::thread m_AcceptThread;
+	std::thread m_DBConnectThread;
 
 	int m_MaxSessionCount;
 	std::mutex m_SessionLock;

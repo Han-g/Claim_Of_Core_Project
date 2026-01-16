@@ -1,0 +1,11 @@
+[2026-01-16 | 02:08:59] [INFO] ------------- LOGGING START -------------
+[2026-01-16 | 02:08:59] [INFO] Server Initalized Successfully!
+[2026-01-16 | 02:08:59] [INFO] Server Start Successful!
+[2026-01-16 | 02:24:58] [INFO] ------------- LOGGING START -------------
+[2026-01-16 | 02:24:58] [INFO] Server Initalized Successfully!
+[2026-01-16 | 02:24:58] [INFO] Server Start Successful!
+[2026-01-16 | 13:48:42] [INFO] ------------- LOGGING START -------------
+[2026-01-16 | 13:48:42] [INFO] Server Initalized Successfully!
+[2026-01-16 | 13:48:42] [INFO] Server Start Successful!
+[2026-01-16 | 13:48:42] [INFO] DB Connect Successful!
+[2026-01-16 | 13:48:47] [INFO] DB Connect Successful!
