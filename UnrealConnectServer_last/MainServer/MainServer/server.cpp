@@ -9,7 +9,6 @@ IOCPServer::~IOCPServer() {
 	WSACleanup();
 }
 
-
 void IOCPServer::InitLogger() {
 	// Create Log setting
 	logging::logging_config_t config;
@@ -62,6 +61,9 @@ void IOCPServer::Start() {
 
 	m_AcceptThread = std::thread([this]() { this->AcceptThread(); });
 	LOG_INFO("Server Start Successful!");
+
+	m_DBConnectThread = std::thread([this]() {this->DBWorkerThread(); });
+	LOG_INFO("DB Connect Successful!");
 }
 
 void IOCPServer::AcceptThread() {
@@ -107,10 +109,12 @@ void IOCPServer::WorkerThread() {
 		}
 
 		// work by task type
-		if (p_Ex->type == IO_OPERATION::RECV) { OnRecv(session->sessionID, transferredBytes); }
+		if (p_Ex->type == IO_OPERATION::RECV) { 
+			OnRecv(session->sessionID, transferredBytes); 
+		}
 		
 		else if (p_Ex->type == IO_OPERATION::SEND) {
-			// Send progess
+			OnSend(session->sessionID, transferredBytes);
 		}
 		
 		else if (p_Ex->type == IO_OPERATION::AWAIT) {
@@ -129,6 +133,13 @@ void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
 	newSession->socket = clientSocket;
 	newSession->sessionID = static_cast<int> (m_Sessions.size());
 
+	// Init new Game Data
+	GameData newData;
+	newData.isConnected = true;
+	newData.x = 0; newData.y = 0; newData.z = 0;
+
+	newSession->gameDatas = newData;
+
 	// Socket connect with IOCP handle
 	CreateIoCompletionPort((HANDLE)clientSocket, m_hIOCP, (ULONG_PTR)newSession, 0);
 
@@ -139,12 +150,17 @@ void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
 
 	LOG_INFO("Client Session Connect with IOCP handle successful!");
 
+	GameDataPacket loginPacket;
+	loginPacket.Session_ID = newSession->sessionID;
+
+	SendPacket(newSession->sessionID, PKT_S2C_LOGIN, (char*)&loginPacket, sizeof(GameDataPacket));
+
 	// Request Asyn Recv
 	DWORD flags = 0;
 	DWORD recvBytes = 0;
 	WSABUF wsaBuf;
-	wsaBuf.buf = newSession->recvBuffer;
-	wsaBuf.len = sizeof(newSession->recvBuffer);
+	wsaBuf.buf = newSession->TempBuffer;
+	wsaBuf.len = sizeof(newSession->TempBuffer);
 
 	// init Overlapped struct ( very important )
 	ZeroMemory(&newSession->recvOverlapped, sizeof(WSAOVERLAPPED));
@@ -172,15 +188,52 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	Session* recvSession = m_Sessions[sessionIndex];
 
 	// Recv Data Progressing
-	LOG_INFO("Recv Data");
+	//LOG_INFO("Recv Data");
 
 	// After Recv Data need to Recv again
+	if (RingBufPush(&recvSession->recvBuffer, recvSession->TempBuffer, transferredBytes) == false) {
+		LOG_ERROR("RingBuffer Overflow!");
+		OnDisconnect(sessionIndex);
+		return;
+	}
+
+	while (true) {
+		// Check Data is gathered by size of header
+		if (GetRingBufSize(&recvSession->recvBuffer) < sizeof(PacketHeader)) { 
+			LOG_WARN("Check Data is gathered by size of header");
+			break; 
+		}
+
+		PacketHeader header;
+		RingBufPeek(&recvSession->recvBuffer, (char*)&header, sizeof(PacketHeader));
+
+		// Entire Data doesn't receive wait next Recv
+		if (GetRingBufSize(&recvSession->recvBuffer) < header.packet_size) {
+			LOG_WARN("Entire Data doesn't receive wait next Recv");
+			break; 
+		}
+
+		// Packet assamble Complete
+		std::vector<char> packetData(header.packet_size);
+
+		RingBufPeek(&recvSession->recvBuffer, packetData.data(), header.packet_size);
+
+		RingBufpop(&recvSession->recvBuffer, header.packet_size);
+
+		LOG_INFO("[SESSION ID: %d] [PACKET ID: %d - SIZE: %d] Pakcet Received!",
+			sessionIndex, header.packet_ID, header.packet_size);
+
+		// Call Packet Process Function
+		PacketProcess(sessionIndex, header.packet_ID, packetData);
+
+		// -----------------------------
+	}
 
 	DWORD flags = 0;
 	DWORD recvBytes = 0;
 	WSABUF wsaBuf;
-	wsaBuf.buf = recvSession->recvBuffer;
-	wsaBuf.len = sizeof(recvSession->recvBuffer);
+	wsaBuf.buf = recvSession->TempBuffer;
+	wsaBuf.len = sizeof(recvSession->TempBuffer);
 
 	ZeroMemory(&recvSession->recvOverlapped, sizeof(WSAOVERLAPPED));
 	recvSession->recvOverlapped.type = IO_OPERATION::RECV;
@@ -190,5 +243,166 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		WSAGetLastError() != ERROR_IO_PENDING) {
 		LOG_ERROR("[ID: %d] Failed to Register IOCP Recv Process", sessionIndex);
 		OnDisconnect(sessionIndex);
+	}
+}
+
+void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len) {
+	if (sessionIndex < 0 || sessionIndex >= m_Sessions.size()) { 
+		LOG_ERROR("Session is Invalid Session");
+		return; 
+	}
+
+	Session* session = m_Sessions[sessionIndex];
+
+	PacketHeader header;
+	header.packet_ID = (unsigned int)packetID;
+	header.packet_size = sizeof(PacketHeader) + len;
+
+	std::vector<char> sendData;
+	sendData.resize(header.packet_size);
+
+	memcpy(sendData.data(), &header, sizeof(PacketHeader));
+	if (len > 0 && data != nullptr) {
+		memcpy(sendData.data() + sizeof(PacketHeader), data, len);
+	}
+
+	// Critical Section
+	{
+		std::lock_guard<std::mutex> sendlock(session->sendLock);
+
+		session->sendQueue.push(std::move(sendData));
+
+		if (session->isSending == false) {
+			SendProtocol(session);
+		}
+	}
+	// Critical Section
+}
+
+void IOCPServer::SendProtocol(Session* session) {
+	if (session->sendQueue.empty()) {
+		LOG_ERROR("Send data is not exist");
+		return;
+	}
+
+	std::vector<char>& packet = session->sendQueue.front();
+
+	// Init Overlapped 
+	session->isSending = true;
+
+	WSABUF wsaBuf;
+	wsaBuf.buf = packet.data();
+	wsaBuf.len = (ULONG)packet.size();
+
+	DWORD sentBytes = 0;
+	DWORD flags = 0;
+
+	ZeroMemory(&session->sendOverlapped, sizeof(WSAOVERLAPPED));
+	session->sendOverlapped.type = IO_OPERATION::SEND;
+
+	// Async Send request
+	if (WSASend(session->socket, &wsaBuf, 1, &sentBytes, flags,
+		(LPWSAOVERLAPPED)&session->sendOverlapped, nullptr) == SOCKET_ERROR) {
+		if (WSAGetLastError() != ERROR_IO_PENDING) {
+			LOG_ERROR("WSASend Failed! Error: %d", WSAGetLastError());
+			session->isSending = false;
+			OnDisconnect(session->sessionID);
+		}
+	}
+}
+
+void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
+{
+	switch (packetID)
+	{
+	case PKT_S2C_LOGIN:
+		// Login Packet
+
+		break;
+	case PKT_S2C_UPDATE:
+		// Update Packet
+
+		break;
+	case PKT_C2S_MOVE:
+		// (Move) Event Packet
+
+		break;
+	case PKT_C2S_ATTACK:
+		// (Attack) Event Packet
+
+		break;
+	default:
+		LOG_WARN("Not Valid Pakcet ID");
+		break;
+	}
+}
+
+void IOCPServer::DBWorkerThread()
+{
+	// 1. 서버 켜질 때 DB 연결 시도
+	if (!m_DB.Connect()) {
+		LOG_ERROR("DB Connection Failed!");
+	}
+
+	while (m_IsRunning) {
+		// ... 큐에서 작업 꺼내기 ...
+
+		// 2. DB 작업 수행
+		// bool result = db.CheckLogin(L"TestUser");
+
+		// ... 결과 처리 ...
+	}
+
+	// 3. 소멸자에서 자동으로 Disconnect 됨
+}
+
+void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
+	Session* session = m_Sessions[sessionIndex];
+
+	std::lock_guard<std::mutex> sendlock(session->sendLock);
+
+	if (!session->sendQueue.empty()) { session->sendQueue.pop(); }
+	if (!session->sendQueue.empty()) { SendProtocol(session); }
+	else { session->isSending = false; }
+
+	//LOG_INFO("Send Data");
+}
+
+void IOCPServer::GameFrameProtocol() {
+	if (m_Sessions.empty()) { return; }
+
+	GameData clientData;
+
+	std::vector<GameData> roomSnapshot;
+
+	for (Session* data : m_Sessions) {
+		roomSnapshot.push_back(data->gameDatas);
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(m_SessionLock);
+
+		for (Session* s : m_Sessions) {
+			if (s->gameDatas.isConnected) {
+				GameData info;
+				info.x = s->gameDatas.x;
+				info.y = s->gameDatas.y;
+				info.z = s->gameDatas.z;
+
+				roomSnapshot.push_back(info);
+			}
+		}
+	}
+
+	if (roomSnapshot.empty()) { LOG_ERROR("Not Exist Game Data!"); return; }
+
+	// Packet & User Data Serialization
+
+
+	// Send Snapshot to all Clients
+	for (int i = 0; i < m_Sessions.size(); ++i) {
+		if (m_Sessions[i]->gameDatas.isConnected) {
+			SendPacket(m_Sessions[i]->sessionID, 1, (char*)roomSnapshot.data(), sizeof(roomSnapshot));
+		}
 	}
 }
