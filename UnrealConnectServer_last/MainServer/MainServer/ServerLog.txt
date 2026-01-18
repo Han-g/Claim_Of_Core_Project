@@ -1,11 +1,9 @@
-[2026-01-16 | 02:08:59] [INFO] ------------- LOGGING START -------------
-[2026-01-16 | 02:08:59] [INFO] Server Initalized Successfully!
-[2026-01-16 | 02:08:59] [INFO] Server Start Successful!
-[2026-01-16 | 02:24:58] [INFO] ------------- LOGGING START -------------
-[2026-01-16 | 02:24:58] [INFO] Server Initalized Successfully!
-[2026-01-16 | 02:24:58] [INFO] Server Start Successful!
-[2026-01-16 | 13:48:42] [INFO] ------------- LOGGING START -------------
-[2026-01-16 | 13:48:42] [INFO] Server Initalized Successfully!
-[2026-01-16 | 13:48:42] [INFO] Server Start Successful!
-[2026-01-16 | 13:48:42] [INFO] DB Connect Successful!
-[2026-01-16 | 13:48:47] [INFO] DB Connect Successful!
+[2026-01-19 | 02:00:46] [INFO] ------------- LOGGING START -------------
+[2026-01-19 | 02:00:46] [INFO] Server Initalized Successfully!
+[2026-01-19 | 02:00:46] [INFO] Server Start Successful!
+[2026-01-19 | 02:00:46] [INFO] DB Connect Successful!
+[2026-01-19 | 02:00:53] [INFO] Client Session Connect with IOCP handle successful!
+[2026-01-19 | 02:00:53] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-01-19 | 02:00:53] [INFO] [Login Req] ID: admin, PW: admin
+[2026-01-19 | 02:00:53] [WARN] Check Data is gathered by size of header
+[2026-01-19 | 02:01:15] [ERROR] [ID: 0] Fail to Register IOCP handle

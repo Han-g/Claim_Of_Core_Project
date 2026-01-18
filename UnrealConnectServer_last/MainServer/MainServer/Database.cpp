@@ -33,13 +33,13 @@ bool DBHelper::Connect()
     // [주의] 제어판 -> 관리 도구 -> ODBC 데이터 원본 관리자에서 "NorthWind"라는 DSN을 먼저 만들어야 합니다.
     // 두 번째 인자는 DSN 이름, 네 번째 인자는 ID, 여섯 번째 인자는 암호입니다.
     ret = SQLConnect(hDbc, (SQLWCHAR*)L"ClaimOfCore", SQL_NTS,
-        (SQLWCHAR*)L"guest", SQL_NTS,
-        (SQLWCHAR*)L"guest", SQL_NTS);
+        (SQLWCHAR*)L"ServerConnection", SQL_NTS,
+        (SQLWCHAR*)L"server", SQL_NTS);
 
     if (SQL_SUCCEEDED(ret))
     {
         m_IsConnected = true;
-        std::wcout << L"[DB] Connected Successfully!" << std::endl;
+        //std::wcout << L"[DB] Connected Successfully!" << std::endl;
 
         // 미리 Statement 핸들 하나 할당해두기
         SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt);
@@ -77,26 +77,56 @@ void DBHelper::PrintError(SQLHANDLE handle, SQLSMALLINT type)
     do
     {
         ret = SQLGetDiagRec(type, handle, ++i, state, &native, text, sizeof(text) / sizeof(SQLWCHAR), &len);
-        if (SQL_SUCCEEDED(ret))
-            std::wcout << L"[DB Error] " << state << L":" << text << std::endl;
+        if (SQL_SUCCEEDED(ret)) { 
+            char strState[32];
+            WideCharToMultiByte(CP_ACP, 0, (wchar_t*)state, -1, strState, 32, nullptr, nullptr);
+
+            char strText[512];
+            WideCharToMultiByte(CP_ACP, 0, (wchar_t*)text, -1, strText, 512, nullptr, nullptr);
+
+            LOG_ERROR("[DB Error] %s : %s", strState, strText);
+        }
     } while (ret == SQL_SUCCESS);
 }
 
 // 예시: 로그인 확인 로직
-bool DBHelper::CheckLogin(const std::wstring& userId)
+bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID)
 {
-    if (!m_IsConnected) return false;
+    if (!m_IsConnected) { return false; }
 
-    // 쿼리 준비 (간단한 예시)
-    // 실제로는 SQLBindParameter를 써야 안전합니다 (SQL Injection 방지)
-    std::wstring query = L"SELECT count(*) FROM Users WHERE UserID = '" + userId + L"'";
+    // Query Setting
+    std::wstring query = L"{call SP_LoginAccess('";
+    query += userID;
+    query += L"', '";
+    query += userPW;
+    query += L"')}";
 
-    if (SQL_SUCCEEDED(SQLExecDirect(hStmt, (SQLWCHAR*)query.c_str(), SQL_NTS)))
-    {
-        // 결과 처리 로직...
-        SQLCloseCursor(hStmt); // 커서 닫기 필수
-        return true;
+    // Execute Query
+    if (SQLExecDirect(hStmt, (SQLWCHAR*)query.c_str(), SQL_NTS) != SQL_SUCCESS) { return false; }
+
+    if (SQLFetch(hStmt) == SQL_SUCCESS) {
+        int loginResult = 0;
+        SQLLEN len = 0;
+
+        SQLGetData(hStmt, 1, SQL_C_LONG, &loginResult, sizeof(int), &len);
+
+        if (loginResult == 0) {
+            LOG_ERROR("Failed to Server Login - ID / PW is InValid");
+            SQLCloseCursor(hStmt); // Need to Close Cursor
+            return false;
+        }
+
+        else {
+            int accountUID = 0;
+            SQLGetData(hStmt, 2, SQL_C_LONG, &accountUID, sizeof(int), &len);
+
+            playerUID = accountUID;
+
+            SQLCloseCursor(hStmt);
+            return true;
+        }
     }
 
+    SQLCloseCursor(hStmt);
     return false;
 }

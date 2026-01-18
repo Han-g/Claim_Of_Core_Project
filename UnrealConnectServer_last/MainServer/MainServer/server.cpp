@@ -313,14 +313,37 @@ void IOCPServer::SendProtocol(Session* session) {
 
 void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
 {
+	PacketReader reader(data, sizeof(PacketHeader));
+	std::wstring ID, PW;
+	int userUID = -1;
+
 	switch (packetID)
 	{
-	case PKT_S2C_LOGIN:
-		// Login Packet
-
-		break;
 	case PKT_S2C_UPDATE:
 		// Update Packet
+		break;
+	case PKT_C2S_LOGIN:
+		// Login Packet
+		// Packet Deserialization
+		if (reader.ReadString(ID) == false) {
+			LOG_ERROR("[Session: %d] Failed to read ID", sessionIndex);
+			return;
+		}
+		if (reader.ReadString(PW) == false) {
+			LOG_ERROR("[Session: %d] Failed to read PW", sessionIndex);
+			return;
+		}
+
+		// 3. DB 스레드에 작업 요청 (비동기)
+		// (이전 대화에서 구현한 Task Queue 방식 사용 권장)
+		// RequestLogin(sessionIndex, ID, PW);
+
+		LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
+		
+		if (m_DB.CheckLogin(ID, PW, userUID)) { 
+			// CheckLogin 함수 내부 구현에 따라 인자 맞춤 필요
+			// 로그인 성공 처리...
+		}
 
 		break;
 	case PKT_C2S_MOVE:

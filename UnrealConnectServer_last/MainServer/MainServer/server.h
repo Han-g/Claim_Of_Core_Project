@@ -7,10 +7,10 @@
 #include <string>
 #include <ctime>
 
-#include "Packet.h"
 #include "logger.h"
 #include "session.h"
 #include "Database.h"
+#include "Packet.h"
 
 class IOCPServer {
 public:

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "logger.h"
+
 #include <windows.h>
 #include <sqltypes.h>
 #include <sql.h>
@@ -23,7 +25,7 @@ public:
     void Disconnect();
 
     // 간단한 로그인 확인 함수 (예시)
-    bool CheckLogin(const std::wstring& userId);
+    bool CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID);
 
 private:
     // 에러 발생 시 로그 찍는 함수
