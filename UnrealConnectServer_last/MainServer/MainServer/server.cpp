@@ -200,7 +200,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	while (true) {
 		// Check Data is gathered by size of header
 		if (GetRingBufSize(&recvSession->recvBuffer) < sizeof(PacketHeader)) { 
-			LOG_WARN("Check Data is gathered by size of header");
+			//LOG_WARN("Check Data is gathered by size of header [Left Buffer Size: %d| Header Size: %d]", GetRingBufSize(&recvSession->recvBuffer), sizeof(PacketHeader));
 			break; 
 		}
 
@@ -313,6 +313,8 @@ void IOCPServer::SendProtocol(Session* session) {
 
 void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
 {
+	PacketHeader header;
+	GameDataPacket dataPacket;
 	PacketReader reader(data, sizeof(PacketHeader));
 	std::wstring ID, PW;
 	int userUID = -1;
@@ -343,6 +345,12 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 		if (m_DB.CheckLogin(ID, PW, userUID)) { 
 			// CheckLogin 함수 내부 구현에 따라 인자 맞춤 필요
 			// 로그인 성공 처리...
+			LOG_INFO("Check Login Success!");
+			dataPacket.Session_ID = sessionIndex;
+			GameData newData;
+			dataPacket.data = newData;
+
+			SendPacket(sessionIndex, PKT_S2C_LOGIN, (char*)&dataPacket, sizeof(GameDataPacket));
 		}
 
 		break;

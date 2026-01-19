@@ -123,6 +123,8 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
             playerUID = accountUID;
 
             SQLCloseCursor(hStmt);
+
+            LOG_INFO("Login to Server Successful! [UID: %d]", accountUID);
             return true;
         }
     }
