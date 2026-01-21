@@ -65,6 +65,11 @@ void AClaim_Of_CoreCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AClaim_Of_CoreCharacter::Look);
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AClaim_Of_CoreCharacter::Look);
+
+		// Attacking
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AClaim_Of_CoreCharacter::Attack);
+
 	}
 	else
 	{
@@ -130,4 +135,31 @@ void AClaim_Of_CoreCharacter::DoJumpEnd()
 {
 	// signal the character to stop jumping
 	StopJumping();
+}
+
+void AClaim_Of_CoreCharacter::Attack()
+{
+	// 1) 공격 가능 상태 체크 (죽음/경직/쿨타임 등은 너 프로젝트 변수명에 맞게 바꿔)
+	if (!IsValid(Controller)) return;
+
+	// 예시: 넉백/사망 상태면 공격 막기 (변수 없으면 이 줄들 삭제)
+	// if (bIsDead) return;
+	// if (bIsKnockback) return;
+
+	// 2) 애니메이션 몽타주 재생
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance) return;
+
+	// 네 캐릭터 클래스에 UPROPERTY로 AttackMontage를 만들어서 할당해둬야 함
+	if (!AttackMontage) return;
+
+	// 이미 공격 몽타주 재생 중이면 중복 방지 (원하면 삭제)
+	if (AnimInstance->Montage_IsPlaying(AttackMontage)) return;
+
+	AnimInstance->Montage_Play(AttackMontage);
+
+	// 3) 실제 타격 판정(콜리전 ON/OFF)은 AnimNotify에서 처리하는 방식 추천
+	// - Notify_AttackStart: 무기/손 콜리전 Enable
+	// - Notify_AttackEnd  : 콜리전 Disable
+	
 }
