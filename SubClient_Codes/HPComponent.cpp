@@ -55,12 +55,18 @@ void UHPComponent::ResetHP()
 {
 	if (GetOwner() && !GetOwner()->HasAuthority())
 	{
+		ServerResetHP();
 		return;
 	}
 
 	const int32 OldHP = CurrentHP;
 	CurrentHP = MaxHP;
 	HandleHPChanged(OldHP);
+}
+
+void UHPComponent::ServerResetHP_Implementation()
+{
+	ResetHP();
 }
 
 void UHPComponent::OnRep_CurrentHP(int32 OldHP)

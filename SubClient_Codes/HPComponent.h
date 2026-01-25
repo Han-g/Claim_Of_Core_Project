@@ -41,6 +41,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "HP")
 	void ResetHP();
 
+	UFUNCTION(Server, Reliable)
+	void ServerResetHP();
+
 	UFUNCTION(BlueprintPure, Category = "HP")
 	int32 GetCurrentHP() const { return CurrentHP; }
 
