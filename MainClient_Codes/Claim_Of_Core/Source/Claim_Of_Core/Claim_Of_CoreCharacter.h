@@ -49,12 +49,17 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* AttackAction;
 
+	// TESTING Knockback
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* KnockbackAction;
+
 	/** Mouse Look Input Action */
 	UPROPERTY(EditAnywhere, Category="Input")
 	UInputAction* MouseLookAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
 	UAnimMontage* AttackMontage = nullptr;
+
 
 public:
 
@@ -74,7 +79,11 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 
+
 public:
+
+	virtual void Attack();
+	virtual void KnockbackTest();
 
 	/** Handles move inputs from either controls or UI interfaces */
 	UFUNCTION(BlueprintCallable, Category="Input")
@@ -92,7 +101,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
 
-	virtual void Attack();
+	//넉백 적용 함수
+	UFUNCTION()
+	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+
+	UFUNCTION()
+	void OnAttackOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
 
 public:
 

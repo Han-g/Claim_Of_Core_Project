@@ -4,6 +4,7 @@
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/Actor.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Controller.h"
@@ -69,6 +70,7 @@ void AClaim_Of_CoreCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 
 		// Attacking
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AClaim_Of_CoreCharacter::Attack);
+		EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AClaim_Of_CoreCharacter::KnockbackTest);
 
 	}
 	else
@@ -161,5 +163,41 @@ void AClaim_Of_CoreCharacter::Attack()
 	// 3) 실제 타격 판정(콜리전 ON/OFF)은 AnimNotify에서 처리하는 방식 추천
 	// - Notify_AttackStart: 무기/손 콜리전 Enable
 	// - Notify_AttackEnd  : 콜리전 Disable
-	
+}
+
+void AClaim_Of_CoreCharacter::KnockbackTest() {
+	ApplyKnockback(this, 1200.f);
+}
+
+// 넉백 적용 함수
+void AClaim_Of_CoreCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
+{
+	if (!Attacker) return;
+
+	// 방향: 공격자 -> 피격자
+	FVector Dir = GetActorLocation() - Attacker->GetActorLocation();
+	Dir.Z = 0.f;                 // 수평 넉+백
+	Dir = Dir.GetSafeNormal();
+
+	// 살짝 띄우고 싶으면 Z 추가
+	FVector LaunchVel = Dir * KnockbackStrength;
+	LaunchVel.Z = 200.f;         // 필요 없으면 0
+
+	LaunchCharacter(LaunchVel, true, true);
+}
+
+void AClaim_Of_CoreCharacter::OnAttackOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult
+)
+{
+	if (AClaim_Of_CoreCharacter* Victim =
+		Cast<AClaim_Of_CoreCharacter>(OtherActor))
+	{
+		Victim->ApplyKnockback(this, 1200.f);
+	}
 }
