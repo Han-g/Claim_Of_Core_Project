@@ -174,15 +174,14 @@ void AClaim_Of_CoreCharacter::ApplyKnockback(AActor* Attacker, float KnockbackSt
 {
 	if (!Attacker) return;
 
-	// 방향: 공격자 -> 피격자
-	FVector Dir = GetActorLocation() - Attacker->GetActorLocation();
-	Dir.Z = 0.f;                 // 수평 넉+백
+	FVector Dir = -GetActorForwardVector();
+	Dir.Z = 0.f;
 	Dir = Dir.GetSafeNormal();
 
-	// 살짝 띄우고 싶으면 Z 추가
 	FVector LaunchVel = Dir * KnockbackStrength;
-	LaunchVel.Z = 200.f;         // 필요 없으면 0
+	LaunchVel.Z = 0.f;
 
+	GetCharacterMovement()->SetMovementMode(MOVE_Falling);
 	LaunchCharacter(LaunchVel, true, true);
 }
 
