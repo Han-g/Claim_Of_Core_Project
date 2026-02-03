@@ -2,9 +2,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "InputActionValue.h"
 #include "MyCharacter.generated.h"
 
 class UHPComponent;
+class UInputMappingContext;
+class UInputAction;
 
 UENUM(BlueprintType)
 enum class ECharacterState : uint8
@@ -53,7 +56,7 @@ public:
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "State")
-	void EnterDead(); 
+	void EnterDead();
 
 	UFUNCTION(BlueprintPure, Category = "State")
 	bool IsDead() const { return CharacterState == ECharacterState::Dead; }
@@ -67,8 +70,55 @@ protected:
 	void Turn(float Value);
 	void LookUp(float Value);
 
+	// Enhanced Input handlers
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+
 	void StartJump();
 	void StopJump();
+
+	virtual void Attack();
+	virtual void KnockbackTest();
+
+
+	//넉백 적용 함수
+	UFUNCTION()
+	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+
+	UFUNCTION()
+	void OnAttackOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
+public:
+	// Enhanced Input assets (set in BP/Defaults)
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputMappingContext* DefaultMappingContext;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* MoveAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* LookAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* JumpAction;
+
+	/** Attack Input Action */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AttackAction;
+
+	// TESTING Knockback
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* KnockbackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	UAnimMontage* AttackMontage = nullptr;
 
 protected:
 	UFUNCTION()
