@@ -33,3 +33,30 @@
 [2026-01-19 | 15:45:57] [INFO] Client Session Connect with IOCP handle successful!
 [2026-01-19 | 15:45:57] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
 [2026-01-19 | 15:45:57] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-06 | 02:30:11] [INFO] ------------- LOGGING START -------------
+[2026-02-06 | 02:30:11] [INFO] Server Initalized Successfully!
+[2026-02-06 | 02:30:11] [INFO] Server Start Successful!
+[2026-02-06 | 02:30:11] [INFO] DB Connect Successful!
+[2026-02-06 | 02:35:40] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-06 | 02:35:40] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-06 | 02:35:40] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-06 | 02:35:55] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-08 | 09:49:25] [INFO] ------------- LOGGING START -------------
+[2026-02-08 | 09:49:25] [INFO] Server Initalized Successfully!
+[2026-02-08 | 09:49:25] [INFO] Server Start Successful!
+[2026-02-08 | 09:49:25] [INFO] DB Connect Successful!
+[2026-02-08 | 09:50:09] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-08 | 09:50:09] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-08 | 09:50:09] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-08 | 09:50:16] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-08 | 10:19:45] [INFO] ------------- LOGGING START -------------
+[2026-02-08 | 10:19:45] [INFO] Server Initalized Successfully!
+[2026-02-08 | 10:19:45] [INFO] Server Start Successful!
+[2026-02-08 | 10:19:45] [INFO] DB Connect Successful!
+[2026-02-08 | 10:21:24] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-08 | 10:21:24] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-08 | 10:21:24] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-08 | 10:22:13] [INFO] ------------- LOGGING START -------------
+[2026-02-08 | 10:22:13] [INFO] Server Initalized Successfully!
+[2026-02-08 | 10:22:13] [INFO] Server Start Successful!
+[2026-02-08 | 10:22:13] [INFO] DB Connect Successful!
