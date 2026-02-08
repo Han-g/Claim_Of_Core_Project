@@ -2,115 +2,171 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "InputActionValue.h"
 #include "MyCharacter.generated.h"
-
-class UHPComponent;
-
-class UInputMappingContext;
-class UInputAction;
 
 class USpringArmComponent;
 class UCameraComponent;
+class UInputAction;
+struct FInputActionValue;
+class UTextRenderComponent;
 
-UENUM(BlueprintType)
-enum class ECharacterState : uint8
-{
-	Alive,
-	Dead
-};
-
-UENUM(BlueprintType)
-enum class EInputState : uint8
-{
-	Enabled,
-	Disabled
-};
-
-UCLASS()
-class CLAIM_OF_CORE_API AMyCharacter : public ACharacter
+UCLASS(abstract)
+class AMyCharacter : public ACharacter
 {
 	GENERATED_BODY()
 
+	// Camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
+
+	// HP Text (3D)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* HPTextComponent;
+
+protected:
+	// Enhanced Input Actions
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* JumpAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* MoveAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* LookAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* MouseLookAction;
+
+	/** Attack Input Action */
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AttackAction;
+
+	// TESTING Knockback
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* KnockbackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
+	UAnimMontage* AttackMontage = nullptr;
 public:
 	AMyCharacter();
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
-	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
-public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UHPComponent* HPComponent;
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void Jump() override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	USpringArmComponent* CameraBoom;
+	// Damage entry-point (engine)
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator, AActor* DamageCauser) override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	UCameraComponent* FollowCamera;
-
-	UPROPERTY(ReplicatedUsing = OnRep_CharacterState)
-	ECharacterState CharacterState;
-
-	UPROPERTY(ReplicatedUsing = OnRep_InputState)
-	EInputState InputState;
-
-public:
-	void EnterDead();
-
-	bool IsDead() const { return CharacterState == ECharacterState::Dead; }
-	bool CanProcessInput() const { return CharacterState == ECharacterState::Alive && InputState == EInputState::Enabled; }
-
-protected:
-	// ✅ Enhanced Input 콜백
-	void Move(const FInputActionValue& Value);
-	void Look(const FInputActionValue& Value);
-	void JumpPressed(const FInputActionValue& Value);
-	void JumpReleased(const FInputActionValue& Value);
-
-protected:
-	UFUNCTION()
-	void HandleHPZero();
-
-	UFUNCTION()
-	void OnRep_CharacterState();
-
-	UFUNCTION()
-	void OnRep_InputState();
-
-	void ApplyCharacterState();
-	void ApplyInputState();
-
-public:
+	// Replication
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+protected:
+	// Enhanced Input callbacks
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+
+	void Attack();
+	void KnockbackTest();
+
 public:
-	// ✅ Enhanced Input 에셋
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	UInputMappingContext* DefaultMappingContext;
+	// UI / virtual joystick compatible wrappers
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoMove(float Right, float Forward);
 
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	UInputAction* MoveAction;
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoLook(float Yaw, float Pitch);
 
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	UInputAction* LookAction;
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoJumpStart();
 
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	UInputAction* JumpAction;
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoJumpEnd();
+
+
+public:
+	// HP API
+	UFUNCTION(BlueprintCallable, Category = "HP")
+	void ApplyDamage(int32 DamageAmount);
+
+	UFUNCTION(BlueprintCallable, Category = "HP")
+	void Heal(int32 HealAmount);
+
+	UFUNCTION(BlueprintCallable, Category = "HP")
+	void ResetHP();
+
+	UFUNCTION(BlueprintPure, Category = "HP")
+	int32 GetCurrentHP() const { return CurrentHP; }
+
+	UFUNCTION(BlueprintPure, Category = "HP")
+	int32 GetMaxHP() const { return MaxHP; }
+
+	UFUNCTION(BlueprintPure, Category = "State")
+	bool IsDead() const { return bIsDead; }
+
+	UFUNCTION()
+	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+
+	UFUNCTION()
+	void OnAttackOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
 
 private:
-	// Spectate (죽은 뒤 카메라)
+	// Replicated HP state
+	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")
+	int32 MaxHP = 100;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP, VisibleInstanceOnly, Category = "HP")
+	int32 CurrentHP = 100;
+
+	UPROPERTY(ReplicatedUsing = OnRep_IsDead, VisibleInstanceOnly, Category = "State")
+	bool bIsDead = false;
+
+	// Spectate (when dead)
+	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
+	float SpectateMoveSpeed = 900.f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
 	float SpectateVerticalSpeed = 700.f;
 
 	bool bCameraDetached = false;
-	bool bSpectateUpHeld = false;
-	bool bSpectateDownHeld = false;
+
+	bool bSpectateUpHeld = false;    // Q
+	bool bSpectateDownHeld = false;  // E
 
 	void SpectateUpPressed();
 	void SpectateUpReleased();
 	void SpectateDownPressed();
 	void SpectateDownReleased();
+
+	void SpectateMove(float Right, float Forward);
 	void SpectateMoveVertical(float Axis, float DeltaTime);
+
+	// Rep callbacks
+	UFUNCTION()
+	void OnRep_IsDead();
+
+	UFUNCTION()
+	void OnRep_CurrentHP();
+
+	// Internal helpers
+	void ApplyDeadState();
+	void SetCurrentHP(int32 NewHP);
+	void UpdateHPText();
+
+public:
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 };
