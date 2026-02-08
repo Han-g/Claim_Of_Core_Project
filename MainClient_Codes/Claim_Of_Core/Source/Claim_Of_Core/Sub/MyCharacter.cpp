@@ -1,34 +1,57 @@
-#include "MyCharacter.h"
+Ôªø#include "MyCharacter.h"
 #include "HPComponent.h"
 
-#include "Kismet/GameplayStatics.h"
+#include "Camera/CameraComponent.h"
+#include "GameFramework/SpringArmComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
+#include "InputCoreTypes.h"
 
+// ‚úÖ Enhanced Input
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "InputMappingContext.h"
-#include "InputAction.h"
-
-#include "Net/UnrealNetwork.h"
-#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
-#include "Components/CapsuleComponent.h"
+#include "Engine/LocalPlayer.h"
 
 AMyCharacter::AMyCharacter()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	bReplicates = true;
 	SetReplicateMovement(true);
 
 	HPComponent = CreateDefaultSubobject<UHPComponent>(TEXT("HPComponent"));
 
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->bOrientRotationToMovement = true;
+		MoveComp->RotationRate = FRotator(0.f, 500.f, 0.f);
+		MoveComp->JumpZVelocity = 500.f;
+		MoveComp->AirControl = 0.35f;
+		MoveComp->MaxWalkSpeed = 500.f;
+		MoveComp->BrakingDecelerationWalking = 2000.f;
+	}
+
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->TargetArmLength = 400.f;
+	CameraBoom->bUsePawnControlRotation = true;
+
+	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	FollowCamera->bUsePawnControlRotation = false;
+
+	CharacterState = ECharacterState::Alive;
+	InputState = EInputState::Enabled;
+
 	DefaultMappingContext = nullptr;
 	MoveAction = nullptr;
 	LookAction = nullptr;
 	JumpAction = nullptr;
-
-	CharacterState = ECharacterState::Alive;
-	InputState = EInputState::Enabled;
 }
 
 void AMyCharacter::BeginPlay()
@@ -40,165 +63,117 @@ void AMyCharacter::BeginPlay()
 		HPComponent->OnHPZero.AddDynamic(this, &AMyCharacter::HandleHPZero);
 	}
 
-	if (HasAuthority())
+	// ‚úÖ Î°úÏª¨ ÌîåÎ†àÏù¥Ïñ¥Ïóê MappingContext Ï∂îÍ∞Ä
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
-		CharacterState = ECharacterState::Alive;
-		InputState = EInputState::Enabled;
+		if (ULocalPlayer* LP = PC->GetLocalPlayer())
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* SubSys = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+			{
+				if (DefaultMappingContext)
+				{
+					SubSys->AddMappingContext(DefaultMappingContext, 0);
+				}
+			}
+		}
 	}
+}
 
-	ApplyCharacterState();
-	ApplyInputState();
+void AMyCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!IsDead() || !bCameraDetached) return;
+
+	float Axis = 0.f;
+	if (bSpectateUpHeld) Axis += 1.f;
+	if (bSpectateDownHeld) Axis -= 1.f;
+
+	if (Axis != 0.f)
+	{
+		SpectateMoveVertical(Axis, DeltaTime);
+	}
 }
 
 void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	// 1) ∑Œƒ√ «√∑π¿ÃæÓ º≠∫ÍΩ√Ω∫≈€ø° IMC √ﬂ∞° (≈€«√∏¥ πÊΩƒ)
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
-		{
-			if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
-				ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
-			{
-				if (DefaultMappingContext)
-				{
-					Subsystem->AddMappingContext(DefaultMappingContext, 0);
-				}
-			}
-		}
-	}
-
-	// 2) πŸ¿Œµ˘
-	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	// ‚úÖ Enhanced Input Î∞îÏù∏Îî©
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
 		if (MoveAction)
 		{
-			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
-
+			EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		}
-
 		if (LookAction)
 		{
-			EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
+			EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 		}
-
 		if (JumpAction)
 		{
-			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AMyCharacter::StartJump);
-			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &AMyCharacter::StopJump);
+			EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &AMyCharacter::JumpPressed);
+			EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &AMyCharacter::JumpReleased);
+			EIC->BindAction(JumpAction, ETriggerEvent::Canceled, this, &AMyCharacter::JumpReleased);
 		}
-
-		// Attacking
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMyCharacter::Attack);
-		EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::KnockbackTest);
 	}
-	UE_LOG(LogTemp, Warning, TEXT("MoveAction: %s"), *GetNameSafe(MoveAction));
-UE_LOG(LogTemp, Warning, TEXT("LookAction: %s"), *GetNameSafe(LookAction));
-UE_LOG(LogTemp, Warning, TEXT("JumpAction: %s"), *GetNameSafe(JumpAction));
 
+	// ‚úÖ Q/EÎäî ÌÇ§ Î∞îÏù∏Îî©(ÏõêÌïòÎ©¥ InputActionÏúºÎ°ú Î∞îÍæ∏Î©¥ Îê®)
+	PlayerInputComponent->BindKey(EKeys::Q, IE_Pressed, this, &AMyCharacter::SpectateUpPressed);
+	PlayerInputComponent->BindKey(EKeys::Q, IE_Released, this, &AMyCharacter::SpectateUpReleased);
+	PlayerInputComponent->BindKey(EKeys::E, IE_Pressed, this, &AMyCharacter::SpectateDownPressed);
+	PlayerInputComponent->BindKey(EKeys::E, IE_Released, this, &AMyCharacter::SpectateDownReleased);
 }
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
-	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-
 	if (!CanProcessInput()) return;
+
 	const FVector2D Axis = Value.Get<FVector2D>();
+	if (Axis.IsNearlyZero()) return;
 
+	const FRotator ControlRot = Controller ? Controller->GetControlRotation() : FRotator::ZeroRotator;
+	const FRotator YawRot(0.f, ControlRot.Yaw, 0.f);
 
-	MoveForward(Axis.Y);
-	MoveRight(Axis.X);
+	const FVector ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
+	const FVector RightDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
 
+	AddMovementInput(ForwardDir, Axis.Y);
+	AddMovementInput(RightDir, Axis.X);
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
 {
-	if (!CanProcessInput()) return;
-
 	const FVector2D Axis = Value.Get<FVector2D>();
-
-	// ∞≈¿« 0¿Ã∏È π´Ω√(≥Î¿Ã¡Ó πÊ¡ˆ)
-	if (Axis.IsNearlyZero(0.001f)) return;
-
 	AddControllerYawInput(Axis.X);
 	AddControllerPitchInput(Axis.Y);
 }
 
-
-float AMyCharacter::TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+void AMyCharacter::JumpPressed(const FInputActionValue& Value)
 {
-	const float Actual = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-	if (Actual <= 0.f) return 0.f;
-
-	if (HPComponent)
+	if (CanProcessInput())
 	{
-		HPComponent->ApplyDamage(FMath::RoundToInt(Actual));
+		Jump();
 	}
-
-	return Actual;
 }
 
-void AMyCharacter::MoveForward(float Value)
-{
-	if (!CanProcessInput()) return;
-	if (Value == 0.f) return;
-
-	AddMovementInput(GetActorForwardVector(), Value);
-}
-
-void AMyCharacter::MoveRight(float Value)
-{
-	if (!CanProcessInput()) return;
-	if (Value == 0.f) return;
-
-	AddMovementInput(GetActorRightVector(), Value);
-}
-
-void AMyCharacter::Turn(float Value)
-{
-	if (!CanProcessInput()) return;
-	AddControllerYawInput(Value);
-}
-
-void AMyCharacter::LookUp(float Value)
-{
-	if (!CanProcessInput()) return;
-	AddControllerPitchInput(Value);
-}
-
-void AMyCharacter::StartJump()
-{
-	if (!CanProcessInput()) return;
-	Jump();
-}
-
-void AMyCharacter::StopJump()
+void AMyCharacter::JumpReleased(const FInputActionValue& Value)
 {
 	StopJumping();
 }
 
 void AMyCharacter::HandleHPZero()
 {
-	if (HasAuthority())
-	{
-		EnterDead();
-	}
+	EnterDead();
 }
 
 void AMyCharacter::EnterDead()
 {
-	if (!HasAuthority()) return;
-	if (CharacterState == ECharacterState::Dead) return;
-
-	CharacterState = ECharacterState::Dead;
-	InputState = EInputState::Disabled;
-
-	ApplyCharacterState();
-	ApplyInputState();
-
-	ForceNetUpdate();
+	if (HasAuthority())
+	{
+		CharacterState = ECharacterState::Dead;
+		OnRep_CharacterState();
+	}
 }
 
 void AMyCharacter::OnRep_CharacterState()
@@ -217,46 +192,34 @@ void AMyCharacter::ApplyCharacterState()
 	{
 		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 		{
-			MoveComp->StopMovementImmediately();
 			MoveComp->DisableMovement();
 		}
 
-		if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+		if (IsLocallyControlled() && CameraBoom && !bCameraDetached)
 		{
-			Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			CameraBoom->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			bCameraDetached = true;
 		}
-
-		StopJumping();
-	}
-	else
-	{
 	}
 }
 
 void AMyCharacter::ApplyInputState()
 {
-	if (!IsLocallyControlled()) return;
-
-	const bool bIgnore = (InputState == EInputState::Disabled) || (CharacterState == ECharacterState::Dead);
-	SetLocalInputIgnored(bIgnore);
 }
 
-void AMyCharacter::SetLocalInputIgnored(bool bIgnore)
+void AMyCharacter::SpectateUpPressed() { bSpectateUpHeld = true; }
+void AMyCharacter::SpectateUpReleased() { bSpectateUpHeld = false; }
+void AMyCharacter::SpectateDownPressed() { bSpectateDownHeld = true; }
+void AMyCharacter::SpectateDownReleased() { bSpectateDownHeld = false; }
+
+void AMyCharacter::SpectateMoveVertical(float Axis, float DeltaTime)
 {
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC) return;
+	if (!CameraBoom) return;
 
-	PC->SetIgnoreMoveInput(bIgnore);
-	PC->SetIgnoreLookInput(bIgnore);
-
-	if (bIgnore)
-	{
-		DisableInput(PC);
-	}
-	else
-	{
-		EnableInput(PC);
-	}
+	CameraBoom->AddWorldOffset(
+		FVector::UpVector * Axis * SpectateVerticalSpeed * DeltaTime,
+		false
+	);
 }
 
 void AMyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -265,83 +228,4 @@ void AMyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 
 	DOREPLIFETIME(AMyCharacter, CharacterState);
 	DOREPLIFETIME(AMyCharacter, InputState);
-}
-
-// Attack function
-
-void AMyCharacter::Attack()
-{
-	UE_LOG(LogTemp, Warning, TEXT("[Attack] Start"));
-
-	if (!IsValid(Controller))
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Attack] Controller INVALID"));
-		return;
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[Attack] Controller OK"));
-
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	if (!AnimInstance)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Attack] AnimInstance NULL"));
-		return;
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[Attack] AnimInstance OK"));
-
-	if (!AttackMontage)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Attack] AttackMontage NULL"));
-		return;
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[Attack] AttackMontage OK"));
-
-	if (AnimInstance->Montage_IsPlaying(AttackMontage))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Attack] Montage already playing"));
-		return;
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[Attack] Montage NOT playing, will play now"));
-
-	float PlayRate = AnimInstance->Montage_Play(AttackMontage);
-	UE_LOG(LogTemp, Warning, TEXT("[Attack] Montage_Play called, PlayRate=%f"), PlayRate);
-
-
-}
-
-// ≈◊Ω∫∆ÆøÎ ≥ÀπÈ «‘ºˆ
-
-void AMyCharacter::KnockbackTest() {
-	ApplyKnockback(this, 1200.f);
-}
-
-// ≥ÀπÈ ¿˚øÎ «‘ºˆ
-void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
-{
-	if (!Attacker) return;
-
-	FVector Dir = -GetActorForwardVector();
-	Dir.Z = 0.f;
-	Dir = Dir.GetSafeNormal();
-
-	FVector LaunchVel = Dir * KnockbackStrength;
-	LaunchVel.Z = 0.f;
-
-	GetCharacterMovement()->SetMovementMode(MOVE_Falling);
-	LaunchCharacter(LaunchVel, true, true);
-}
-
-void AMyCharacter::OnAttackOverlap(
-	UPrimitiveComponent* OverlappedComponent,
-	AActor* OtherActor,
-	UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex,
-	bool bFromSweep,
-	const FHitResult& SweepResult
-)
-{
-	if (AMyCharacter* Victim =
-		Cast<AMyCharacter>(OtherActor))
-	{
-		Victim->ApplyKnockback(this, 1200.f);
-	}
 }

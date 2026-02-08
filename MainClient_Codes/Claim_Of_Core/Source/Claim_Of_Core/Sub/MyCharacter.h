@@ -1,4 +1,4 @@
-#pragma once
+Ôªø#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
@@ -6,21 +6,25 @@
 #include "MyCharacter.generated.h"
 
 class UHPComponent;
+
 class UInputMappingContext;
 class UInputAction;
+
+class USpringArmComponent;
+class UCameraComponent;
 
 UENUM(BlueprintType)
 enum class ECharacterState : uint8
 {
-	Alive UMETA(DisplayName = "Alive"),
-	Dead  UMETA(DisplayName = "Dead")
+	Alive,
+	Dead
 };
 
 UENUM(BlueprintType)
 enum class EInputState : uint8
 {
-	Enabled  UMETA(DisplayName = "Enabled"),
-	Disabled UMETA(DisplayName = "Disabled")
+	Enabled,
+	Disabled
 };
 
 UCLASS()
@@ -33,70 +37,56 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
-
-public:
-	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
-
-	virtual float TakeDamage(
-		float DamageAmount,
-		struct FDamageEvent const& DamageEvent,
-		class AController* EventInstigator,
-		AActor* DamageCauser
-	) override;
+	virtual void Tick(float DeltaTime) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UHPComponent* HPComponent;
 
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CharacterState, Category = "State")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
+	UCameraComponent* FollowCamera;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CharacterState)
 	ECharacterState CharacterState;
 
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_InputState, Category = "State")
+	UPROPERTY(ReplicatedUsing = OnRep_InputState)
 	EInputState InputState;
 
 public:
-	UFUNCTION(BlueprintCallable, Category = "State")
 	void EnterDead();
 
-	UFUNCTION(BlueprintPure, Category = "State")
 	bool IsDead() const { return CharacterState == ECharacterState::Dead; }
-
-	UFUNCTION(BlueprintPure, Category = "State")
 	bool CanProcessInput() const { return CharacterState == ECharacterState::Alive && InputState == EInputState::Enabled; }
 
 protected:
-	void MoveForward(float Value);
-	void MoveRight(float Value);
-	void Turn(float Value);
-	void LookUp(float Value);
-
-	// Enhanced Input handlers
+	// ‚úÖ Enhanced Input ÏΩúÎ∞±
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void JumpPressed(const FInputActionValue& Value);
+	void JumpReleased(const FInputActionValue& Value);
 
-	void StartJump();
-	void StopJump();
-
-	virtual void Attack();
-	virtual void KnockbackTest();
-
-
-	//≥ÀπÈ ¿˚øÎ «‘ºˆ
+protected:
 	UFUNCTION()
-	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+	void HandleHPZero();
 
 	UFUNCTION()
-	void OnAttackOverlap(
-		UPrimitiveComponent* OverlappedComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
+	void OnRep_CharacterState();
+
+	UFUNCTION()
+	void OnRep_InputState();
+
+	void ApplyCharacterState();
+	void ApplyInputState();
 
 public:
-	// Enhanced Input assets (set in BP/Defaults)
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+public:
+	// ‚úÖ Enhanced Input ÏóêÏÖã
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputMappingContext* DefaultMappingContext;
 
@@ -109,33 +99,18 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* JumpAction;
 
-	/** Attack Input Action */
-	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* AttackAction;
+private:
+	// Spectate (Ï£ΩÏùÄ Îí§ Ïπ¥Î©îÎùº)
+	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
+	float SpectateVerticalSpeed = 700.f;
 
-	// TESTING Knockback
-	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* KnockbackAction;
+	bool bCameraDetached = false;
+	bool bSpectateUpHeld = false;
+	bool bSpectateDownHeld = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	UAnimMontage* AttackMontage = nullptr;
-
-protected:
-	UFUNCTION()
-	void HandleHPZero();
-
-protected:
-	UFUNCTION()
-	void OnRep_CharacterState();
-
-	UFUNCTION()
-	void OnRep_InputState();
-
-	void ApplyCharacterState();
-	void ApplyInputState();
-
-	void SetLocalInputIgnored(bool bIgnore);
-
-public:
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void SpectateUpPressed();
+	void SpectateUpReleased();
+	void SpectateDownPressed();
+	void SpectateDownReleased();
+	void SpectateMoveVertical(float Axis, float DeltaTime);
 };
