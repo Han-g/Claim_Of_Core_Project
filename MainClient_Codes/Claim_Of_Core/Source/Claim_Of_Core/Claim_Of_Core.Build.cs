@@ -18,8 +18,10 @@ public class Claim_Of_Core : ModuleRules
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"UMG",
-			"Slate"
-		});
+			"Slate",
+			"Sockets",
+            "Networking"
+        });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
