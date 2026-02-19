@@ -1,18 +1,24 @@
 ﻿#include "MyCharacter.h"
 
 #include "Camera/CameraComponent.h"
+
 #include "Components/CapsuleComponent.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/PlayerController.h"
+
 
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
 #include "InputCoreTypes.h"
 
 #include "Net/UnrealNetwork.h"
+
+#include "BaseItem.h"
 
 AMyCharacter::AMyCharacter()
 {
@@ -195,6 +201,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		UE_LOG(LogTemp, Error, TEXT("'%s' Failed to find an Enhanced Input component!"), *GetNameSafe(this));
 	}
 
+	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMyCharacter::EquipItem);
+
 	// Q/E hold for vertical movement while spectating
 	PlayerInputComponent->BindKey(EKeys::Q, IE_Pressed, this, &AMyCharacter::SpectateUpPressed);
 	PlayerInputComponent->BindKey(EKeys::Q, IE_Released, this, &AMyCharacter::SpectateUpReleased);
@@ -356,6 +364,14 @@ void AMyCharacter::SpectateMoveVertical(float Axis, float DeltaTime)
 
 void AMyCharacter::Attack()
 {
+	// 무기 들고 있으면 무기 쪽 StartUse로 처리(무기 몽타주 + 노티파이 + DoHit)
+	if (CurrentItem)
+	{
+		CurrentItem->StartUse();
+		return;
+	}
+
+	// 무기 없을 때만 기존 맨손 몽타주(원하면 유지)
 	if (!IsValid(Controller))
 	{
 		UE_LOG(LogTemp, Error, TEXT("[Attack] Controller INVALID"));
@@ -381,8 +397,7 @@ void AMyCharacter::Attack()
 		return;
 	}
 
-	float PlayRate = AnimInstance->Montage_Play(AttackMontage);
-
+	AnimInstance->Montage_Play(AttackMontage);
 
 }
 
@@ -420,5 +435,154 @@ void AMyCharacter::OnAttackOverlap(
 		Cast<AMyCharacter>(OtherActor))
 	{
 		Victim->ApplyKnockback(this, 1200.f);
+	}
+}
+
+// Item API
+
+void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
+{
+	OverlappingItem = Item;
+
+}
+
+/*기존 코드 
+void AMyCharacter::EquipItem()
+{
+	if (!OverlappingItem) return;
+
+	// 기존 무기 있으면 떼기(원하면 DropCurrentItem로 따로 빼도 됨)
+	if (CurrentItem && CurrentItem != OverlappingItem)
+	{
+		DropCurrentItem();
+	}
+
+	CurrentItem = OverlappingItem;
+
+	// 무기 쪽에 오너 세팅(네 BaseItem에 있음)
+	CurrentItem->SetOwner(this);
+	CurrentItem->SetOwnerCharacter(this);
+
+	// 충돌/물리 끄기(손에 붙이면 보통 필요없음)
+	CurrentItem->SetActorEnableCollision(false);
+
+	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
+	{
+		Prim->SetSimulatePhysics(false);
+	}
+
+	// 손 소켓에 부착
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		CurrentItem->AttachToComponent(
+			MeshComp,
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("RightHandSocket")
+		);
+	}
+}
+*/
+
+// 디버깅 로그 추가한 버전
+void AMyCharacter::EquipItem()
+{
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Called"));
+
+	if (!OverlappingItem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] OverlappingItem is NULL"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] OverlappingItem = %s"),
+		*GetNameSafe(OverlappingItem));
+
+	// 기존 무기 있으면 떼기
+	if (CurrentItem && CurrentItem != OverlappingItem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Dropping CurrentItem = %s"),
+			*GetNameSafe(CurrentItem));
+		DropCurrentItem();
+	}
+
+	CurrentItem = OverlappingItem;
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] CurrentItem set = %s"),
+		*GetNameSafe(CurrentItem));
+
+	// 오너 세팅
+	CurrentItem->SetOwner(this);
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] SetOwner OK"));
+
+	CurrentItem->SetOwnerCharacter(this);
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] SetOwnerCharacter OK"));
+
+	// 충돌/물리 끄기
+	CurrentItem->SetActorEnableCollision(false);
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Collision Disabled"));
+
+	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] RootComponent = %s (Primitive)"),
+			*GetNameSafe(Prim));
+
+		Prim->SetSimulatePhysics(false);
+		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] SimulatePhysics false"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] RootComponent is NOT Primitive. Root = %s"),
+			*GetNameSafe(CurrentItem->GetRootComponent()));
+	}
+
+	// 손 소켓에 부착
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[EquipItem] GetMesh() is NULL"));
+		return;
+	}
+
+	const FName SocketName(TEXT("RightHandSocket"));
+	if (!MeshComp->DoesSocketExist(SocketName))
+	{
+		UE_LOG(LogTemp, Error, TEXT("[EquipItem] Socket NOT found: %s"), *SocketName.ToString());
+		return;
+	}
+
+	CurrentItem->AttachToComponent(
+		MeshComp,
+		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+		SocketName
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Attached to socket: %s"), *SocketName.ToString());
+}
+
+
+
+void AMyCharacter::DropCurrentItem()
+{
+	if (!CurrentItem) return;
+
+	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	CurrentItem->SetOwner(nullptr);
+	CurrentItem->SetOwnerCharacter(nullptr);
+
+	// 바닥에 떨어뜨릴거면 충돌/물리 다시 켜기
+	CurrentItem->SetActorEnableCollision(true);
+
+	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
+	{
+		Prim->SetSimulatePhysics(true);
+	}
+
+	CurrentItem = nullptr;
+}
+
+void AMyCharacter::AnimNotify_AttackHit()
+{
+	if (CurrentItem)
+	{
+		CurrentItem->DoHit(); // 여기서 SphereTraceMulti로 피격 판정
 	}
 }

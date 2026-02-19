@@ -1,5 +1,7 @@
 #include "BaseItem.h"
 
+#include "Components/SphereComponent.h"
+
 #include "Engine/EngineTypes.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
@@ -13,6 +15,17 @@
 ABaseItem::ABaseItem()
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	PickupCollision = CreateDefaultSubobject<USphereComponent>(TEXT("PickupCollision"));
+	RootComponent = PickupCollision;
+
+	PickupCollision->SetSphereRadius(150.f);
+	PickupCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	PickupCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
+	PickupCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+
+	PickupCollision->OnComponentBeginOverlap.AddDynamic(this, &ABaseItem::OnBeginOverlap);
+	PickupCollision->OnComponentEndOverlap.AddDynamic(this, &ABaseItem::OnEndOverlap);
 }
 
 void ABaseItem::BeginPlay()
@@ -23,6 +36,43 @@ void ABaseItem::BeginPlay()
 void ABaseItem::SetOwnerCharacter(AMyCharacter* NewOwner)
 {
 	OwnerCharacter = NewOwner;
+}
+
+void ABaseItem::OnBeginOverlap(
+	UPrimitiveComponent* OverlappedComp,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult)
+{
+	if (OwnerCharacter) return; // 이미 소유자가 있으면 무시
+
+	UE_LOG(LogTemp, Warning, TEXT("[Item] BeginOverlap with %s"), *GetNameSafe(OtherActor));
+
+	AMyCharacter* Character = Cast<AMyCharacter>(OtherActor);
+	if (Character)
+	{
+		Character->SetOverlappingItem(this);
+	}
+
+}
+
+void ABaseItem::OnEndOverlap(
+	UPrimitiveComponent* OverlappedComp,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex)
+{
+	if (OwnerCharacter) return; // 이미 소유자가 있으면 무시
+
+	UE_LOG(LogTemp, Warning, TEXT("[Item] BeginOverlap with %s"), *GetNameSafe(OtherActor));
+
+	AMyCharacter* Character = Cast<AMyCharacter>(OtherActor);
+	if (Character)
+	{
+		Character->SetOverlappingItem(nullptr);
+	}
 }
 
 void ABaseItem::StartUse()

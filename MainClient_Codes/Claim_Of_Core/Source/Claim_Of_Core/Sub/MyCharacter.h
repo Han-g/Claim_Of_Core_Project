@@ -9,6 +9,7 @@ class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
 class UTextRenderComponent;
+class BaseItem;
 
 UCLASS(abstract)
 class AMyCharacter : public ACharacter
@@ -110,6 +111,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "State")
 	bool IsDead() const { return bIsDead; }
 
+	// Attack API
+
 	UFUNCTION()
 	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
 
@@ -122,6 +125,32 @@ public:
 		bool bFromSweep,
 		const FHitResult& SweepResult
 	);
+
+	// Item API
+	// 겹쳐있는 무기 (픽업 가능한 아이템)
+	UPROPERTY()
+	ABaseItem* OverlappingItem;
+
+	// 현재 들고있는 무기
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
+	ABaseItem* CurrentItem = nullptr;
+	
+	// 겹쳐있는 아이템 설정 (픽업 범위에 들어갔을 때) -> 아이템이 이 함수를 호출하도록
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void SetOverlappingItem(ABaseItem* Item);
+
+	// 픽업했을 때 호출(손 소켓에 장착)
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void EquipItem();
+
+	// 무기 버리기(필요하면)
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void DropCurrentItem();
+
+	// AnimNotify에서 호출할 함수 (HitCheck 같은 노티파이에서)
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void AnimNotify_AttackHit();
+	
 
 private:
 	// Replicated HP state
