@@ -4,6 +4,7 @@
 # Refer Code files
 UnrealConnectServer*
 !UnrealConnectServer_last
+UnrealConnectServer_last/ShareData/
 
 ### C++ ###
 # Prerequisites

@@ -153,7 +153,7 @@ void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
 	GameDataPacket loginPacket;
 	loginPacket.Session_ID = newSession->sessionID;
 
-	SendPacket(newSession->sessionID, PKT_S2C_LOGIN, (char*)&loginPacket, sizeof(GameDataPacket));
+	SendPacket(newSession->sessionID, PKT_S2C_ACCESS_ALLOW, (char*)&loginPacket, sizeof(GameDataPacket));
 
 	// Request Asyn Recv
 	DWORD flags = 0;
@@ -266,7 +266,7 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 		memcpy(sendData.data() + sizeof(PacketHeader), data, len);
 	}
 
-	// Critical Section
+	// Critical Section Start
 	{
 		std::lock_guard<std::mutex> sendlock(session->sendLock);
 
@@ -276,7 +276,7 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 			SendProtocol(session);
 		}
 	}
-	// Critical Section
+	// Critical Section End
 }
 
 void IOCPServer::SendProtocol(Session* session) {
@@ -311,6 +311,7 @@ void IOCPServer::SendProtocol(Session* session) {
 	}
 }
 
+// Recive Data Process
 void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
 {
 	PacketHeader header;
@@ -321,23 +322,28 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 
 	switch (packetID)
 	{
-	case PKT_S2C_UPDATE:
+	case PKT_S2C_SNAPSHOT:
 		// Update Packet
 		break;
-	case PKT_C2S_LOGIN:
+	case PKT_C2S_LOGIN_REQUEST:
 		// Login Packet
 		// Packet Deserialization
 		if (reader.ReadString(ID) == false) {
 			LOG_ERROR("[Session: %d] Failed to read ID", sessionIndex);
+			ErrorCodePacket failPacket;
+			failPacket.ErrorCode = 1;
+			SendPacket(sessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
 			return;
 		}
 		if (reader.ReadString(PW) == false) {
 			LOG_ERROR("[Session: %d] Failed to read PW", sessionIndex);
+			ErrorCodePacket failPacket;
+			failPacket.ErrorCode = 1;
+			SendPacket(sessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
 			return;
 		}
 
-		// 3. DB 스레드에 작업 요청 (비동기)
-		// (이전 대화에서 구현한 Task Queue 방식 사용 권장)
+		// Request Task to DB Thread (Async)
 		// RequestLogin(sessionIndex, ID, PW);
 
 		LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
@@ -350,7 +356,7 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 			GameData newData;
 			dataPacket.data = newData;
 
-			SendPacket(sessionIndex, PKT_S2C_LOGIN, (char*)&dataPacket, sizeof(GameDataPacket));
+			SendPacket(sessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
 		}
 
 		break;

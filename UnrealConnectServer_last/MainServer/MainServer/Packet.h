@@ -81,11 +81,18 @@ private:
 };
 
 enum PacketID {
-	PKT_S2C_LOGIN = 0,
-	PKT_S2C_UPDATE = 1,
-	PKT_C2S_LOGIN = 10,
-	PKT_C2S_MOVE = 11,
-	PKT_C2S_ATTACK = 12,
+    PKT_S2C_ERROR = 1000,
+    PKT_C2S_ERROR = 1001,
+
+    PKT_S2C_ACCESS_ALLOW = 0,
+    PKT_S2C_LOGIN_OK = 1,
+    PKT_S2C_LOGIN_DENY = 2,
+    PKT_S2C_SNAPSHOT = 3,
+
+    PKT_C2S_ACCESS = 100,
+    PKT_C2S_LOGIN_REQUEST = 101,
+    PKT_C2S_MOVE = 102,
+    PKT_C2S_ATTACK = 103,
 };
 
 struct PacketHeader {
@@ -104,6 +111,14 @@ struct GameData {
 };
 
 #pragma pack(push, 1)
+struct ErrorCodePacket {
+    int16_t ErrorCode; 
+    /*      Error Code List
+    0: Unknown , 
+    1: InValid ID Login Try , 2: InValid PW Login Try
+    */
+};
+
 struct LoginPacket {
 	std::wstring userID, userPW;
 };

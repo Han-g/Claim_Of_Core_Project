@@ -60,3 +60,105 @@
 [2026-02-08 | 10:22:13] [INFO] Server Initalized Successfully!
 [2026-02-08 | 10:22:13] [INFO] Server Start Successful!
 [2026-02-08 | 10:22:13] [INFO] DB Connect Successful!
+[2026-02-08 | 10:47:50] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-08 | 10:47:50] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-08 | 10:47:50] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-08 | 10:47:53] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-08 | 18:20:35] [INFO] ------------- LOGGING START -------------
+[2026-02-08 | 18:20:35] [INFO] Server Initalized Successfully!
+[2026-02-08 | 18:20:35] [INFO] Server Start Successful!
+[2026-02-08 | 18:20:35] [INFO] DB Connect Successful!
+[2026-02-08 | 18:20:38] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-08 | 18:20:38] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-08 | 23:15:01] [INFO] ------------- LOGGING START -------------
+[2026-02-08 | 23:15:01] [INFO] Server Initalized Successfully!
+[2026-02-08 | 23:15:01] [INFO] Server Start Successful!
+[2026-02-08 | 23:15:01] [INFO] DB Connect Successful!
+[2026-02-09 | 01:58:46] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 01:58:46] [INFO] Server Initalized Successfully!
+[2026-02-09 | 01:58:46] [INFO] Server Start Successful!
+[2026-02-09 | 01:58:46] [INFO] DB Connect Successful!
+[2026-02-09 | 02:10:12] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 02:10:12] [INFO] Server Initalized Successfully!
+[2026-02-09 | 02:10:12] [INFO] Server Start Successful!
+[2026-02-09 | 02:10:12] [INFO] DB Connect Successful!
+[2026-02-09 | 11:41:22] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 11:41:22] [INFO] Server Initalized Successfully!
+[2026-02-09 | 11:41:22] [INFO] Server Start Successful!
+[2026-02-09 | 11:41:22] [INFO] DB Connect Successful!
+[2026-02-09 | 11:50:13] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 11:50:13] [INFO] Server Initalized Successfully!
+[2026-02-09 | 11:50:13] [INFO] Server Start Successful!
+[2026-02-09 | 11:50:13] [INFO] DB Connect Successful!
+[2026-02-09 | 12:05:13] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 12:05:13] [INFO] Server Initalized Successfully!
+[2026-02-09 | 12:05:13] [INFO] Server Start Successful!
+[2026-02-09 | 12:05:13] [INFO] DB Connect Successful!
+[2026-02-09 | 12:05:18] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 12:05:18] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:11:25] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 15:11:25] [INFO] Server Initalized Successfully!
+[2026-02-09 | 15:11:25] [INFO] Server Start Successful!
+[2026-02-09 | 15:11:25] [INFO] DB Connect Successful!
+[2026-02-09 | 15:14:10] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:14:10] [WARN] Entire Data doesn't receive wait next Recv
+[2026-02-09 | 15:14:20] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:15:01] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:15:02] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 15:15:03] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 15:15:07] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:17:00] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:17:00] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:22:15] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:22:15] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 15:22:15] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 15:22:17] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:35:56] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:35:56] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 15:35:56] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 15:36:26] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:41:45] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:41:45] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 15:41:45] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 15:41:53] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:51:20] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:51:20] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 15:51:20] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 15:53:46] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 15:53:56] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 15:53:56] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 15:53:56] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 15:54:00] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 16:08:16] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 16:08:16] [WARN] Entire Data doesn't receive wait next Recv
+[2026-02-09 | 16:08:16] [WARN] Entire Data doesn't receive wait next Recv
+[2026-02-09 | 16:08:16] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 17:28:52] [INFO] ------------- LOGGING START -------------
+[2026-02-09 | 17:28:52] [INFO] Server Initalized Successfully!
+[2026-02-09 | 17:28:52] [INFO] Server Start Successful!
+[2026-02-09 | 17:28:52] [INFO] DB Connect Successful!
+[2026-02-09 | 17:30:13] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 17:30:13] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 17:30:13] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 17:30:38] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-09 | 17:30:48] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-09 | 17:30:48] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-09 | 17:30:48] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-09 | 17:31:20] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-02-11 | 20:06:03] [INFO] ------------- LOGGING START -------------
+[2026-02-11 | 20:06:03] [INFO] Server Initalized Successfully!
+[2026-02-11 | 20:06:03] [INFO] Server Start Successful!
+[2026-02-11 | 20:06:03] [INFO] DB Connect Successful!
+[2026-02-11 | 20:06:17] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-11 | 20:06:17] [INFO] [SESSION ID: 0] [PACKET ID: 10 - SIZE: 24] Pakcet Received!
+[2026-02-11 | 20:06:17] [INFO] [Login Req] ID: admin, PW: admin
+[2026-02-14 | 23:27:51] [INFO] ------------- LOGGING START -------------
+[2026-02-14 | 23:27:51] [INFO] Server Initalized Successfully!
+[2026-02-14 | 23:27:51] [INFO] Server Start Successful!
+[2026-02-14 | 23:27:51] [INFO] DB Connect Successful!
+[2026-02-16 | 01:35:42] [INFO] ------------- LOGGING START -------------
+[2026-02-16 | 01:35:42] [INFO] Server Initalized Successfully!
+[2026-02-16 | 01:35:42] [INFO] Server Start Successful!
+[2026-02-16 | 01:35:42] [INFO] DB Connect Successful!
+[2026-02-16 | 01:35:57] [INFO] Client Session Connect with IOCP handle successful!
+[2026-02-16 | 01:36:16] [ERROR] [ID: 0] Fail to Register IOCP handle
