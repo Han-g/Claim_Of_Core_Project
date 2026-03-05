@@ -11,6 +11,40 @@ struct FInputActionValue;
 class UTextRenderComponent;
 class BaseItem;
 
+class FLifetimeProperty;
+
+UENUM(BlueprintType)
+enum class ERecCharacterState : uint8
+{
+	Alive UMETA(DisplayName = "Alive"),
+	Dead  UMETA(DisplayName = "Dead"),
+};
+
+UENUM(BlueprintType)
+enum class ERecRoleType : uint8
+{
+	Striker     UMETA(DisplayName = "Striker"),
+	Guardian    UMETA(DisplayName = "Guardian"),
+	Manipulator UMETA(DisplayName = "Manipulator"),
+};
+
+USTRUCT(BlueprintType)
+struct FRoleVisualData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<USkeletalMesh> Mesh = nullptr;
+
+	// AnimBP(AnimInstance 상속 블루프린트) 클래스
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UAnimInstance> AnimBPClass = nullptr;
+
+	// 역할별 기본 몽타주 (예: 공격, 줍기 등)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
+};
+
 UCLASS(abstract)
 class AMyCharacter : public ACharacter
 {
@@ -49,8 +83,6 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* KnockbackAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat")
-	UAnimMontage* AttackMontage = nullptr;
 public:
 	AMyCharacter();
 
@@ -108,9 +140,33 @@ public:
 	UFUNCTION(BlueprintPure, Category = "HP")
 	int32 GetMaxHP() const { return MaxHP; }
 
-	UFUNCTION(BlueprintPure, Category = "State")
-	bool IsDead() const { return bIsDead; }
 
+	UFUNCTION(BlueprintPure, Category = "State")
+	ERecCharacterState GetCharacterState() const { return CharacterState; }
+
+	UFUNCTION(BlueprintPure, Category = "State")
+	bool IsDead() const { return CharacterState == ERecCharacterState::Dead; }
+
+	// Role
+	UFUNCTION(BlueprintPure, Category = "Role")
+	ERecRoleType GetRoleType() const { return RoleType; }
+
+	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
+	ERecRoleType RoleType = ERecRoleType::Striker;
+
+	// State machine (enum)
+	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
+	ERecCharacterState CharacterState = ERecCharacterState::Alive;
+
+	// 역할별 세팅
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData StrikerVisual;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData GuardianVisual;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData ManipulatorVisual;
 	// Attack API
 
 	UFUNCTION()
@@ -159,9 +215,9 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP, VisibleInstanceOnly, Category = "HP")
 	int32 CurrentHP = 100;
-
-	UPROPERTY(ReplicatedUsing = OnRep_IsDead, VisibleInstanceOnly, Category = "State")
-	bool bIsDead = false;
+	// Base movement speed cache (role 배율 적용의 기준)
+	UPROPERTY(VisibleInstanceOnly, Category = "Role")
+	float BaseWalkSpeed = 500.f;
 
 	// Spectate (when dead)
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
@@ -175,6 +231,11 @@ private:
 	bool bSpectateUpHeld = false;    // Q
 	bool bSpectateDownHeld = false;  // E
 
+	// 초기 트랜스폼 캐시(래그돌 복구용)
+	FTransform InitialMeshRelativeTransform = FTransform::Identity;
+	FTransform InitialCameraBoomRelativeTransform = FTransform::Identity;
+	
+	// Input helpers
 	void SpectateUpPressed();
 	void SpectateUpReleased();
 	void SpectateDownPressed();
@@ -183,17 +244,55 @@ private:
 	void SpectateMove(float Right, float Forward);
 	void SpectateMoveVertical(float Axis, float DeltaTime);
 
-	// Rep callbacks
-	UFUNCTION()
-	void OnRep_IsDead();
+	// R키 부활
+	void ResurrectPressed();
 
+	// P키 역할군 변경
+	void CycleRolePressed();
+
+	// Server RPCs
+	UFUNCTION(Server, Reliable)
+	void ServerApplyDamage(int32 DamageAmount);
+
+	UFUNCTION(Server, Reliable)
+	void ServerHeal(int32 HealAmount);
+
+	UFUNCTION(Server, Reliable)
+	void ServerResetHP();
+
+	UFUNCTION(Server, Reliable)
+	void ServerCycleRole();
+
+
+	// Rep callbacks
 	UFUNCTION()
 	void OnRep_CurrentHP();
 
+	UFUNCTION()
+	void OnRep_CharacterState();
+
+	UFUNCTION()
+	void OnRep_RoleType();
+
 	// Internal helpers
-	void ApplyDeadState();
 	void SetCurrentHP(int32 NewHP);
 	void UpdateHPText();
+
+	// Role helpers
+	static FString RoleTypeToString(ERecRoleType InType);
+	static float GetRoleSpeedMultiplier(ERecRoleType InType);
+	void ApplyRoleStats();
+	void ApplyRoleVisual();
+	const FRoleVisualData& GetVisualData(ERecRoleType InRole) const;
+
+	// State helpers
+	void SetCharacterState(ERecCharacterState NewState); // server-only setter
+	void ApplyCharacterState();                          // apply on both server/clients
+	void ApplyDeadState();
+	void ApplyAliveState();
+
+	// PlayerStart로 리스폰(서있는 상태)
+	void RespawnAtPlayerStart();
 
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }

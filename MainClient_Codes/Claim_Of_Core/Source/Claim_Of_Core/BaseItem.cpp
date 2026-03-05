@@ -26,6 +26,7 @@ ABaseItem::ABaseItem()
 
 	PickupCollision->OnComponentBeginOverlap.AddDynamic(this, &ABaseItem::OnBeginOverlap);
 	PickupCollision->OnComponentEndOverlap.AddDynamic(this, &ABaseItem::OnEndOverlap);
+
 }
 
 void ABaseItem::BeginPlay()
@@ -75,6 +76,17 @@ void ABaseItem::OnEndOverlap(
 	}
 }
 
+UAnimMontage* ABaseItem::GetAttackMontageByRole(ERecRoleType InRole) const
+{
+	switch (InRole)
+	{
+	case ERecRoleType::Striker:     return StrikerMontage;
+	case ERecRoleType::Guardian:    return GuardianMontage;
+	case ERecRoleType::Manipulator: return ManipulatorMontage;
+	default:                        return nullptr;
+	}
+}
+
 void ABaseItem::StartUse()
 {
 	if (!OwnerCharacter) return;
@@ -85,6 +97,7 @@ void ABaseItem::StartUse()
 
 void ABaseItem::DoHit()
 {
+
 	if (!OwnerCharacter) return;
 
 	FVector Start = OwnerCharacter->GetActorLocation();
@@ -154,7 +167,31 @@ void ABaseItem::ApplyKnockback(ACharacter* Target)
 
 void ABaseItem::OnStartUse()
 {
-	// 기본은 아무것도 안 함
+	if (!OwnerCharacter) return;
+
+	const ERecRoleType CurrentRole = OwnerCharacter->GetRoleType();
+	UAnimMontage* AttackMontage = GetAttackMontageByRole(CurrentRole);
+
+	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh() ? OwnerCharacter->GetMesh()->GetAnimInstance() : nullptr;
+	if (!AnimInstance)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Item] AnimInstance NULL"));
+		return;
+	}
+
+	if (!AttackMontage)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Item] Role montage NULL (Role=%d)"), (int32)CurrentRole);
+		return;
+	}
+
+	if (AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[Item] Montage already playing"));
+		return;
+	}
+
+	AnimInstance->Montage_Play(AttackMontage);
 }
 
 void ABaseItem::OnHitTarget(AActor* Target)

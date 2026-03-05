@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Sub/MyCharacter.h"
+#include "Net/UnrealNetwork.h"
 #include "BaseItem.generated.h"
 
 class AMyCharacter;
@@ -59,11 +61,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	float Radius = 80.f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
-	UAnimMontage* AttackMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
+	UAnimMontage* GuardianMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
+	UAnimMontage* ManipulatorMontage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
+	UAnimMontage* StrikerMontage;
+	UAnimMontage* GetAttackMontageByRole(ERecRoleType InRole) const;
 
 	UPROPERTY()
 	AMyCharacter* OwnerCharacter;
+
+	// Role
+
+	UFUNCTION(BlueprintPure, Category = "Role")
+	ERecRoleType GetRoleType() const { return OwnerCharacter->GetRoleType(); }
 
 	void SetOwnerCharacter(AMyCharacter* NewOwner);
 

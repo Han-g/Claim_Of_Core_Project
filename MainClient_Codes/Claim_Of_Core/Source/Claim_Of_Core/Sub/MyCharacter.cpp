@@ -10,13 +10,14 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/PlayerController.h"
-
+#include "GameFramework/GameModeBase.h"
 
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
 #include "InputCoreTypes.h"
 
 #include "Net/UnrealNetwork.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "BaseItem.h"
 
@@ -27,7 +28,7 @@ AMyCharacter::AMyCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	// Collision
-	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
+	GetCapsuleComponent()->InitCapsuleSize(42.f, 95.0f);
 
 	// Rotation
 	bUseControllerRotationPitch = false;
@@ -69,12 +70,32 @@ AMyCharacter::AMyCharacter()
 	// HP init
 	MaxHP = 100;
 	CurrentHP = MaxHP;
+
+	// State init
+	CharacterState = ERecCharacterState::Alive;
+
+	// Role init
+	RoleType = ERecRoleType::Guardian;
 }
 
 void AMyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	if (GetMesh())
+	{
+		InitialMeshRelativeTransform = GetMesh()->GetRelativeTransform();
+	}
+	if (CameraBoom)
+	{
+		InitialCameraBoomRelativeTransform = CameraBoom->GetRelativeTransform();
+	}
+
+	// 스탯 적용(역할군 속도)
+	ApplyRoleStats();
+	ApplyRoleVisual();
+
 	UpdateHPText();
+	ApplyCharacterState();
 }
 
 void AMyCharacter::Tick(float DeltaTime)
@@ -82,7 +103,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// Free-camera vertical move (Q/E) after death + camera detached
-	if (!bIsDead || !bCameraDetached)
+	if (!IsDead() || !bCameraDetached)
 		return;
 
 	float Axis = 0.f;
@@ -95,23 +116,20 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 }
 
-void AMyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(AMyCharacter, MaxHP);
-	DOREPLIFETIME(AMyCharacter, CurrentHP);
-	DOREPLIFETIME(AMyCharacter, bIsDead);
-}
 
 void AMyCharacter::OnRep_CurrentHP()
 {
 	UpdateHPText();
 }
 
-void AMyCharacter::OnRep_IsDead()
+void AMyCharacter::OnRep_CharacterState()
 {
-	ApplyDeadState();
+	ApplyCharacterState();
+}
+
+void AMyCharacter::OnRep_RoleType()
+{
+	ApplyRoleStats();
 }
 
 void AMyCharacter::UpdateHPText()
@@ -122,17 +140,129 @@ void AMyCharacter::UpdateHPText()
 	HPTextComponent->SetText(FText::FromString(Str));
 }
 
+
+float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
+{
+	switch (InType)
+	{
+	case ERecRoleType::Striker:     return 1.2f;
+	case ERecRoleType::Guardian:    return 0.8f;
+	case ERecRoleType::Manipulator: return 1.0f;
+	default:                        return 1.0f;
+	}
+}
+
+const FRoleVisualData& AMyCharacter::GetVisualData(ERecRoleType InRole) const
+{
+	switch (InRole)
+	{
+	case ERecRoleType::Striker:     return StrikerVisual;
+	case ERecRoleType::Guardian:    return GuardianVisual;
+	case ERecRoleType::Manipulator: return ManipulatorVisual;
+	default:                        return StrikerVisual;
+	}
+}
+
+void AMyCharacter::ApplyRoleStats()
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		// BaseWalkSpeed 기준으로 배율 적용
+		const float Mult = GetRoleSpeedMultiplier(RoleType);
+		MoveComp->MaxWalkSpeed = BaseWalkSpeed * Mult;
+	}
+}
+
+void AMyCharacter::ApplyRoleVisual()
+{
+	const FRoleVisualData& Data = GetVisualData(RoleType);
+	if (!Data.Mesh) return;
+
+	USkeletalMeshComponent* SkelComp = GetMesh();
+	if (!SkelComp) return;
+
+	switch (RoleType)
+	{
+	case ERecRoleType::Striker:
+		SkelComp->SetRelativeScale3D(FVector(0.2f));
+		break;
+
+	case ERecRoleType::Guardian:
+		SkelComp->SetRelativeScale3D(FVector(0.2f));
+		break;
+
+	case ERecRoleType::Manipulator:
+		SkelComp->SetRelativeScale3D(FVector(0.1f));
+		break;
+	}
+
+	// 1) 모델 교체
+	SkelComp->SetSkeletalMesh(Data.Mesh);
+
+	// 2) 애님BP 교체
+	if (Data.AnimBPClass)
+	{
+		SkelComp->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		SkelComp->SetAnimInstanceClass(Data.AnimBPClass);
+	}
+}
+
+
+void AMyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AMyCharacter, MaxHP);
+	DOREPLIFETIME(AMyCharacter, CurrentHP);
+	DOREPLIFETIME(AMyCharacter, CharacterState);
+	DOREPLIFETIME(AMyCharacter, RoleType);
+}
+
+FString AMyCharacter::RoleTypeToString(ERecRoleType InType)
+{
+	switch (InType)
+	{
+	case ERecRoleType::Striker:     return TEXT("Striker");
+	case ERecRoleType::Guardian:    return TEXT("Guardian");
+	case ERecRoleType::Manipulator: return TEXT("Manipulator");
+	default:                        return TEXT("Striker");
+	}
+}
+
 void AMyCharacter::SetCurrentHP(int32 NewHP)
 {
 	CurrentHP = FMath::Clamp(NewHP, 0, MaxHP);
 	UpdateHPText();
 
 	// Server decides death and replicates it
-	if (HasAuthority() && !bIsDead && CurrentHP <= 0)
+	if (HasAuthority() && !IsDead() && CurrentHP <= 0)
 	{
-		bIsDead = true;
+		SetCharacterState(ERecCharacterState::Dead);
+	}
+}
+
+void AMyCharacter::SetCharacterState(ERecCharacterState NewState)
+{
+	if (!HasAuthority())
+		return;
+
+	if (CharacterState == NewState)
+		return;
+
+	CharacterState = NewState;
+	ApplyCharacterState();
+	ForceNetUpdate();
+}
+
+void AMyCharacter::ApplyCharacterState()
+{
+	if (CharacterState == ERecCharacterState::Dead)
+	{
 		ApplyDeadState();
-		ForceNetUpdate();
+	}
+	else
+	{
+		ApplyAliveState();
 	}
 }
 
@@ -140,11 +270,15 @@ void AMyCharacter::ApplyDamage(int32 DamageAmount)
 {
 	if (DamageAmount <= 0) return;
 
-	// HP changes are server-authoritative
+	// 서버 권한이 아니면 RPC로 요청
 	if (HasAuthority())
 	{
-		SetCurrentHP(CurrentHP - DamageAmount);
+		ServerApplyDamage(DamageAmount);
+		return;
 	}
+
+	// 서버에서만 실제 적용
+	SetCurrentHP(CurrentHP - DamageAmount);
 }
 
 void AMyCharacter::Heal(int32 HealAmount)
@@ -153,16 +287,73 @@ void AMyCharacter::Heal(int32 HealAmount)
 
 	if (HasAuthority())
 	{
-		SetCurrentHP(CurrentHP + HealAmount);
+		ServerHeal(HealAmount);
+		return;
 	}
 }
 
 void AMyCharacter::ResetHP()
 {
-	if (HasAuthority())
+	// Dead 상태에서 R: "서서 PlayerStart 리스폰"
+	if (!HasAuthority())
+	{
+		ServerResetHP();
+		return;
+	}
+
+	if (CharacterState == ERecCharacterState::Dead)
+	{
+		CurrentHP = MaxHP;
+		UpdateHPText();
+
+		SetCharacterState(ERecCharacterState::Alive);
+
+		RespawnAtPlayerStart();
+
+		ForceNetUpdate();
+	}
+	else
 	{
 		SetCurrentHP(MaxHP);
+		ForceNetUpdate();
 	}
+}
+
+void AMyCharacter::ServerApplyDamage_Implementation(int32 DamageAmount)
+{
+	ApplyDamage(DamageAmount);
+}
+
+void AMyCharacter::ServerHeal_Implementation(int32 HealAmount)
+{
+	Heal(HealAmount);
+}
+
+void AMyCharacter::ServerResetHP_Implementation()
+{
+	ResetHP();
+}
+
+void AMyCharacter::ServerCycleRole_Implementation()
+{
+	// 서버에서 역할군 순환
+	switch (RoleType)
+	{
+	case ERecRoleType::Striker:
+		RoleType = ERecRoleType::Guardian;
+		break;
+	case ERecRoleType::Guardian:
+		RoleType = ERecRoleType::Manipulator;
+		break;
+	case ERecRoleType::Manipulator:
+	default:
+		RoleType = ERecRoleType::Striker;
+		break;
+	}
+
+	ApplyRoleStats();
+	ApplyRoleVisual();
+	ForceNetUpdate();
 }
 
 float AMyCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent,
@@ -202,6 +393,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMyCharacter::EquipItem);
+	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AMyCharacter::DropCurrentItem);
 
 	// Q/E hold for vertical movement while spectating
 	PlayerInputComponent->BindKey(EKeys::Q, IE_Pressed, this, &AMyCharacter::SpectateUpPressed);
@@ -209,6 +401,12 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 	PlayerInputComponent->BindKey(EKeys::E, IE_Pressed, this, &AMyCharacter::SpectateDownPressed);
 	PlayerInputComponent->BindKey(EKeys::E, IE_Released, this, &AMyCharacter::SpectateDownReleased);
+
+	// R키 부활
+	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AMyCharacter::ResurrectPressed);
+	
+	// P키 역할군 변경
+	PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMyCharacter::CycleRolePressed);
 }
 
 void AMyCharacter::Move(const FInputActionValue& Value)
@@ -226,7 +424,7 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 void AMyCharacter::DoMove(float Right, float Forward)
 {
 	// Dead: move detached camera instead of character
-	if (bIsDead)
+	if (IsDead())
 	{
 		SpectateMove(Right, Forward);
 		return;
@@ -256,7 +454,7 @@ void AMyCharacter::DoLook(float Yaw, float Pitch)
 
 void AMyCharacter::DoJumpStart()
 {
-	if (bIsDead) return;
+	if (IsDead()) return;
 	Jump();
 }
 
@@ -267,10 +465,11 @@ void AMyCharacter::DoJumpEnd()
 
 void AMyCharacter::Jump()
 {
-	if (bIsDead) return;
+	if (IsDead()) return;
 
 	Super::Jump();
 
+	/*
 	// Apply jump damage only when jump is considered "pressed" (server-authoritative)
 	if (bPressedJump)
 	{
@@ -279,11 +478,12 @@ void AMyCharacter::Jump()
 			ApplyDamage(10);
 		}
 	}
+	*/
 }
 
 void AMyCharacter::ApplyDeadState()
 {
-	if (!bIsDead) return;
+	if (!IsDead()) return;
 
 	// Stop character movement
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -326,6 +526,79 @@ void AMyCharacter::ApplyDeadState()
 	}
 }
 
+void AMyCharacter::ApplyAliveState()
+{
+	// 관전 키 상태 초기화
+	bSpectateUpHeld = false;
+	bSpectateDownHeld = false;
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetAllBodiesSimulatePhysics(false);
+		MeshComp->SetSimulatePhysics(false);
+
+		MeshComp->bBlendPhysics = false;
+		MeshComp->SetAllBodiesPhysicsBlendWeight(0.f);
+
+		MeshComp->SetRelativeTransform(InitialMeshRelativeTransform);
+
+		MeshComp->SetCollisionProfileName(TEXT("CharacterMesh"));
+	}
+
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		Capsule->SetCollisionProfileName(TEXT("Pawn"));
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->SetMovementMode(EMovementMode::MOVE_Walking);
+		MoveComp->StopMovementImmediately();
+	}
+
+	ApplyRoleStats();
+
+	if (IsLocallyControlled())
+	{
+		if (CameraBoom && bCameraDetached)
+		{
+			CameraBoom->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+			CameraBoom->SetRelativeTransform(InitialCameraBoomRelativeTransform);
+			bCameraDetached = false;
+		}
+	}
+}
+
+void AMyCharacter::RespawnAtPlayerStart()
+{
+	if (!HasAuthority())
+		return;
+
+	AController* C = GetController();
+	if (!C) return;
+
+	AGameModeBase* GM = UGameplayStatics::GetGameMode(this);
+	if (!GM) return;
+
+	AActor* StartSpot = GM->FindPlayerStart(C);
+	if (!StartSpot) return;
+
+	const FVector SpawnLoc = StartSpot->GetActorLocation();
+	const FRotator SpawnRot = StartSpot->GetActorRotation();
+
+	SetActorLocationAndRotation(SpawnLoc, SpawnRot, false, nullptr, ETeleportType::TeleportPhysics);
+
+	C->SetControlRotation(SpawnRot);
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->Velocity = FVector::ZeroVector;
+	}
+}
+
+
 void AMyCharacter::SpectateMove(float Right, float Forward)
 {
 	if (!CameraBoom) return;
@@ -360,6 +633,30 @@ void AMyCharacter::SpectateMoveVertical(float Axis, float DeltaTime)
 	CameraBoom->AddWorldOffset(Delta, false);
 }
 
+void AMyCharacter::ResurrectPressed()
+{
+	// 로컬 입력에서만 호출
+	if (!IsLocallyControlled())
+		return;
+
+	ResetHP();
+}
+
+void AMyCharacter::CycleRolePressed()
+{
+	if (!IsLocallyControlled())
+		return;
+
+	if (HasAuthority())
+	{
+		ServerCycleRole_Implementation();
+	}
+	else
+	{
+		ServerCycleRole();
+	}
+}
+
 // Attack function
 
 void AMyCharacter::Attack()
@@ -370,34 +667,16 @@ void AMyCharacter::Attack()
 		CurrentItem->StartUse();
 		return;
 	}
-
 	// 무기 없을 때만 기존 맨손 몽타주(원하면 유지)
-	if (!IsValid(Controller))
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Attack] Controller INVALID"));
-		return;
-	}
+	if (!IsValid(Controller)) return;
 
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	if (!AnimInstance)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Attack] AnimInstance NULL"));
-		return;
-	}
+	const FRoleVisualData& Data = GetVisualData(RoleType);
+	if (!AnimInstance)	return;
+	if (!Data.AttackMontage)	return;
+	if (AnimInstance->Montage_IsPlaying(Data.AttackMontage)) return;
 
-	if (!AttackMontage)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[Attack] AttackMontage NULL"));
-		return;
-	}
-
-	if (AnimInstance->Montage_IsPlaying(AttackMontage))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[Attack] Montage already playing"));
-		return;
-	}
-
-	AnimInstance->Montage_Play(AttackMontage);
+	AnimInstance->Montage_Play(Data.AttackMontage);
 
 }
 
@@ -446,21 +725,14 @@ void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
 
 }
 
-/*기존 코드 
 void AMyCharacter::EquipItem()
 {
 	if (!OverlappingItem) return;
-
-	// 기존 무기 있으면 떼기(원하면 DropCurrentItem로 따로 빼도 됨)
-	if (CurrentItem && CurrentItem != OverlappingItem)
-	{
-		DropCurrentItem();
-	}
+	if (CurrentItem) return; // 이미 무기 들고 있으면 무시
 
 	CurrentItem = OverlappingItem;
 
 	// 무기 쪽에 오너 세팅(네 BaseItem에 있음)
-	CurrentItem->SetOwner(this);
 	CurrentItem->SetOwnerCharacter(this);
 
 	// 충돌/물리 끄기(손에 붙이면 보통 필요없음)
@@ -468,6 +740,7 @@ void AMyCharacter::EquipItem()
 
 	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
 	{
+		Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Prim->SetSimulatePhysics(false);
 	}
 
@@ -481,91 +754,12 @@ void AMyCharacter::EquipItem()
 		);
 	}
 }
-*/
-
-// 디버깅 로그 추가한 버전
-void AMyCharacter::EquipItem()
-{
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Called"));
-
-	if (!OverlappingItem)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] OverlappingItem is NULL"));
-		return;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] OverlappingItem = %s"),
-		*GetNameSafe(OverlappingItem));
-
-	// 기존 무기 있으면 떼기
-	if (CurrentItem && CurrentItem != OverlappingItem)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Dropping CurrentItem = %s"),
-			*GetNameSafe(CurrentItem));
-		DropCurrentItem();
-	}
-
-	CurrentItem = OverlappingItem;
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] CurrentItem set = %s"),
-		*GetNameSafe(CurrentItem));
-
-	// 오너 세팅
-	CurrentItem->SetOwner(this);
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] SetOwner OK"));
-
-	CurrentItem->SetOwnerCharacter(this);
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] SetOwnerCharacter OK"));
-
-	// 충돌/물리 끄기
-	CurrentItem->SetActorEnableCollision(false);
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Collision Disabled"));
-
-	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] RootComponent = %s (Primitive)"),
-			*GetNameSafe(Prim));
-
-		Prim->SetSimulatePhysics(false);
-		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] SimulatePhysics false"));
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[EquipItem] RootComponent is NOT Primitive. Root = %s"),
-			*GetNameSafe(CurrentItem->GetRootComponent()));
-	}
-
-	// 손 소켓에 부착
-	USkeletalMeshComponent* MeshComp = GetMesh();
-	if (!MeshComp)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[EquipItem] GetMesh() is NULL"));
-		return;
-	}
-
-	const FName SocketName(TEXT("RightHandSocket"));
-	if (!MeshComp->DoesSocketExist(SocketName))
-	{
-		UE_LOG(LogTemp, Error, TEXT("[EquipItem] Socket NOT found: %s"), *SocketName.ToString());
-		return;
-	}
-
-	CurrentItem->AttachToComponent(
-		MeshComp,
-		FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-		SocketName
-	);
-
-	UE_LOG(LogTemp, Warning, TEXT("[EquipItem] Attached to socket: %s"), *SocketName.ToString());
-}
-
-
 
 void AMyCharacter::DropCurrentItem()
 {
 	if (!CurrentItem) return;
 
 	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	CurrentItem->SetOwner(nullptr);
 	CurrentItem->SetOwnerCharacter(nullptr);
 
 	// 바닥에 떨어뜨릴거면 충돌/물리 다시 켜기
@@ -573,6 +767,7 @@ void AMyCharacter::DropCurrentItem()
 
 	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
 	{
+		Prim->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		Prim->SetSimulatePhysics(true);
 	}
 
