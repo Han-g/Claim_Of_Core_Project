@@ -181,21 +181,6 @@ void AMyCharacter::ApplyRoleVisual()
 	USkeletalMeshComponent* SkelComp = GetMesh();
 	if (!SkelComp) return;
 
-	switch (RoleType)
-	{
-	case ERecRoleType::Striker:
-		SkelComp->SetRelativeScale3D(FVector(0.2f));
-		break;
-
-	case ERecRoleType::Guardian:
-		SkelComp->SetRelativeScale3D(FVector(0.2f));
-		break;
-
-	case ERecRoleType::Manipulator:
-		SkelComp->SetRelativeScale3D(FVector(0.1f));
-		break;
-	}
-
 	// 1) 모델 교체
 	SkelComp->SetSkeletalMesh(Data.Mesh);
 
