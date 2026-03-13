@@ -192,6 +192,7 @@ void ABaseItem::OnStartUse()
 	}
 
 	AnimInstance->Montage_Play(AttackMontage);
+
 }
 
 void ABaseItem::OnHitTarget(AActor* Target)

@@ -48,6 +48,8 @@ public:
 
 
 	/* ===== ±‚∫ª Ω∫≈» ===== */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
+	float Point;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	float Damage = 20.f;
