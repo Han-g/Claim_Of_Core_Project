@@ -225,8 +225,6 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 
 		// Call Packet Process Function
 		PacketProcess(sessionIndex, header.packet_ID, packetData);
-
-		// -----------------------------
 	}
 
 	DWORD flags = 0;
@@ -314,64 +312,15 @@ void IOCPServer::SendProtocol(Session* session) {
 // Recive Data Process
 void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
 {
-	PacketHeader header;
-	GameDataPacket dataPacket;
-	PacketReader reader(data, sizeof(PacketHeader));
-	std::wstring ID, PW;
-	int userUID = -1;
-
-	switch (packetID)
-	{
-	case PKT_S2C_SNAPSHOT:
-		// Update Packet
-		break;
-	case PKT_C2S_LOGIN_REQUEST:
-		// Login Packet
-		// Packet Deserialization
-		if (reader.ReadString(ID) == false) {
-			LOG_ERROR("[Session: %d] Failed to read ID", sessionIndex);
-			ErrorCodePacket failPacket;
-			failPacket.ErrorCode = 1;
-			SendPacket(sessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
-			return;
-		}
-		if (reader.ReadString(PW) == false) {
-			LOG_ERROR("[Session: %d] Failed to read PW", sessionIndex);
-			ErrorCodePacket failPacket;
-			failPacket.ErrorCode = 1;
-			SendPacket(sessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
-			return;
-		}
-
-		// Request Task to DB Thread (Async)
-		// RequestLogin(sessionIndex, ID, PW);
-
-		LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
-		
-		if (m_DB.CheckLogin(ID, PW, userUID)) { 
-			// CheckLogin 함수 내부 구현에 따라 인자 맞춤 필요
-			// 로그인 성공 처리...
-			LOG_INFO("Check Login Success!");
-			dataPacket.Session_ID = sessionIndex;
-			GameData newData;
-			dataPacket.data = newData;
-
-			SendPacket(sessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
-		}
-
-		break;
-	case PKT_C2S_MOVE:
-		// (Move) Event Packet
-
-		break;
-	case PKT_C2S_ATTACK:
-		// (Attack) Event Packet
-
-		break;
-	default:
-		LOG_WARN("Not Valid Pakcet ID");
-		break;
+	if (sessionIndex < 0 || sessionIndex >= m_MaxSessionCount) {
+		LOG_ERROR("[%d] is Invalid Session Index", sessionIndex);
+		return;
 	}
+
+	Session* session = m_Sessions[sessionIndex];
+	if (session == nullptr) { return; }
+
+	m_PacketProcessor.Process(this, session, packetID, data);
 }
 
 void IOCPServer::DBWorkerThread()
@@ -382,15 +331,54 @@ void IOCPServer::DBWorkerThread()
 	}
 
 	while (m_IsRunning) {
-		// ... 큐에서 작업 꺼내기 ...
+		DBData data;
 
-		// 2. DB 작업 수행
-		// bool result = db.CheckLogin(L"TestUser");
+		{
+			std::unique_lock<std::mutex> lock(m_DBMutex);
+			m_DBControler.wait(lock, [this]() { return !m_DBLoginQueue.empty() || !m_IsRunning; });
 
-		// ... 결과 처리 ...
+			if (!m_IsRunning && m_DBLoginQueue.empty()) { break; }
+
+			data = m_DBLoginQueue.front();
+			m_DBLoginQueue.pop();
+		}
+
+		// Check Valid Login Data
+		int userUID = -1;
+
+		if (m_DB.CheckLogin(data.UserID, data.UserPW, userUID)) {
+			LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
+			
+			// Init Game Data and Assign UID to Client
+			GameDataPacket dataPacket;
+			dataPacket.Session_ID = data.SessionIndex;
+			GameData newData;
+			newData.userUID = userUID;
+			dataPacket.data = newData;
+
+			SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
+		}
+
+		else {
+			LOG_INFO("[%d] Session Login Failed!", data.SessionIndex);
+
+			ErrorCodePacket failPacket;
+			failPacket.ErrorCode = 1;
+			SendPacket(data.SessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
+		}
 	}
 
-	// 3. 소멸자에서 자동으로 Disconnect 됨
+	LOG_INFO("DB is Disconnected!");
+}
+
+void IOCPServer::PushDBLoginTry(DBData data)
+{
+	{
+		std::lock_guard<std::mutex> lock(m_DBMutex);
+		m_DBLoginQueue.push(data);
+	}
+
+	m_DBControler.notify_one();
 }
 
 void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
@@ -408,25 +396,14 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 void IOCPServer::GameFrameProtocol() {
 	if (m_Sessions.empty()) { return; }
 
-	GameData clientData;
-
 	std::vector<GameData> roomSnapshot;
-
-	for (Session* data : m_Sessions) {
-		roomSnapshot.push_back(data->gameDatas);
-	}
 
 	{
 		std::lock_guard<std::mutex> lock(m_SessionLock);
 
 		for (Session* s : m_Sessions) {
 			if (s->gameDatas.isConnected) {
-				GameData info;
-				info.x = s->gameDatas.x;
-				info.y = s->gameDatas.y;
-				info.z = s->gameDatas.z;
-
-				roomSnapshot.push_back(info);
+				roomSnapshot.push_back(s->gameDatas);
 			}
 		}
 	}
@@ -434,12 +411,14 @@ void IOCPServer::GameFrameProtocol() {
 	if (roomSnapshot.empty()) { LOG_ERROR("Not Exist Game Data!"); return; }
 
 	// Packet & User Data Serialization
-
+	int userCnt = roomSnapshot.size();
+	int dataSize = sizeof(int) + (userCnt * sizeof(GameData));
+	std::vector<char> sendBuffer(dataSize);
 
 	// Send Snapshot to all Clients
 	for (int i = 0; i < m_Sessions.size(); ++i) {
 		if (m_Sessions[i]->gameDatas.isConnected) {
-			SendPacket(m_Sessions[i]->sessionID, 1, (char*)roomSnapshot.data(), sizeof(roomSnapshot));
+			SendPacket(m_Sessions[i]->sessionID, PKT_S2C_SNAPSHOT_NOTICE, sendBuffer.data(), dataSize);
 		}
 	}
 }

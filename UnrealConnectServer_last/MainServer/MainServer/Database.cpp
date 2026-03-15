@@ -32,9 +32,25 @@ bool DBHelper::Connect()
     // 5. DB 접속 (DSN 방식)
     // [주의] 제어판 -> 관리 도구 -> ODBC 데이터 원본 관리자에서 "NorthWind"라는 DSN을 먼저 만들어야 합니다.
     // 두 번째 인자는 DSN 이름, 네 번째 인자는 ID, 여섯 번째 인자는 암호입니다.
-    ret = SQLConnect(hDbc, (SQLWCHAR*)L"ClaimOfCore", SQL_NTS,
+    /*ret = SQLConnect(hDbc, (SQLWCHAR*)L"ClaimOfCore", SQL_NTS,
         (SQLWCHAR*)L"ServerConnection", SQL_NTS,
-        (SQLWCHAR*)L"server", SQL_NTS);
+        (SQLWCHAR*)L"server", SQL_NTS);*/
+
+    SQLWCHAR connectStr[] = L"Driver={SQL Server};Server=DESKTOP-HW\\SQLEXPRESS;Database=ClaimOfCore;Uid=ServerConnection;Pwd=server;";
+
+    SQLWCHAR outConnectStr[1024];
+    SQLSMALLINT outConnectStrLen;
+
+    ret = SQLDriverConnect(
+        hDbc,
+        NULL,
+        connectStr,
+        SQL_NTS,
+        outConnectStr,
+        1024,
+        &outConnectStrLen,
+        SQL_DRIVER_NOPROMPT
+    );
 
     if (SQL_SUCCEEDED(ret))
     {

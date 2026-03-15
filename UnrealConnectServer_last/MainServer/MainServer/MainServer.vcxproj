@@ -124,14 +124,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Database.cpp" />
+    <ClCompile Include="GameLogic.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PacketProcessor.cpp" />
     <ClCompile Include="RoomManager.cpp" />
     <ClCompile Include="server.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GameLogic.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="logging.hpp" />
     <ClInclude Include="Packet.h" />
+    <ClInclude Include="PacketProcessor.h" />
     <ClInclude Include="RoomManager.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="session.h" />

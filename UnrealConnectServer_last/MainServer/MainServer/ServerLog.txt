@@ -162,3 +162,125 @@
 [2026-02-16 | 01:35:42] [INFO] DB Connect Successful!
 [2026-02-16 | 01:35:57] [INFO] Client Session Connect with IOCP handle successful!
 [2026-02-16 | 01:36:16] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 17:14:46] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 17:14:46] [INFO] Server Initalized Successfully!
+[2026-03-03 | 17:14:46] [INFO] Server Start Successful!
+[2026-03-03 | 17:14:46] [INFO] DB Connect Successful!
+[2026-03-03 | 17:14:46] [ERROR] [DB Error] 42000 : [Microsoft][ODBC SQL Server Driver][SQL Server]사용자 'ServerConnection'이(가) 로그인하지 못했습니다. 원인: 계정의 암호가 만료되었습니다.
+[2026-03-03 | 17:14:46] [ERROR] DB Connection Failed!
+[2026-03-03 | 18:02:11] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 18:02:11] [INFO] Server Initalized Successfully!
+[2026-03-03 | 18:02:11] [INFO] Server Start Successful!
+[2026-03-03 | 18:02:11] [INFO] DB Connect Successful!
+[2026-03-03 | 18:02:11] [ERROR] [DB Error] 42000 : [Microsoft][ODBC SQL Server Driver][SQL Server]사용자 'ServerConnection'이(가) 로그인하지 못했습니다. 원인: 계정의 암호가 만료되었습니다.
+[2026-03-03 | 18:02:11] [ERROR] DB Connection Failed!
+[2026-03-03 | 18:05:52] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 18:05:52] [INFO] Server Initalized Successfully!
+[2026-03-03 | 18:05:52] [INFO] Server Start Successful!
+[2026-03-03 | 18:05:52] [INFO] DB Connect Successful!
+[2026-03-03 | 18:06:07] [ERROR] [DB Error] 42000 : [Microsoft][ODBC SQL Server Driver][SQL Server]사용자 'ServerConnection'이(가) 로그인하지 못했습니다. 원인: 계정의 암호가 만료되었습니다.
+[2026-03-03 | 18:06:29] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 18:06:29] [INFO] Server Initalized Successfully!
+[2026-03-03 | 18:06:29] [INFO] Server Start Successful!
+[2026-03-03 | 18:06:29] [INFO] DB Connect Successful!
+[2026-03-03 | 18:43:47] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 18:43:47] [INFO] Server Initalized Successfully!
+[2026-03-03 | 18:43:47] [INFO] Server Start Successful!
+[2026-03-03 | 18:43:47] [INFO] DB Connect Successful!
+[2026-03-03 | 18:43:55] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-03 | 18:43:55] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-03 | 18:43:55] [ERROR] DB Connection Failed!
+[2026-03-03 | 18:53:20] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 18:53:20] [INFO] Server Initalized Successfully!
+[2026-03-03 | 18:53:20] [INFO] Server Start Successful!
+[2026-03-03 | 18:53:20] [INFO] DB Connect Successful!
+[2026-03-03 | 18:53:28] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-03 | 18:53:28] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-03 | 18:53:28] [ERROR] DB Connection Failed!
+[2026-03-03 | 18:53:31] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 18:53:38] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 18:53:40] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 18:53:45] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 20:06:37] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 20:06:37] [INFO] Server Initalized Successfully!
+[2026-03-03 | 20:06:37] [INFO] Server Start Successful!
+[2026-03-03 | 20:06:37] [INFO] DB Connect Successful!
+[2026-03-03 | 20:06:46] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-03 | 20:06:46] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-03 | 20:06:46] [ERROR] DB Connection Failed!
+[2026-03-03 | 21:44:01] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 21:44:06] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 21:44:51] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 21:45:01] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 21:45:08] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 21:45:10] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 21:45:12] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 21:45:15] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 21:57:04] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 21:57:09] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 21:58:28] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 21:58:32] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:05:14] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:07:55] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:14:04] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:14:07] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:25:12] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 22:25:12] [INFO] Server Initalized Successfully!
+[2026-03-03 | 22:25:12] [INFO] Server Start Successful!
+[2026-03-03 | 22:25:12] [INFO] DB Connect Successful!
+[2026-03-03 | 22:25:17] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-03 | 22:25:17] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-03 | 22:25:17] [ERROR] DB Connection Failed!
+[2026-03-03 | 22:25:22] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:25:25] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:25:26] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:25:27] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:28:46] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:28:48] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:29:20] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:36:25] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 22:36:25] [INFO] Server Initalized Successfully!
+[2026-03-03 | 22:36:25] [INFO] Server Start Successful!
+[2026-03-03 | 22:36:25] [INFO] DB Connect Successful!
+[2026-03-03 | 22:36:30] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-03 | 22:36:30] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-03 | 22:36:30] [ERROR] DB Connection Failed!
+[2026-03-03 | 22:36:42] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:37:09] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:45:46] [INFO] ------------- LOGGING START -------------
+[2026-03-03 | 22:45:46] [INFO] Server Initalized Successfully!
+[2026-03-03 | 22:45:46] [INFO] Server Start Successful!
+[2026-03-03 | 22:45:46] [INFO] DB Connect Successful!
+[2026-03-03 | 22:45:55] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-03 | 22:45:55] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-03 | 22:45:55] [ERROR] DB Connection Failed!
+[2026-03-03 | 22:46:24] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:46:29] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 22:47:16] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 22:47:47] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 23:17:25] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 23:17:46] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 23:49:21] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 23:49:21] [WARN] Entire Data doesn't receive wait next Recv
+[2026-03-03 | 23:49:24] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-03 | 23:49:24] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-03 | 23:49:24] [WARN] Entire Data doesn't receive wait next Recv
+[2026-03-03 | 23:49:27] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-04 | 00:31:07] [INFO] ------------- LOGGING START -------------
+[2026-03-04 | 00:31:07] [INFO] Server Initalized Successfully!
+[2026-03-04 | 00:31:07] [INFO] Server Start Successful!
+[2026-03-04 | 00:31:07] [INFO] DB Connect Successful!
+[2026-03-04 | 00:31:15] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-04 | 00:31:15] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-04 | 00:31:15] [ERROR] DB Connection Failed!
+[2026-03-04 | 01:01:15] [INFO] ------------- LOGGING START -------------
+[2026-03-04 | 01:01:15] [INFO] Server Initalized Successfully!
+[2026-03-04 | 01:01:15] [INFO] Server Start Successful!
+[2026-03-04 | 01:01:15] [INFO] DB Connect Successful!
+[2026-03-04 | 01:01:23] [ERROR] [DB Error] 08001 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]SQL Server가 없거나 액세스할 수 없습니다.
+[2026-03-04 | 01:01:23] [ERROR] [DB Error] 01000 : [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()).
+[2026-03-04 | 01:01:23] [ERROR] DB Connection Failed!
+[2026-03-04 | 01:01:38] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-04 | 01:02:13] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-03-04 | 01:25:40] [INFO] Client Session Connect with IOCP handle successful!
+[2026-03-04 | 01:26:20] [ERROR] [ID: 0] Fail to Register IOCP handle

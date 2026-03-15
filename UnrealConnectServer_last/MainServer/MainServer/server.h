@@ -11,6 +11,7 @@
 #include "session.h"
 #include "Database.h"
 #include "Packet.h"
+#include "PacketProcessor.h"
 
 class IOCPServer {
 public:
@@ -24,6 +25,7 @@ public:
 	void SendPacket(int sessionIndex, int packetID, const char* data, int len);
 
 	void GameFrameProtocol();
+	void PushDBLoginTry(DBData data);
 
 private:
 	void WorkerThread();
@@ -43,7 +45,13 @@ private:
 private:
 	HANDLE m_hIOCP;
 	SOCKET m_ListenSocket;
+
 	DBHelper m_DB;
+	std::queue<DBData> m_DBLoginQueue;
+	std::mutex m_DBMutex;
+	std::condition_variable m_DBControler;
+
+	PacketProcessor m_PacketProcessor;
 
 	std::vector<Session*> m_Sessions;
 	std::vector<std::thread> m_WorkerThreads;
