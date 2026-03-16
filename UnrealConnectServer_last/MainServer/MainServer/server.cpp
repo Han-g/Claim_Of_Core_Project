@@ -325,7 +325,6 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 
 void IOCPServer::DBWorkerThread()
 {
-	// 1. 서버 켜질 때 DB 연결 시도
 	if (!m_DB.Connect()) {
 		LOG_ERROR("DB Connection Failed!");
 	}
@@ -381,6 +380,11 @@ void IOCPServer::PushDBLoginTry(DBData data)
 	m_DBControler.notify_one();
 }
 
+void IOCPServer::CreateRoom(Session* Client)
+{
+	m_RoomManager.CreateRoom(Client);
+}
+
 void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 	Session* session = m_Sessions[sessionIndex];
 
@@ -394,7 +398,7 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 }
 
 void IOCPServer::GameFrameProtocol() {
-	if (m_Sessions.empty()) { return; }
+	if (m_Sessions.empty()) { LOG_ERROR("Now Connected Client is not Exist!"); return; }
 
 	std::vector<GameData> roomSnapshot;
 

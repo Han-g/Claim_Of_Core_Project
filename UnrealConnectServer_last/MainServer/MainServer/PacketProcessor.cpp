@@ -26,7 +26,10 @@ void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID
 }
 
 // -----------------------------
-// Packet Handler Functions
+// Packet Handler Functions (Unifrom Interface)
+// all Function need arguments (IOCPServer* server, Session* session, PacketReader& reader)
+// Not used arguments made Commect and skip like that бщ
+// (IOCPServer* server, Session* session, PacketReader& /*reader*/)
 // -----------------------------
 
 void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader)
@@ -44,6 +47,16 @@ void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, Pack
 	LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
 
 	server->PushDBLoginTry({ session->sessionID, ID, PW });
+}
+
+void PacketProcessor::Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& /*reader*/)
+{
+	server->CreateRoom(session);
+}
+
+void PacketProcessor::Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+
 }
 
 void PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)

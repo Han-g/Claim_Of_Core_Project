@@ -122,11 +122,12 @@ struct OverlappedEx : public WSAOVERLAPPED {
 };
 
 
-// Client Session Info (need to contain at "session.h")
+// Client Session Info
 struct Session {
 	SOCKET socket;
 	int playerUID;
 	int sessionID;
+	int roomID;		// -1: Not Entering a Room
 
 	GameData gameDatas;
 
@@ -143,6 +144,7 @@ struct Session {
 		socket = INVALID_SOCKET;
 		playerUID = -1;
 		sessionID = -1;
+		roomID = -1;
 
 		ZeroMemory(TempBuffer, sizeof(TempBuffer));
 		ZeroMemory(&recvBuffer, sizeof(s_ringbuf));

@@ -9,9 +9,10 @@
 
 #include "logger.h"
 #include "session.h"
-#include "Database.h"
+#include "RoomManager.h"
 #include "Packet.h"
 #include "PacketProcessor.h"
+#include "Database.h"
 
 class IOCPServer {
 public:
@@ -26,6 +27,7 @@ public:
 
 	void GameFrameProtocol();
 	void PushDBLoginTry(DBData data);
+	void CreateRoom(Session* Client);
 
 private:
 	void WorkerThread();
@@ -52,6 +54,8 @@ private:
 	std::condition_variable m_DBControler;
 
 	PacketProcessor m_PacketProcessor;
+
+	RoomManager m_RoomManager;
 
 	std::vector<Session*> m_Sessions;
 	std::vector<std::thread> m_WorkerThreads;
