@@ -14,6 +14,7 @@
 #include <condition_variable>
 #include "Packet.h"
 #include "RoomManager.h"
+#include "logger.h"
 
 #include <windows.h>
 

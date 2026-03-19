@@ -30,6 +30,7 @@ private:
 	static void Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader);
 	
 	static void Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);

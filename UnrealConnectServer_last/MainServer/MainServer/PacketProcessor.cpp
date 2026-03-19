@@ -8,7 +8,12 @@ PacketProcessor::PacketProcessor()
 
 void PacketProcessor::InitHandler()
 {
+	// Test Code
+	m_FuncHanderMap[9999] = &PacketProcessor::Handle_LoginReq;
+	// (if Not used Change to Comment!)
+
 	// Bind Packet ID and Member Function
+
 	m_FuncHanderMap[PKT_C2S_LOGIN_REQ] = &PacketProcessor::Handle_LoginReq;
 }
 
@@ -32,6 +37,10 @@ void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID
 // (IOCPServer* server, Session* session, PacketReader& /*reader*/)
 // -----------------------------
 
+
+// -----------------------------
+// Game Setting Part
+// -----------------------------
 void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
 	std::wstring ID, PW;
@@ -51,14 +60,34 @@ void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, Pack
 
 void PacketProcessor::Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& /*reader*/)
 {
-	server->CreateRoom(session);
+	server->CreateRoomTry(session);
 }
 
 void PacketProcessor::Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	int roomID;
+
+	if (!reader.Read(roomID)) {
+		LOG_ERROR("[Session: %d] Failed to join at Game Room", session->sessionID);
+		ErrorCodePacket failPacket;
+		failPacket.ErrorCode = 2;
+		server->SendPacket(session->sessionID, PKT_S2C_ERROR, (char*)&failPacket, sizeof(failPacket));
+		return;
+	}
+
+	server->JoinRoomTry(session, roomID);
+}
+
+void PacketProcessor::Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
 
 }
 
+
+
+// -----------------------------
+// Game Play Logic Part
+// -----------------------------
 void PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
 

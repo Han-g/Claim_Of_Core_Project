@@ -85,6 +85,7 @@ private:
 enum PacketID {
     // ==========================================
     // Packet Name Rule
+    // 9999      : Test Code
     // 1000 ~    : Error Code
     // 0 ~ 99    : System Info (고빈도 동기화 및 시스템 브로드캐스트)
     // 100 ~ 499 : Server Packet (S2C - 서버 응답 및 이벤트 지시)
@@ -215,11 +216,16 @@ struct ErrorCodePacket {
     /*      Error Code List
     0: Unknown , 
     1: InValid ID Login Try ,
+    2: Room Error,
     */
 };
 
 struct LoginPacket {
 	std::wstring userID, userPW;
+};
+
+struct RoomPacket {
+    int roomID;
 };
 
 struct GameDataPacket {
@@ -231,16 +237,16 @@ struct MovePacket {
 
 };
 
+struct JumpPakcet {
+
+};
+
 struct AttackPacket {
 
 };
+
+struct ItemPacket {
+
+};
+
 #pragma pack(pop)
-
-/*
-// Packet ID List
-
- 0 : Connect 
- 1 : Synchronization Data
- 2 : Event Process (Move)
-
-*/

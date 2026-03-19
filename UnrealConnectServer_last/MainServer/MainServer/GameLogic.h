@@ -12,12 +12,21 @@ struct ObjectData {
 	float x, y, z;
 };
 
+struct ItemData {
+	int ObjectID;
+	e_ObjectType ObjectType;
+	float x, y, z;
+};
+
 class ObjectManager {
 public:
 	ObjectManager();
 
 private:
 	void Collision_Check();
+	void Damage_Calculation();
+	
+	// Main Client Code transplant for 
 	
 private:
 	ObjectData Data;

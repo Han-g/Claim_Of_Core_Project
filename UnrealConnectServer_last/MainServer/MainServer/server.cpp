@@ -1,5 +1,67 @@
 #include "server.h"
 
+
+// ----------------Test Func----------------
+
+void IOCPServer::TestPacketProcessor()
+{
+	LOG_INFO("====================================");
+	LOG_INFO("========== Packet Processor Test Start ==========");
+	LOG_INFO("====================================\n");
+	
+	Session dummySession;
+	dummySession.sessionID = 999;     
+	dummySession.roomID = -1;         
+	dummySession.gameDatas.x = 0.0f;  
+	dummySession.gameDatas.y = 0.0f;
+	dummySession.gameDatas.z = 0.0f;
+
+	std::vector<char> dummyPacketData;
+
+	int32_t dummyHeader = 0;
+	const char* headerPtr = reinterpret_cast<const char*>(&dummyHeader);
+	dummyPacketData.insert(dummyPacketData.end(), headerPtr, headerPtr + sizeof(int32_t));
+
+	// 문자열을 버퍼에 직렬화하는 람다 함수 (PacketReader의 규격과 일치시킴)
+	auto AppendStringToBuffer = [&dummyPacketData](const std::wstring& str) {
+		// 1. 길이를 부호 있는 정수로 캐스팅한 뒤, NULL 문자(+1)를 포함하여 음수로 만듭니다.
+		int32_t len = -(static_cast<int32_t>(str.length()) + 1);
+
+		// 길이 4바이트 삽입 (예: L"admin"이면 -6이 삽입됨)
+		const char* lenPtr = reinterpret_cast<const char*>(&len);
+		dummyPacketData.insert(dummyPacketData.end(), lenPtr, lenPtr + sizeof(int32_t));
+
+		// 2. 실제 와이드 문자열 삽입
+		int32_t realLen = -len;
+		const char* strPtr = reinterpret_cast<const char*>(str.c_str());
+		dummyPacketData.insert(dummyPacketData.end(), strPtr, strPtr + (realLen * sizeof(wchar_t)));
+	};
+
+	AppendStringToBuffer(L"admin");
+	AppendStringToBuffer(L"admin");
+
+	int TEST_PKT = 9999;
+
+	m_PacketProcessor.Process(this, &dummySession, TEST_PKT, dummyPacketData);
+
+	if (!m_DBLoginQueue.empty()) {
+		DBData queuedData = m_DBLoginQueue.back(); // 큐의 맨 뒤에 방금 넣은 데이터 확인
+
+		LOG_INFO("[Test Result] DB Queue Pushed - ID: %ls, PW: %ls",
+			queuedData.UserID.c_str(), queuedData.UserPW.c_str());
+
+		LOG_INFO("========== Login Packet Test SUCCESS ==========");
+
+		// (선택) 실제 DB 스레드가 가져가기 전에 테스트용 데이터를 지우려면 pop 처리
+		// m_DBLoginQueue.pop(); 
+	}
+	else {
+		LOG_ERROR("========== Login Packet Test FAILED ==========\n\n\n");
+	}
+}
+
+//-----------------------------------------
+
 IOCPServer::IOCPServer() : m_hIOCP(INVALID_HANDLE_VALUE), 
 m_ListenSocket(INVALID_SOCKET), m_IsRunning(false), m_MaxSessionCount(0) {}
 
@@ -43,6 +105,8 @@ bool IOCPServer::Init(int port, int maxSessionCount) {
 	if (bind(m_ListenSocket, (SOCKADDR*)&serverAddr, sizeof(serverAddr))
 		== SOCKET_ERROR) { return false; }
 	if (listen(m_ListenSocket, SOMAXCONN) == SOCKET_ERROR) { return false; }
+
+	m_RoomManager.InitManager(this);
 
 	return true;
 }
@@ -244,6 +308,18 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	}
 }
 
+void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
+	Session* session = m_Sessions[sessionIndex];
+
+	std::lock_guard<std::mutex> sendlock(session->sendLock);
+
+	if (!session->sendQueue.empty()) { session->sendQueue.pop(); }
+	if (!session->sendQueue.empty()) { SendProtocol(session); }
+	else { session->isSending = false; }
+
+	//LOG_INFO("Send Data");
+}
+
 void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len) {
 	if (sessionIndex < 0 || sessionIndex >= m_Sessions.size()) { 
 		LOG_ERROR("Session is Invalid Session");
@@ -380,25 +456,25 @@ void IOCPServer::PushDBLoginTry(DBData data)
 	m_DBControler.notify_one();
 }
 
-void IOCPServer::CreateRoom(Session* Client)
+
+
+void IOCPServer::CreateRoomTry(Session* Client)
 {
-	m_RoomManager.CreateRoom(Client);
+	m_RoomManager.CreateRoom(Client, this);
 }
 
-void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
-	Session* session = m_Sessions[sessionIndex];
-
-	std::lock_guard<std::mutex> sendlock(session->sendLock);
-
-	if (!session->sendQueue.empty()) { session->sendQueue.pop(); }
-	if (!session->sendQueue.empty()) { SendProtocol(session); }
-	else { session->isSending = false; }
-
-	//LOG_INFO("Send Data");
+void IOCPServer::JoinRoomTry(Session* Client, int roomID)
+{
+	m_RoomManager.JoinRoom(Client, roomID);
 }
+
+
 
 void IOCPServer::GameFrameProtocol() {
-	if (m_Sessions.empty()) { LOG_ERROR("Now Connected Client is not Exist!"); return; }
+	if (m_Sessions.empty()) { 
+		//LOG_ERROR("Now Connected Client is not Exist!"); 
+		return; 
+	}
 
 	std::vector<GameData> roomSnapshot;
 

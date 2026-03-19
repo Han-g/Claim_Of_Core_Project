@@ -27,7 +27,12 @@ public:
 
 	void GameFrameProtocol();
 	void PushDBLoginTry(DBData data);
-	void CreateRoom(Session* Client);
+	void CreateRoomTry(Session* Client);
+	void JoinRoomTry(Session* Client, int roomID);
+
+	// ----------------Test Func----------------
+	void TestPacketProcessor();
+	// -----------------------------------------
 
 private:
 	void WorkerThread();
