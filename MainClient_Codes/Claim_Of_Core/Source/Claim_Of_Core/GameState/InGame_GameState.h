@@ -12,6 +12,16 @@ enum class ERoundState : uint8
 	Finished  UMETA(DisplayName = "Finished")
 };
 
+UENUM(BlueprintType)
+enum class EMapPhase : uint8
+{
+	None   UMETA(DisplayName = "None"),
+	Phase1 UMETA(DisplayName = "Phase 1"),
+	Phase2 UMETA(DisplayName = "Phase 2"),
+	Phase3 UMETA(DisplayName = "Phase 3"),
+	End    UMETA(DisplayName = "End")
+};
+
 UCLASS()
 class CLAIM_OF_CORE_API AInGame_GameState : public AGameStateBase
 {
@@ -33,6 +43,30 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
 	int32 GameTime;
 
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Phase")
+	EMapPhase CurrentPhase;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Phase")
+	int32 Phase1Time;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Phase")
+	int32 Phase2Time;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Phase")
+	int32 Phase3Time;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
+	int32 CurrentReadyTime;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
+	int32 CurrentGameTime;
+
+	UFUNCTION(BlueprintCallable, Category = "Phase")
+	void UpdatePhase();
+
+	UFUNCTION(BlueprintPure, Category = "Phase")
+	int32 GetElapsedPlayTime() const;
+
 	void StartReady();
 	void StartRound();
 	void EndRound();
@@ -40,8 +74,6 @@ public:
 protected:
 	FTimerHandle TimerHandle_Countdown;
 
-	int32 CurrentReadyTime;
-	int32 CurrentGameTime;
 
 	void CountdownTick();
 
