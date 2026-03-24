@@ -21,7 +21,7 @@ AIceFloorTile::AIceFloorTile()
 	TriggerBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	TriggerBox->SetBoxExtent(FVector(100.f, 100.f, 20.f));
 
-	bFallWhenBroken = false;
+	bFallWhenBroken = true;
 }
 
 void AIceFloorTile::BeginPlay()
@@ -77,6 +77,8 @@ void AIceFloorTile::BreakFloor()
 
 	if (bFallWhenBroken)
 	{
+		FloorMesh->SetMobility(EComponentMobility::Movable);
+		FloorMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		FloorMesh->SetSimulatePhysics(true);
 		FloorMesh->SetEnableGravity(true);
 	}

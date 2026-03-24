@@ -61,6 +61,12 @@ class AMyCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UTextRenderComponent* HPTextComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* RoleTextComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* DeathUITextComponent;
+
 protected:
 	// Enhanced Input Actions
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -231,9 +237,78 @@ private:
 	bool bSpectateUpHeld = false;    // Q
 	bool bSpectateDownHeld = false;  // E
 
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	float SpectateInputUnlockDelay = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	float SpectatingUITextDuration = 2.0f;
+
+	FTimerHandle SpectatingUIHideTimerHandle;
+	FTimerHandle SpectateInputUnlockTimerHandle;
+
+	bool bCorpseHidden = false;
+	bool bDeathSequenceLocked = false;
+	bool bCanSpectate = false;
+	bool bAwaitingSpectateInput = false;
+	bool bSpectateInputUnlocked = false;
+
+	// Low HP effect
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	int32 LowHPThreshold = 20;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "LowHP")
+	bool bLowHPEffectActive = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPostProcessBlendWeight = 0.45f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPVignetteIntensity = 0.6f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPSaturation = 0.55f;
+
+	// Low HP heartbeat pulse
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseSpeed = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseVignetteAmplitude = 0.20f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseBlendAmplitude = 0.12f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	FLinearColor LowHPSceneTint = FLinearColor(1.18f, 0.78f, 0.78f, 1.0f);
+
+	// Death camera pullback during 3 sec lock
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
+	float DeathCameraTargetArmLength = 650.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
+	float DeathCameraInterpSpeed = 0.8f;
+
+	// Death camera shake
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeDuration = 0.30f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeAmplitude = 12.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeFrequency = 32.0f;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DeathCameraShake")
+	bool bDeathCameraShaking = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DeathCameraShake")
+	float DeathShakeElapsed = 0.0f;
+
 	// 초기 트랜스폼 캐시(래그돌 복구용)
 	FTransform InitialMeshRelativeTransform = FTransform::Identity;
 	FTransform InitialCameraBoomRelativeTransform = FTransform::Identity;
+	float InitialCameraBoomArmLength = 4000.f;
+	FVector InitialCameraBoomSocketOffset = FVector::ZeroVector;
 	
 	// Input helpers
 	void SpectateUpPressed();
@@ -244,11 +319,10 @@ private:
 	void SpectateMove(float Right, float Forward);
 	void SpectateMoveVertical(float Axis, float DeltaTime);
 
-	// R키 부활
 	void ResurrectPressed();
-
-	// P키 역할군 변경
 	void CycleRolePressed();
+	void SpectateConfirmPressed();
+	void SelfDamagePressed();
 
 	// Server RPCs
 	UFUNCTION(Server, Reliable)
@@ -290,6 +364,28 @@ private:
 	void ApplyCharacterState();                          // apply on both server/clients
 	void ApplyDeadState();
 	void ApplyAliveState();
+
+	void EnterDeathWaitingState();
+	void EnterSpectateMode();
+	void UnlockSpectateInput();
+
+	void HideCorpse();
+	void ShowCorpse();
+
+	void UpdateLocalPostProcessEffects();
+	void UpdateLowHPEffectState();
+	void UpdateLowHPPulseEffect(float DeltaTime);
+
+	void StartDeathCameraShake();
+	void UpdateDeathCameraShake(float DeltaTime);
+	void StopDeathCameraShake();
+
+	void SetDeathVisualsEnabled(bool bEnabled);
+	void SetPlayerControlLocked(bool bLocked);
+
+	void UpdateDeathUI();
+	void ShowSpectatingUI();
+	void HideDeathUI();
 
 	// PlayerStart로 리스폰(서있는 상태)
 	void RespawnAtPlayerStart();

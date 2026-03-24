@@ -8,8 +8,8 @@ AInGame_GameState::AInGame_GameState()
 	ReadyTime = 3;
 
 	CurrentPhase = EMapPhase::None;
-	Phase1Time = 40;
-	Phase2Time = 60;
+	Phase1Time = 5;
+	Phase2Time = 10;
 	Phase3Time = 20;
 	GameTime = Phase1Time + Phase2Time + Phase3Time;
 

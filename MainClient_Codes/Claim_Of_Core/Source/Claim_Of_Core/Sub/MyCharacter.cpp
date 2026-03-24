@@ -392,6 +392,9 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	
 	// P키 역할군 변경
 	PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMyCharacter::CycleRolePressed);
+
+	PlayerInputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this, &AMyCharacter::SpectateConfirmPressed);
+	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AMyCharacter::SelfDamagePressed);
 }
 
 void AMyCharacter::Move(const FInputActionValue& Value)
@@ -454,21 +457,361 @@ void AMyCharacter::Jump()
 
 	Super::Jump();
 
-	/*
-	// Apply jump damage only when jump is considered "pressed" (server-authoritative)
-	if (bPressedJump)
+}
+
+
+void AMyCharacter::SelfDamagePressed()
+{
+	if (!IsLocallyControlled())
 	{
-		if (HasAuthority())
+		return;
+	}
+
+	if (IsDead() || bDeathSequenceLocked)
+	{
+		return;
+	}
+
+	ApplyDamage(10);
+}
+
+void AMyCharacter::UpdateLocalPostProcessEffects()
+{
+	if (!IsLocallyControlled() || !FollowCamera)
+	{
+		return;
+	}
+
+	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = false;
+	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = false;
+	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = false;
+	FollowCamera->PostProcessBlendWeight = 0.0f;
+
+	if (bDeathSequenceLocked)
+	{
+		FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
+		FollowCamera->PostProcessBlendWeight = 1.0f;
+		FollowCamera->PostProcessSettings.ColorSaturation = FVector4(0.f, 0.f, 0.f, 1.f);
+		FollowCamera->PostProcessSettings.SceneColorTint = FLinearColor::White;
+		return;
+	}
+
+	if (bLowHPEffectActive)
+	{
+		FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
+		FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
+		FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
+
+		FollowCamera->PostProcessBlendWeight = LowHPPostProcessBlendWeight;
+		FollowCamera->PostProcessSettings.ColorSaturation =
+			FVector4(LowHPSaturation, LowHPSaturation, LowHPSaturation, 1.f);
+
+		FollowCamera->PostProcessSettings.VignetteIntensity = LowHPVignetteIntensity;
+		FollowCamera->PostProcessSettings.SceneColorTint = LowHPSceneTint;
+		return;
+	}
+
+	FollowCamera->PostProcessSettings.ColorSaturation = FVector4(1.f, 1.f, 1.f, 1.f);
+	FollowCamera->PostProcessSettings.VignetteIntensity = 0.4f;
+	FollowCamera->PostProcessSettings.SceneColorTint = FLinearColor::White;
+}
+
+void AMyCharacter::UpdateLowHPEffectState()
+{
+	const bool bShouldBeLowHP =
+		(CharacterState == ERecCharacterState::Alive) &&
+		(CurrentHP > 0) &&
+		(CurrentHP <= LowHPThreshold);
+
+	bLowHPEffectActive = bShouldBeLowHP;
+	UpdateLocalPostProcessEffects();
+}
+
+void AMyCharacter::UpdateLowHPPulseEffect(float DeltaTime)
+{
+	if (!IsLocallyControlled() || !FollowCamera)
+	{
+		return;
+	}
+
+	if (bDeathSequenceLocked)
+	{
+		return;
+	}
+
+	if (!bLowHPEffectActive)
+	{
+		return;
+	}
+
+	const float Time = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	const float Pulse01 = 0.5f + 0.5f * FMath::Sin(Time * LowHPPulseSpeed * 2.0f * PI);
+
+	const float DynamicBlend =
+		LowHPPostProcessBlendWeight + (Pulse01 * LowHPPulseBlendAmplitude);
+
+	const float DynamicVignette =
+		LowHPVignetteIntensity + (Pulse01 * LowHPPulseVignetteAmplitude);
+
+	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
+	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
+	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
+
+	FollowCamera->PostProcessBlendWeight = DynamicBlend;
+	FollowCamera->PostProcessSettings.ColorSaturation =
+		FVector4(LowHPSaturation, LowHPSaturation, LowHPSaturation, 1.f);
+
+	FollowCamera->PostProcessSettings.VignetteIntensity = DynamicVignette;
+	FollowCamera->PostProcessSettings.SceneColorTint = LowHPSceneTint;
+}
+
+void AMyCharacter::StartDeathCameraShake()
+{
+	if (!IsLocallyControlled() || !CameraBoom)
+	{
+		return;
+	}
+
+	bDeathCameraShaking = true;
+	DeathShakeElapsed = 0.0f;
+}
+
+void AMyCharacter::UpdateDeathCameraShake(float DeltaTime)
+{
+	if (!CameraBoom)
+	{
+		return;
+	}
+
+	if (!bDeathCameraShaking)
+	{
+		return;
+	}
+
+	DeathShakeElapsed += DeltaTime;
+
+	const float Alpha = DeathShakeElapsed / FMath::Max(DeathShakeDuration, KINDA_SMALL_NUMBER);
+	if (Alpha >= 1.0f)
+	{
+		StopDeathCameraShake();
+		return;
+	}
+
+	const float Damping = 1.0f - Alpha;
+	const float Time = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+
+	const float OffsetY = FMath::Sin(Time * DeathShakeFrequency) * DeathShakeAmplitude * Damping;
+	const float OffsetZ = FMath::Cos(Time * DeathShakeFrequency * 1.3f) * (DeathShakeAmplitude * 0.6f) * Damping;
+
+	CameraBoom->SocketOffset = InitialCameraBoomSocketOffset + FVector(0.f, OffsetY, OffsetZ);
+}
+
+void AMyCharacter::StopDeathCameraShake()
+{
+	bDeathCameraShaking = false;
+	DeathShakeElapsed = 0.0f;
+
+	if (CameraBoom)
+	{
+		CameraBoom->SocketOffset = InitialCameraBoomSocketOffset;
+	}
+}
+
+void AMyCharacter::SetDeathVisualsEnabled(bool bEnabled)
+{
+	bDeathSequenceLocked = bEnabled;
+	UpdateLocalPostProcessEffects();
+}
+
+void AMyCharacter::SetPlayerControlLocked(bool bLocked)
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->SetIgnoreMoveInput(bLocked);
+		PC->SetIgnoreLookInput(bLocked);
+	}
+}
+
+void AMyCharacter::UpdateDeathUI()
+{
+	if (!IsLocallyControlled() || !DeathUITextComponent)
+	{
+		return;
+	}
+
+	DeathUITextComponent->SetHiddenInGame(false);
+	DeathUITextComponent->SetVisibility(true);
+
+	if (bAwaitingSpectateInput)
+	{
+		if (bSpectateInputUnlocked)
 		{
-			ApplyDamage(10);
+			DeathUITextComponent->SetText(FText::FromString(TEXT("YOU DIED\nPress Space")));
+		}
+		else
+		{
+			DeathUITextComponent->SetText(FText::FromString(TEXT("YOU DIED")));
 		}
 	}
-	*/
+	else if (bCanSpectate)
+	{
+		DeathUITextComponent->SetText(FText::FromString(TEXT("SPECTATING")));
+	}
+	else
+	{
+		DeathUITextComponent->SetText(FText::FromString(TEXT("YOU DIED")));
+	}
+}
+
+void AMyCharacter::ShowSpectatingUI()
+{
+	UpdateDeathUI();
+
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(SpectatingUIHideTimerHandle);
+		GetWorldTimerManager().SetTimer(
+			SpectatingUIHideTimerHandle,
+			this,
+			&AMyCharacter::HideDeathUI,
+			SpectatingUITextDuration,
+			false
+		);
+	}
+}
+
+void AMyCharacter::HideDeathUI()
+{
+	if (!DeathUITextComponent)
+	{
+		return;
+	}
+
+	DeathUITextComponent->SetText(FText::GetEmpty());
+	DeathUITextComponent->SetVisibility(false);
+	DeathUITextComponent->SetHiddenInGame(true);
+}
+
+void AMyCharacter::ShowCorpse()
+{
+	bCorpseHidden = false;
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetVisibility(true, true);
+		MeshComp->SetHiddenInGame(false, true);
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	}
+
+	if (HPTextComponent)
+	{
+		HPTextComponent->SetVisibility(true);
+		HPTextComponent->SetHiddenInGame(false);
+	}
+}
+
+void AMyCharacter::HideCorpse()
+{
+	if (!IsDead() || bCorpseHidden)
+	{
+		return;
+	}
+
+	bCorpseHidden = true;
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetAllBodiesSimulatePhysics(false);
+		MeshComp->SetSimulatePhysics(false);
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		MeshComp->SetVisibility(false, true);
+		MeshComp->SetHiddenInGame(true, true);
+	}
+
+	if (HPTextComponent)
+	{
+		HPTextComponent->SetVisibility(false);
+		HPTextComponent->SetHiddenInGame(true);
+	}
+
+}
+
+void AMyCharacter::EnterDeathWaitingState()
+{
+	bCanSpectate = false;
+	bAwaitingSpectateInput = true;
+	bSpectateInputUnlocked = false;
+
+	SetDeathVisualsEnabled(true);
+	SetPlayerControlLocked(true);
+	UpdateDeathUI();
+
+	if (CameraBoom && !bCameraDetached)
+	{
+		CameraBoom->TargetArmLength = InitialCameraBoomArmLength;
+	}
+
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(SpectateInputUnlockTimerHandle);
+		GetWorldTimerManager().SetTimer(
+			SpectateInputUnlockTimerHandle,
+			this,
+			&AMyCharacter::UnlockSpectateInput,
+			SpectateInputUnlockDelay,
+			false
+		);
+	}
+}
+
+void AMyCharacter::UnlockSpectateInput()
+{
+	if (!IsDead() || !bAwaitingSpectateInput)
+	{
+		return;
+	}
+
+	bSpectateInputUnlocked = true;
+	UpdateDeathUI();
+}
+
+void AMyCharacter::EnterSpectateMode()
+{
+	if (!IsDead() || !bAwaitingSpectateInput || !bSpectateInputUnlocked)
+	{
+		return;
+	}
+
+	bCanSpectate = true;
+	bAwaitingSpectateInput = false;
+
+	HideCorpse();
+
+	if (IsLocallyControlled())
+	{
+		SetDeathVisualsEnabled(false);
+		SetPlayerControlLocked(false);
+
+		if (CameraBoom && !bCameraDetached)
+		{
+			CameraBoom->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			bCameraDetached = true;
+		}
+
+		ShowSpectatingUI();
+	}
 }
 
 void AMyCharacter::ApplyDeadState()
 {
 	if (!IsDead()) return;
+
+	ShowCorpse();
 
 	// Stop character movement
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -494,40 +837,36 @@ void AMyCharacter::ApplyDeadState()
 		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
-	// Local: detach camera boom for free movement
-	if (IsLocallyControlled())
-	{
-		if (APlayerController* PC = Cast<APlayerController>(GetController()))
-		{
-			PC->SetIgnoreMoveInput(false);
-			PC->SetIgnoreLookInput(false);
-		}
-
-		if (CameraBoom && !bCameraDetached)
-		{
-			CameraBoom->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-			bCameraDetached = true;
-		}
-	}
+	StartDeathCameraShake();
+	EnterDeathWaitingState();
 }
 
 void AMyCharacter::ApplyAliveState()
 {
-	// 관전 키 상태 초기화
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(SpectatingUIHideTimerHandle);
+		GetWorldTimerManager().ClearTimer(SpectateInputUnlockTimerHandle);
+	}
+
 	bSpectateUpHeld = false;
 	bSpectateDownHeld = false;
+	bCanSpectate = false;
+	bAwaitingSpectateInput = false;
+	bSpectateInputUnlocked = false;
+	bDeathSequenceLocked = false;
+
+	ShowCorpse();
 
 	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
 		MeshComp->SetAllBodiesSimulatePhysics(false);
 		MeshComp->SetSimulatePhysics(false);
-
 		MeshComp->bBlendPhysics = false;
 		MeshComp->SetAllBodiesPhysicsBlendWeight(0.f);
-
 		MeshComp->SetRelativeTransform(InitialMeshRelativeTransform);
-
 		MeshComp->SetCollisionProfileName(TEXT("CharacterMesh"));
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
 
 	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
@@ -543,15 +882,31 @@ void AMyCharacter::ApplyAliveState()
 	}
 
 	ApplyRoleStats();
+	UpdateHPText();
+
+	StopDeathCameraShake();
+
+	if (CameraBoom)
+	{
+		CameraBoom->TargetArmLength = InitialCameraBoomArmLength;
+		CameraBoom->SocketOffset = InitialCameraBoomSocketOffset;
+	}
 
 	if (IsLocallyControlled())
 	{
+		SetPlayerControlLocked(false);
+		HideDeathUI();
+
 		if (CameraBoom && bCameraDetached)
 		{
 			CameraBoom->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 			CameraBoom->SetRelativeTransform(InitialCameraBoomRelativeTransform);
+			CameraBoom->TargetArmLength = InitialCameraBoomArmLength;
+			CameraBoom->SocketOffset = InitialCameraBoomSocketOffset;
 			bCameraDetached = false;
 		}
+
+		UpdateLowHPEffectState();
 	}
 }
 
@@ -642,6 +997,38 @@ void AMyCharacter::CycleRolePressed()
 	}
 }
 
+void AMyCharacter::SpectateConfirmPressed()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (!IsDead())
+	{
+		return;
+	}
+
+	if (!bAwaitingSpectateInput)
+	{
+		return;
+	}
+
+	if (!bSpectateInputUnlocked)
+	{
+		return;
+	}
+
+	EnterSpectateMode();
+}
+
+
+
+////////
+////////
+////////
+////////
+////////
 // Attack function
 
 void AMyCharacter::Attack()
