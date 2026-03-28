@@ -106,6 +106,7 @@ bool IOCPServer::Init(int port, int maxSessionCount) {
 		== SOCKET_ERROR) { return false; }
 	if (listen(m_ListenSocket, SOMAXCONN) == SOCKET_ERROR) { return false; }
 
+	m_SessionManager.Init();
 	m_RoomManager.InitManager(this);
 
 	return true;
@@ -139,16 +140,16 @@ void IOCPServer::AcceptThread() {
 		if (clientSocket == INVALID_SOCKET) { continue; }
 
 		// Operate Session with Lock
-		std::lock_guard<std::mutex> lock(m_SessionLock);
+		Session* newSession = m_SessionManager.AcceptNewClient(clientSocket);
 
 		// Check Session connected User
-		if (m_Sessions.size() >= m_MaxSessionCount) {
+		if (newSession == nullptr) {
 			LOG_ERROR("User can't connect by Session is full!");
 			closesocket(clientSocket);
 			continue;
 		}
 
-		OnConnect(clientSocket, clientAddr);
+		OnConnect(newSession, clientAddr);
 	}
 }
 
@@ -191,23 +192,21 @@ void IOCPServer::WorkerThread() {
 	}
 }
 
-void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
-	// Create Session
-	Session* newSession = new Session();
-	newSession->socket = clientSocket;
-	newSession->sessionID = static_cast<int> (m_Sessions.size());
+void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
+	//// Create Session
+	//Session* newSession = new Session();
+	//newSession->socket = clientSocket;
+	//newSession->sessionID = static_cast<int> (m_Sessions.size());
 
-	// Init new Game Data
-	GameData newData;
-	newData.isConnected = true;
-	newData.x = 0; newData.y = 0; newData.z = 0;
+	//// Init new Game Data
+	//GameData newData;
+	//newData.isConnected = true;
+	//newData.x = 0; newData.y = 0; newData.z = 0;
 
-	newSession->gameDatas = newData;
+	//newSession->gameDatas = newData;
 
 	// Socket connect with IOCP handle
-	CreateIoCompletionPort((HANDLE)clientSocket, m_hIOCP, (ULONG_PTR)newSession, 0);
-
-	m_Sessions.push_back(newSession);
+	CreateIoCompletionPort((HANDLE)newSession->socket, m_hIOCP, (ULONG_PTR)newSession, 0);
 
 	char clientIP[32];
 	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, sizeof(clientIP));
@@ -230,12 +229,12 @@ void IOCPServer::OnConnect(SOCKET clientSocket, SOCKADDR_IN clientAddr) {
 	ZeroMemory(&newSession->recvOverlapped, sizeof(WSAOVERLAPPED));
 	newSession->recvOverlapped.type = IO_OPERATION::RECV;
 
-	WSARecv(clientSocket, &wsaBuf, 1, &recvBytes, &flags, (LPWSAOVERLAPPED)&newSession->recvOverlapped, nullptr);
+	WSARecv(newSession->socket, &wsaBuf, 1, &recvBytes, &flags, (LPWSAOVERLAPPED)&newSession->recvOverlapped, nullptr);
 }
 
 void IOCPServer::OnDisconnect(int sessionIndex) {
 	// Deque at vector
-	for (std::vector<Session*>::iterator it = m_Sessions.begin(); it != m_Sessions.end();) {
+	/*for (std::vector<Session*>::iterator it = m_Sessions.begin(); it != m_Sessions.end();) {
 		Session* delSession = *it;
 		
 		if ((*it)->sessionID == sessionIndex) {
@@ -244,12 +243,13 @@ void IOCPServer::OnDisconnect(int sessionIndex) {
 			break;
 		}
 		else { ++it; }
-	}
+	}*/
+	m_SessionManager.DisconnectClient(sessionIndex);
 }
 
 void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	// need mapping system between sessionID and Index
-	Session* recvSession = m_Sessions[sessionIndex];
+	Session* recvSession = m_SessionManager.GetSession(sessionIndex);
 
 	// Recv Data Progressing
 	//LOG_INFO("Recv Data");
@@ -309,7 +309,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 }
 
 void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
-	Session* session = m_Sessions[sessionIndex];
+	Session* session = m_SessionManager.GetSession(sessionIndex);
 
 	std::lock_guard<std::mutex> sendlock(session->sendLock);
 
@@ -321,12 +321,11 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 }
 
 void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len) {
-	if (sessionIndex < 0 || sessionIndex >= m_Sessions.size()) { 
+	Session* session = m_SessionManager.GetSession(sessionIndex);
+	if (session == nullptr) {
 		LOG_ERROR("Session is Invalid Session");
 		return; 
 	}
-
-	Session* session = m_Sessions[sessionIndex];
 
 	PacketHeader header;
 	header.packet_ID = (unsigned int)packetID;
@@ -393,7 +392,7 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 		return;
 	}
 
-	Session* session = m_Sessions[sessionIndex];
+	Session* session = m_SessionManager.GetSession(sessionIndex);
 	if (session == nullptr) { return; }
 
 	m_PacketProcessor.Process(this, session, packetID, data);
@@ -418,35 +417,67 @@ void IOCPServer::DBWorkerThread()
 			m_DBLoginQueue.pop();
 		}
 
-		// Check Valid Login Data
+
 		int userUID = -1;
+		int newAccountUID = -1;
 
-		if (m_DB.CheckLogin(data.UserID, data.UserPW, userUID)) {
-			LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
-			
-			// Init Game Data and Assign UID to Client
-			GameDataPacket dataPacket;
-			dataPacket.Session_ID = data.SessionIndex;
-			GameData newData;
-			newData.userUID = userUID;
-			dataPacket.data = newData;
+		switch (data.TaskType)
+		{
+		case EDBTaskType::LOGIN:
+			// Check Valid Login Data
+			if (m_DB.CheckLogin(data.UserID, data.UserPW, userUID)) {
+				LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
 
-			SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
+				// Init Game Data and Assign UID to Client
+				GameDataPacket dataPacket;
+				dataPacket.Session_ID = data.SessionIndex;
+				GameData newData;
+				newData.userUID = userUID;
+				dataPacket.data = newData;
+
+				// Change session state
+				m_SessionManager.SetState(data.SessionIndex, ESessionState::LOBBY);
+
+				SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
+				BroadcastRoomList();
+			}
+
+			else {
+				LOG_INFO("[%d] Session Login Failed!", data.SessionIndex);
+
+				ErrorCodePacket failPacket;
+				failPacket.ErrorCode = 1;
+				SendPacket(data.SessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
+			}
+
+			break;
+		case EDBTaskType::REGISTER:
+			if (m_DB.CreateAccount(data.UserID, data.UserPW)) {
+				LOG_INFO("[%d] Session Register Success! [New UID: %d]", data.SessionIndex, newAccountUID);
+
+				ErrorCodePacket successPacket;
+				successPacket.ErrorCode = 10;
+				SendPacket(data.SessionIndex, PKT_S2C_REGISTER_OK, (char*)&successPacket, sizeof(successPacket));
+			}
+			else {
+				LOG_INFO("[%d] Session Register Failed! (Duplicate ID)", data.SessionIndex);
+
+				ErrorCodePacket failPacket;
+				failPacket.ErrorCode = 2;
+				SendPacket(data.SessionIndex, PKT_S2C_REGISTER_DENY, (char*)&failPacket, sizeof(failPacket));
+			}
+
+			break;
+		default:
+			break;
 		}
-
-		else {
-			LOG_INFO("[%d] Session Login Failed!", data.SessionIndex);
-
-			ErrorCodePacket failPacket;
-			failPacket.ErrorCode = 1;
-			SendPacket(data.SessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
-		}
+		
 	}
 
 	LOG_INFO("DB is Disconnected!");
 }
 
-void IOCPServer::PushDBLoginTry(DBData data)
+void IOCPServer::PushDBTask(DBData data)
 {
 	{
 		std::lock_guard<std::mutex> lock(m_DBMutex);
@@ -460,7 +491,7 @@ void IOCPServer::PushDBLoginTry(DBData data)
 
 void IOCPServer::CreateRoomTry(Session* Client)
 {
-	m_RoomManager.CreateRoom(Client, this);
+	m_RoomManager.CreateRoom(Client);
 }
 
 void IOCPServer::JoinRoomTry(Session* Client, int roomID)
@@ -468,9 +499,39 @@ void IOCPServer::JoinRoomTry(Session* Client, int roomID)
 	m_RoomManager.JoinRoom(Client, roomID);
 }
 
+void IOCPServer::BroadcastRoomList()
+{
+	std::vector<RoomPacket> roomList = m_RoomManager.GetRoomList();
+	int roomCount = (int)roomList.size();
+
+	// Packet Serializetion
+	int dataSize = sizeof(int) + (roomCount * sizeof(RoomPacket));
+	std::vector<char> sendBuffer(dataSize);
+
+	int offset = 0;
+	memcpy(sendBuffer.data() + offset, &roomCount, sizeof(int));
+	offset += sizeof(int);
+
+	if (roomCount > 0) {
+		memcpy(sendBuffer.data() + offset, roomList.data(), roomCount * sizeof(RoomPacket));
+	}
+
+	// Only Sent to LOBBY State Clients
+	for (int i = 0; i < m_MaxSessionCount; ++i) {
+		Session* session = m_SessionManager.GetSession(i);
+
+		if (session != nullptr && session->now_state == ESessionState::LOBBY) {
+			SendPacket(session->sessionID, PKT_S2C_ROOM_UPDATE, sendBuffer.data(), dataSize);
+		}
+	}
+
+	LOG_INFO("Send Update Room List Packets!");
+}
+
 
 
 void IOCPServer::GameFrameProtocol() {
+	/*
 	if (m_Sessions.empty()) { 
 		//LOG_ERROR("Now Connected Client is not Exist!"); 
 		return; 
@@ -501,4 +562,6 @@ void IOCPServer::GameFrameProtocol() {
 			SendPacket(m_Sessions[i]->sessionID, PKT_S2C_SNAPSHOT_NOTICE, sendBuffer.data(), dataSize);
 		}
 	}
+	*/
+	m_RoomManager.UpdateRooms();
 }

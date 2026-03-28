@@ -11,8 +11,23 @@
 
 #include <string>
 #include <iostream>
+#include <regex>
 
 #pragma comment(lib, "odbc32.lib")
+
+enum class EDBTaskType
+{
+    LOGIN,
+    REGISTER
+};
+
+struct DBData
+{
+    int SessionIndex;
+    std::wstring UserID;
+    std::wstring UserPW;
+    EDBTaskType TaskType;
+};
 
 class DBHelper
 {
@@ -28,6 +43,8 @@ public:
 
     // 간단한 로그인 확인 함수 (예시)
     bool CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID);
+    bool CreateAccount(const std::wstring& userID, const std::wstring& userPW);
+    bool IsValidAccountString(const std::wstring& inputStr);
 
 private:
     // 에러 발생 시 로그 찍는 함수

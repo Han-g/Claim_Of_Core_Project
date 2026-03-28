@@ -31,7 +31,7 @@ bool Room::addMember(Session* member)
     return true;
 }
 
-void Room::LeaveRoom(int clientID)
+void Room::RemoveMember(int clientID)
 {
     std::lock_guard<std::mutex> lock(m_RoomLock);
 
@@ -63,6 +63,10 @@ void Room::MatchMaking()
 bool Room::BroadcastGameDatas()
 {
     std::lock_guard<std::mutex> lock(m_RoomLock);
+
+    if (m_State != ERoomState::PLAYING) {
+        return true;
+    }
 
     // Get Game Snapshot Data
     std::vector<GameData> roomSnapshot;
@@ -112,6 +116,11 @@ bool Room::BroadcastGameDatas()
     return true;
 }
 
+int Room::GetCurrentMemberCount()
+{
+    return m_Members.size();
+}
+
 
 
 
@@ -135,25 +144,60 @@ bool RoomManager::CreateRoom(Session* client) {
         m_Rooms[newRoomID] = newRoom;
     }
 
+    //m_Server->GetSessionManager()->SetState(client->sessionID, ESessionState::ROOM);
+    client->roomID = newRoomID;
+
+    //m_Server->BroadcastRoomList();
+    JoinRoom(client, client->roomID);
     return true;
 }
 
-bool RoomManager::RemoveRoom(int roomID)
+void RoomManager::DestroyRoom(int roomID)
 {
     std::lock_guard<std::mutex> lock(m_ManagerLock);
 
     auto it = m_Rooms.find(roomID);
-    if (it == m_Rooms.end()) { LOG_ERROR("Room [%d] does not exist.", roomID); return false; }
+    if (it != m_Rooms.end()) {
+        Room* room = it->second;
 
-    Room* targetRoom = it->second;
-    if (!targetRoom->IsEmpty()) { LOG_ERROR("GameRoom still exist Player"); return false; }
+        delete room;
+        m_Rooms.erase(it);
+        --m_RoomCounter;
 
-    // Room Remove Logic
-    delete targetRoom;
-    m_Rooms.erase(it);
+        LOG_INFO("Room [%d] is Empty and Destroyed by Server.", roomID);
+    }
 
-    --m_RoomCounter;
-    return true;
+    m_Server->BroadcastRoomList();
+}
+
+void RoomManager::LeaveRoom(Session* client)
+{
+    if (client == nullptr || client->roomID == -1) { return; }
+
+    int targetRoomID = client->roomID;
+
+    {
+        std::lock_guard<std::mutex> lock(m_ManagerLock);
+
+        auto it = m_Rooms.find(targetRoomID);
+        if (it != m_Rooms.end()) {
+            Room* room = it->second;
+
+            room->RemoveMember(client->sessionID);
+
+            m_Server->GetSessionManager()->SetState(client->sessionID, ESessionState::LOBBY);
+            client->roomID = -1;
+
+            if (room->IsEmpty()) {
+                delete room;
+                m_Rooms.erase(it);
+                --m_RoomCounter;
+                LOG_INFO("Room [%d] is Empty and Destroyed.", targetRoomID);
+            }
+        }
+    }
+
+    m_Server->BroadcastRoomList();
 }
 
 bool RoomManager::JoinRoom(Session* client, int roomID)
@@ -165,6 +209,12 @@ bool RoomManager::JoinRoom(Session* client, int roomID)
     return false;
     }
 
+    m_Server->GetSessionManager()->SetState(client->sessionID, ESessionState::ROOM);
+    ErrorCodePacket enterPacket;
+    enterPacket.ErrorCode = 11;
+    m_Server->SendPacket(client->sessionID, PKT_S2C_ROOM_ENTER, (char*)&enterPacket, sizeof(enterPacket));
+   
+    m_Server->BroadcastRoomList();
     return true;
 }
 
@@ -181,9 +231,32 @@ void RoomManager::UpdateRooms()
 
     for (Room* room : activeRooms) {
         if (!room->BroadcastGameDatas()) {
-            RemoveRoom(room->retID());
+            DestroyRoom(room->GetID());
         }
     }
+}
+
+std::vector<RoomPacket> RoomManager::GetRoomList()
+{
+    std::lock_guard<std::mutex> lock(m_ManagerLock);
+    std::vector<RoomPacket> roomList;
+
+    for (auto& pair : m_Rooms) {
+        Room* room = pair.second;
+        RoomPacket info;
+
+        if (room->GetState() != ERoomState::WAITING) continue;
+
+        info.roomID = room->GetID();
+
+        std::wstring title = L"Game Room " + std::to_wstring(info.roomID);
+        wcscpy_s(info.RoomName, sizeof(info.RoomName) / sizeof(WCHAR), title.c_str());
+
+        info.CurrentPlayers = room->GetCurrentMemberCount();
+
+        roomList.push_back(info);
+    }
+    return roomList;
 }
 
 

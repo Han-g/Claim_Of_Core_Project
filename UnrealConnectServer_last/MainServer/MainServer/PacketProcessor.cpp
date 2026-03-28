@@ -15,6 +15,10 @@ void PacketProcessor::InitHandler()
 	// Bind Packet ID and Member Function
 
 	m_FuncHanderMap[PKT_C2S_LOGIN_REQ] = &PacketProcessor::Handle_LoginReq;
+	m_FuncHanderMap[PKT_C2S_REGISTER_REQ] = &PacketProcessor::Handle_RegisterReq;
+
+	m_FuncHanderMap[PKT_C2S_ROOM_CREATE_REQ] = &PacketProcessor::Handle_Room_CreateReq;
+	m_FuncHanderMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
 }
 
 void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data)
@@ -55,7 +59,24 @@ void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, Pack
 
 	LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
 
-	server->PushDBLoginTry({ session->sessionID, ID, PW });
+	server->PushDBTask({ session->sessionID, ID, PW, EDBTaskType::LOGIN });
+}
+
+void PacketProcessor::Handle_RegisterReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	std::wstring ID, PW;
+
+	if (!reader.ReadString(ID) || !reader.ReadString(PW)) {
+		LOG_ERROR("[Session: %d] Failed to read Register Infomation", session->sessionID);
+		ErrorCodePacket failPacket;
+		failPacket.ErrorCode = 1;
+		server->SendPacket(session->sessionID, PKT_S2C_REGISTER_DENY, (char*)&failPacket, sizeof(failPacket));
+		return;
+	}
+
+	LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
+
+	server->PushDBTask({ session->sessionID, ID, PW, EDBTaskType::REGISTER });
 }
 
 void PacketProcessor::Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& /*reader*/)

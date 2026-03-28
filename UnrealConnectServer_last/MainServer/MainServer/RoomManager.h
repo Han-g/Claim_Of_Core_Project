@@ -5,9 +5,10 @@
 #include <mutex>
 
 #include "GameLogic.h"
+#include "Packet.h"
 
 #define MaxMember 6
-#define MaxRoom 100
+#define MaxRoom 500
 
 class IOCPServer;
 struct Session;
@@ -24,16 +25,18 @@ public:
 	void InitRoom(int id, Session* firstMember, IOCPServer* server);
 
 	bool IsEmpty();
-	int retID() const { return m_roomID; }
+	int GetID() const { return m_roomID; }
+	ERoomState GetState() const { return m_State; }
 
 	bool addMember(Session* member);
-	void LeaveRoom(int clientID);
+	void RemoveMember(int clientID);
 
 	void SelectStage();
 	void LoadStage();
 	void MatchMaking();
 
 	bool BroadcastGameDatas();
+	int GetCurrentMemberCount();
 
 private:
 	int m_roomID;
@@ -55,10 +58,12 @@ public:
 	void InitManager(IOCPServer* server) { m_Server = server; }
 
 	bool CreateRoom(Session* client);
-	bool RemoveRoom(int roomID);
+	void LeaveRoom(Session* client);
+	void DestroyRoom(int roomID);
 	bool JoinRoom(Session* client, int roomID);
 
 	void UpdateRooms();
+	std::vector<RoomPacket> GetRoomList();
 
 private:
 	int assignRoomID();

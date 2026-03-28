@@ -122,6 +122,12 @@ struct OverlappedEx : public WSAOVERLAPPED {
 	IO_OPERATION type;
 };
 
+enum class ESessionState {
+	LOGIN,
+	LOBBY,
+	ROOM,
+	INGAME
+};
 
 // Client Session Info
 struct Session {
@@ -130,6 +136,9 @@ struct Session {
 	int sessionID;
 	int roomID;		// -1: Not Entering a Room
 
+	bool isConnected = false;
+
+	ESessionState now_state;
 	GameData gameDatas;
 
 	char TempBuffer[1024];

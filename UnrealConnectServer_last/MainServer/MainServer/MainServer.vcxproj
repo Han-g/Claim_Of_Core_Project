@@ -129,6 +129,7 @@
     <ClCompile Include="PacketProcessor.cpp" />
     <ClCompile Include="RoomManager.cpp" />
     <ClCompile Include="server.cpp" />
+    <ClCompile Include="SessionManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameLogic.h" />
@@ -140,6 +141,7 @@
     <ClInclude Include="server.h" />
     <ClInclude Include="session.h" />
     <ClInclude Include="Database.h" />
+    <ClInclude Include="SessionManager.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

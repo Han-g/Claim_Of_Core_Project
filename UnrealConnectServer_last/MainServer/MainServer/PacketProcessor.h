@@ -8,11 +8,7 @@
 
 class IOCPServer;
 struct Session;
-
-struct DBData {
-	int SessionIndex;
-	std::wstring UserID, UserPW;
-};
+struct DBData;
 
 class PacketProcessor
 {
@@ -28,6 +24,8 @@ public:
 private:
 	// Packet Process Functions
 	static void Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_RegisterReq(IOCPServer* server, Session* session, PacketReader& reader);
+	
 	static void Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader);
