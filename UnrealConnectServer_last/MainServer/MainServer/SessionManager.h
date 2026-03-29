@@ -12,13 +12,7 @@
 class SessionManager
 {
 public:
-	SessionManager() {}
-	~SessionManager() {
-		for (Session* s : m_Sessions) {
-			delete s;
-		}
-		m_Sessions.clear();
-	}
+	static SessionManager* GetInstance() { static SessionManager instance; return &instance; }
 
 	void Init();
 	
@@ -28,6 +22,13 @@ public:
 	Session* GetSession(int sessionID);
 
 private:
+	SessionManager() {}
+	~SessionManager() {
+		for (Session* s : m_Sessions) {
+			delete s;
+		}
+		m_Sessions.clear();
+	}
 
 private:
 	std::vector<Session*> m_Sessions;

@@ -56,16 +56,25 @@ class RoomManager
 {
 public:
 	void InitManager(IOCPServer* server) { m_Server = server; }
+	static RoomManager* GetInstance() { static RoomManager instance; return &instance; }
 
 	bool CreateRoom(Session* client);
 	void LeaveRoom(Session* client);
 	void DestroyRoom(int roomID);
 	bool JoinRoom(Session* client, int roomID);
+	void GameStart(Session* client);
 
 	void UpdateRooms();
 	std::vector<RoomPacket> GetRoomList();
+	Room* GetRoom(int roomID);
 
 private:
+	RoomManager() {}
+	~RoomManager() {}
+
+	RoomManager(const RoomManager&) = delete;
+	RoomManager& operator=(const RoomManager&) = delete;
+
 	int assignRoomID();
 
 private:

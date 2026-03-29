@@ -29,13 +29,13 @@ public:
 	void PushDBTask(DBData data);
 	void CreateRoomTry(Session* Client);
 	void JoinRoomTry(Session* Client, int roomID);
+	void GameStartTry(Session* Client);
 	void BroadcastRoomList();
 
 	// ----------------Test Func----------------
 	void TestPacketProcessor();
 	// -----------------------------------------
 
-	SessionManager* GetSessionManager() { return &m_SessionManager; }
 
 private:
 	void WorkerThread();
@@ -56,15 +56,15 @@ private:
 	HANDLE m_hIOCP;
 	SOCKET m_ListenSocket;
 
-	DBHelper m_DB;
+	DBHelper* m_DB;
 	std::queue<DBData> m_DBLoginQueue;
 	std::mutex m_DBMutex;
 	std::condition_variable m_DBControler;
 
 	PacketProcessor m_PacketProcessor;
 
-	SessionManager m_SessionManager;
-	RoomManager m_RoomManager;
+	SessionManager* m_SessionManager;
+	RoomManager* m_RoomManager;
 
 	std::vector<std::thread> m_WorkerThreads;
 	std::thread m_AcceptThread;

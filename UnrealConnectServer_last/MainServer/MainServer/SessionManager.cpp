@@ -65,6 +65,19 @@ void SessionManager::DisconnectClient(int clientID)
             session->socket = INVALID_SOCKET;
         }
 
+        if (session->roomID != -1) {
+            Room* enteredRoom = RoomManager::GetInstance()->GetRoom(session->roomID);
+            if (enteredRoom) {
+                enteredRoom->RemoveMember(session->sessionID);
+
+                if (enteredRoom->GetCurrentMemberCount() == 0) {
+                    RoomManager::GetInstance()->DestroyRoom(session->roomID);
+                }
+            }
+
+            session->roomID = -1;
+        }
+
         // 다시 빈 자리 대기열에 삽입
         m_FreeSessionQueue.push(clientID);
     }

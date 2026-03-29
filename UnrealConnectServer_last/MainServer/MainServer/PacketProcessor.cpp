@@ -19,6 +19,14 @@ void PacketProcessor::InitHandler()
 
 	m_FuncHanderMap[PKT_C2S_ROOM_CREATE_REQ] = &PacketProcessor::Handle_Room_CreateReq;
 	m_FuncHanderMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
+
+	m_FuncHanderMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
+
+	m_FuncHanderMap[PKT_C2S_MOVE_KEYINPUT] = &PacketProcessor::Handle_Move_KeyInput;
+	m_FuncHanderMap[PKT_C2S_JUMP_KEYINPUT] = &PacketProcessor::Handle_Jump_KeyInput;
+	m_FuncHanderMap[PKT_C2S_ATTACK_KEYINPUT] = &PacketProcessor::Handle_Attack_KeyInput;
+	m_FuncHanderMap[PKT_C2S_ITEMPICKUP_KEYINPUT] = &PacketProcessor::Handle_ItemPickup_KeyInput;
+	m_FuncHanderMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
 }
 
 void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data)
@@ -100,6 +108,11 @@ void PacketProcessor::Handle_Room_JoinReq(IOCPServer* server, Session* session, 
 }
 
 void PacketProcessor::Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+
+}
+
+void PacketProcessor::Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
 
 }

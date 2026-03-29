@@ -63,7 +63,8 @@ void IOCPServer::TestPacketProcessor()
 //-----------------------------------------
 
 IOCPServer::IOCPServer() : m_hIOCP(INVALID_HANDLE_VALUE), 
-m_ListenSocket(INVALID_SOCKET), m_IsRunning(false), m_MaxSessionCount(0) {}
+m_ListenSocket(INVALID_SOCKET), m_IsRunning(false), m_MaxSessionCount(0), 
+m_RoomManager(RoomManager::GetInstance()), m_DB(DBHelper::GetInstance()), m_SessionManager(SessionManager::GetInstance()) { }
 
 IOCPServer::~IOCPServer() {
 	m_IsRunning = false;
@@ -106,8 +107,8 @@ bool IOCPServer::Init(int port, int maxSessionCount) {
 		== SOCKET_ERROR) { return false; }
 	if (listen(m_ListenSocket, SOMAXCONN) == SOCKET_ERROR) { return false; }
 
-	m_SessionManager.Init();
-	m_RoomManager.InitManager(this);
+	m_SessionManager->Init();
+	m_RoomManager->InitManager(this);
 
 	return true;
 }
@@ -140,7 +141,7 @@ void IOCPServer::AcceptThread() {
 		if (clientSocket == INVALID_SOCKET) { continue; }
 
 		// Operate Session with Lock
-		Session* newSession = m_SessionManager.AcceptNewClient(clientSocket);
+		Session* newSession = m_SessionManager->AcceptNewClient(clientSocket);
 
 		// Check Session connected User
 		if (newSession == nullptr) {
@@ -244,12 +245,12 @@ void IOCPServer::OnDisconnect(int sessionIndex) {
 		}
 		else { ++it; }
 	}*/
-	m_SessionManager.DisconnectClient(sessionIndex);
+	m_SessionManager->DisconnectClient(sessionIndex);
 }
 
 void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	// need mapping system between sessionID and Index
-	Session* recvSession = m_SessionManager.GetSession(sessionIndex);
+	Session* recvSession = m_SessionManager->GetSession(sessionIndex);
 
 	// Recv Data Progressing
 	//LOG_INFO("Recv Data");
@@ -309,7 +310,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 }
 
 void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
-	Session* session = m_SessionManager.GetSession(sessionIndex);
+	Session* session = m_SessionManager->GetSession(sessionIndex);
 
 	std::lock_guard<std::mutex> sendlock(session->sendLock);
 
@@ -321,7 +322,7 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 }
 
 void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len) {
-	Session* session = m_SessionManager.GetSession(sessionIndex);
+	Session* session = m_SessionManager->GetSession(sessionIndex);
 	if (session == nullptr) {
 		LOG_ERROR("Session is Invalid Session");
 		return; 
@@ -392,7 +393,7 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 		return;
 	}
 
-	Session* session = m_SessionManager.GetSession(sessionIndex);
+	Session* session = m_SessionManager->GetSession(sessionIndex);
 	if (session == nullptr) { return; }
 
 	m_PacketProcessor.Process(this, session, packetID, data);
@@ -400,7 +401,7 @@ void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>
 
 void IOCPServer::DBWorkerThread()
 {
-	if (!m_DB.Connect()) {
+	if (!m_DB->Connect()) {
 		LOG_ERROR("DB Connection Failed!");
 	}
 
@@ -425,7 +426,7 @@ void IOCPServer::DBWorkerThread()
 		{
 		case EDBTaskType::LOGIN:
 			// Check Valid Login Data
-			if (m_DB.CheckLogin(data.UserID, data.UserPW, userUID)) {
+			if (m_DB->CheckLogin(data.UserID, data.UserPW, userUID)) {
 				LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
 
 				// Init Game Data and Assign UID to Client
@@ -436,7 +437,7 @@ void IOCPServer::DBWorkerThread()
 				dataPacket.data = newData;
 
 				// Change session state
-				m_SessionManager.SetState(data.SessionIndex, ESessionState::LOBBY);
+				m_SessionManager->SetState(data.SessionIndex, ESessionState::LOBBY);
 
 				SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
 				BroadcastRoomList();
@@ -452,7 +453,7 @@ void IOCPServer::DBWorkerThread()
 
 			break;
 		case EDBTaskType::REGISTER:
-			if (m_DB.CreateAccount(data.UserID, data.UserPW)) {
+			if (m_DB->CreateAccount(data.UserID, data.UserPW)) {
 				LOG_INFO("[%d] Session Register Success! [New UID: %d]", data.SessionIndex, newAccountUID);
 
 				ErrorCodePacket successPacket;
@@ -491,17 +492,22 @@ void IOCPServer::PushDBTask(DBData data)
 
 void IOCPServer::CreateRoomTry(Session* Client)
 {
-	m_RoomManager.CreateRoom(Client);
+	m_RoomManager->CreateRoom(Client);
 }
 
 void IOCPServer::JoinRoomTry(Session* Client, int roomID)
 {
-	m_RoomManager.JoinRoom(Client, roomID);
+	m_RoomManager->JoinRoom(Client, roomID);
+}
+
+void IOCPServer::GameStartTry(Session* Client)
+{
+	m_RoomManager->GameStart(Client);
 }
 
 void IOCPServer::BroadcastRoomList()
 {
-	std::vector<RoomPacket> roomList = m_RoomManager.GetRoomList();
+	std::vector<RoomPacket> roomList = m_RoomManager->GetRoomList();
 	int roomCount = (int)roomList.size();
 
 	// Packet Serializetion
@@ -518,7 +524,7 @@ void IOCPServer::BroadcastRoomList()
 
 	// Only Sent to LOBBY State Clients
 	for (int i = 0; i < m_MaxSessionCount; ++i) {
-		Session* session = m_SessionManager.GetSession(i);
+		Session* session = m_SessionManager->GetSession(i);
 
 		if (session != nullptr && session->now_state == ESessionState::LOBBY) {
 			SendPacket(session->sessionID, PKT_S2C_ROOM_UPDATE, sendBuffer.data(), dataSize);
@@ -563,5 +569,5 @@ void IOCPServer::GameFrameProtocol() {
 		}
 	}
 	*/
-	m_RoomManager.UpdateRooms();
+	m_RoomManager->UpdateRooms();
 }

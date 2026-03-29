@@ -185,7 +185,7 @@ void RoomManager::LeaveRoom(Session* client)
 
             room->RemoveMember(client->sessionID);
 
-            m_Server->GetSessionManager()->SetState(client->sessionID, ESessionState::LOBBY);
+            SessionManager::GetInstance()->SetState(client->sessionID, ESessionState::LOBBY);
             client->roomID = -1;
 
             if (room->IsEmpty()) {
@@ -209,13 +209,18 @@ bool RoomManager::JoinRoom(Session* client, int roomID)
     return false;
     }
 
-    m_Server->GetSessionManager()->SetState(client->sessionID, ESessionState::ROOM);
+    SessionManager::GetInstance()->SetState(client->sessionID, ESessionState::ROOM);
     ErrorCodePacket enterPacket;
     enterPacket.ErrorCode = 11;
     m_Server->SendPacket(client->sessionID, PKT_S2C_ROOM_ENTER, (char*)&enterPacket, sizeof(enterPacket));
    
     m_Server->BroadcastRoomList();
     return true;
+}
+
+void RoomManager::GameStart(Session* client)
+{
+
 }
 
 void RoomManager::UpdateRooms()
@@ -259,7 +264,18 @@ std::vector<RoomPacket> RoomManager::GetRoomList()
     return roomList;
 }
 
+Room* RoomManager::GetRoom(int roomID)
+{
+    std::lock_guard<std::mutex> lock(m_ManagerLock);
 
+    auto it = m_Rooms.find(roomID);
+
+    if (it != m_Rooms.end()) {
+        return it->second;
+    }
+
+    return nullptr;
+}
 
 int RoomManager::assignRoomID()
 {

@@ -32,8 +32,7 @@ struct DBData
 class DBHelper
 {
 public:
-    DBHelper();
-    ~DBHelper();
+    static DBHelper* GetInstance() { static DBHelper instance; return &instance; }
 
     // DB에 접속하는 함수 (서버 켤 때 한 번 호출)
     bool Connect();
@@ -47,6 +46,12 @@ public:
     bool IsValidAccountString(const std::wstring& inputStr);
 
 private:
+    DBHelper();
+    ~DBHelper();
+
+    DBHelper(const DBHelper&) = delete;
+    DBHelper& operator=(const DBHelper&) = delete;
+
     // 에러 발생 시 로그 찍는 함수
     void PrintError(SQLHANDLE handle, SQLSMALLINT type);
 
