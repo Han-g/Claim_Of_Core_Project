@@ -27,6 +27,15 @@
     <ClCompile Include="Database.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="GameLogic.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="PacketProcessor.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="SessionManager.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="server.h">
@@ -50,5 +59,18 @@
     <ClInclude Include="Database.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="GameLogic.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="PacketProcessor.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="SessionManager.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="server_config.ini" />
+    <None Include="server_config.ini.example" />
   </ItemGroup>
 </Project>

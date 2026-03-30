@@ -7,9 +7,11 @@
 #include <string>
 #include <ctime>
 
-#include "Packet.h"
 #include "logger.h"
-#include "session.h"
+#include "SessionManager.h"
+#include "RoomManager.h"
+#include "Packet.h"
+#include "PacketProcessor.h"
 #include "Database.h"
 
 class IOCPServer {
@@ -24,12 +26,22 @@ public:
 	void SendPacket(int sessionIndex, int packetID, const char* data, int len);
 
 	void GameFrameProtocol();
+	void PushDBTask(DBData data);
+	void CreateRoomTry(Session* Client);
+	void JoinRoomTry(Session* Client, int roomID);
+	void GameStartTry(Session* Client);
+	void BroadcastRoomList();
+
+	// ----------------Test Func----------------
+	void TestPacketProcessor();
+	// -----------------------------------------
+
 
 private:
 	void WorkerThread();
 	void AcceptThread();
 
-	void OnConnect(SOCKET clinentSocket, SOCKADDR_IN clientAddr);
+	void OnConnect(Session* newSession, SOCKADDR_IN clientAddr);
 	void OnDisconnect(int sessionIndex);
 	void OnRecv(int sessionIndex, DWORD transferredBytes);
 	void OnSend(int sessionIndex, DWORD transferredBytes);
@@ -43,14 +55,23 @@ private:
 private:
 	HANDLE m_hIOCP;
 	SOCKET m_ListenSocket;
-	DBHelper m_DB;
 
-	std::vector<Session*> m_Sessions;
+	DBHelper* m_DB;
+	std::queue<DBData> m_DBLoginQueue;
+	std::mutex m_DBMutex;
+	std::condition_variable m_DBControler;
+
+	PacketProcessor m_PacketProcessor;
+
+	SessionManager* m_SessionManager;
+	RoomManager* m_RoomManager;
+
 	std::vector<std::thread> m_WorkerThreads;
 	std::thread m_AcceptThread;
 	std::thread m_DBConnectThread;
 
+	//std::vector<Session*> m_Sessions;
+	//std::mutex m_SessionLock;
 	int m_MaxSessionCount;
-	std::mutex m_SessionLock;
 	bool m_IsRunning;
 };

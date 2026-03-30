@@ -4,6 +4,7 @@
 # Refer Code files
 UnrealConnectServer*
 !UnrealConnectServer_last
+UnrealConnectServer_last/ShareData/
 
 ### C++ ###
 # Prerequisites
@@ -530,3 +531,6 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudio,c++,unrealengine
+
+# Security: Ignore real database config
+server_config.ini

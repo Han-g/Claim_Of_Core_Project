@@ -11,8 +11,10 @@
 
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 #include "Packet.h"
 #include "RoomManager.h"
+#include "logger.h"
 
 #include <windows.h>
 
@@ -120,12 +122,23 @@ struct OverlappedEx : public WSAOVERLAPPED {
 	IO_OPERATION type;
 };
 
+enum class ESessionState {
+	LOGIN,
+	LOBBY,
+	ROOM,
+	INGAME
+};
 
-// Client Session Info (need to contain at "session.h")
+// Client Session Info
 struct Session {
 	SOCKET socket;
+	int playerUID;
 	int sessionID;
+	int roomID;		// -1: Not Entering a Room
 
+	bool isConnected = false;
+
+	ESessionState now_state;
 	GameData gameDatas;
 
 	char TempBuffer[1024];
@@ -139,7 +152,9 @@ struct Session {
 
 	Session() {
 		socket = INVALID_SOCKET;
+		playerUID = -1;
 		sessionID = -1;
+		roomID = -1;
 
 		ZeroMemory(TempBuffer, sizeof(TempBuffer));
 		ZeroMemory(&recvBuffer, sizeof(s_ringbuf));

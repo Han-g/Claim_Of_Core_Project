@@ -11,18 +11,24 @@ const UINT16 MAX_CLIENT_NUM = 10;
 const UINT32 MAX_IO_WORKER_THREADS = 4;
 
 
+void Test(IOCPServer* server) {
+	server->TestPacketProcessor();
+}
+
 int main()
 {
 	IOCPServer server;
 
 	server.InitLogger();
 
-	if (server.Init(9000, 8)) {
+	if (server.Init(9000, 3000)) {
 		LOG_INFO("Server Initalized Successfully!");
 		server.Start();
 	}
 
 	else { LOG_ERROR("Failed to Server Initalization!"); return -1; }
+
+	//Test(&server);
 
 	// Wait for MainThread not to end
 	while (true) {

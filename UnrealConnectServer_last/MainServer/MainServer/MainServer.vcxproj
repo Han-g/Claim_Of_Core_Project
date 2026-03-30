@@ -81,6 +81,9 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)server_config.ini" "$(OutDir)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -95,6 +98,9 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)server_config.ini" "$(OutDir)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -107,6 +113,9 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)server_config.ini" "$(OutDir)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -121,21 +130,34 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PreBuildEvent>
+      <Command>xcopy /Y /D "$(ProjectDir)server_config.ini" "$(OutDir)"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Database.cpp" />
+    <ClCompile Include="GameLogic.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PacketProcessor.cpp" />
     <ClCompile Include="RoomManager.cpp" />
     <ClCompile Include="server.cpp" />
+    <ClCompile Include="SessionManager.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GameLogic.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="logging.hpp" />
     <ClInclude Include="Packet.h" />
+    <ClInclude Include="PacketProcessor.h" />
     <ClInclude Include="RoomManager.h" />
     <ClInclude Include="server.h" />
     <ClInclude Include="session.h" />
     <ClInclude Include="Database.h" />
+    <ClInclude Include="SessionManager.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="server_config.ini" />
+    <None Include="server_config.ini.example" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
