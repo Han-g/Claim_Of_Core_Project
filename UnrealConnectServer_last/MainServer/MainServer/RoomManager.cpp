@@ -9,7 +9,7 @@ void Room::InitRoom(int id, Session* firstMember, IOCPServer* server) {
     m_State = ERoomState::WAITING;
     gameTimer = 0.f;
 	
-    addMember(firstMember);
+    //addMember(firstMember);
 }
 
 bool Room::IsEmpty()
@@ -154,17 +154,19 @@ bool RoomManager::CreateRoom(Session* client) {
 
 void RoomManager::DestroyRoom(int roomID)
 {
-    std::lock_guard<std::mutex> lock(m_ManagerLock);
+    {
+        std::lock_guard<std::mutex> lock(m_ManagerLock);
 
-    auto it = m_Rooms.find(roomID);
-    if (it != m_Rooms.end()) {
-        Room* room = it->second;
+        auto it = m_Rooms.find(roomID);
+        if (it != m_Rooms.end()) {
+            Room* room = it->second;
 
-        delete room;
-        m_Rooms.erase(it);
-        --m_RoomCounter;
+            delete room;
+            m_Rooms.erase(it);
+            --m_RoomCounter;
 
-        LOG_INFO("Room [%d] is Empty and Destroyed by Server.", roomID);
+            LOG_INFO("Room [%d] is Empty and Destroyed by Server.", roomID);
+        }
     }
 
     m_Server->BroadcastRoomList();
@@ -225,18 +227,22 @@ void RoomManager::GameStart(Session* client)
 
 void RoomManager::UpdateRooms()
 {
-    std::vector<Room*> activeRooms;
+    std::vector<int> activeRoomIDs;
 
     {
         std::lock_guard<std::mutex> lock(m_ManagerLock);
         for (auto& pair : m_Rooms) {
-            activeRooms.push_back(pair.second);
+            activeRoomIDs.push_back(pair.first);
         }
     }
 
-    for (Room* room : activeRooms) {
-        if (!room->BroadcastGameDatas()) {
-            DestroyRoom(room->GetID());
+    for (int roomID : activeRoomIDs) {
+        Room* room = GetRoom(roomID); // 안전하게 현재 맵에 존재하는지 확인 후 가져옴
+
+        if (room != nullptr) {
+            if (!room->BroadcastGameDatas()) {
+                DestroyRoom(roomID);
+            }
         }
     }
 }

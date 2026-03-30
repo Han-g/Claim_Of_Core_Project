@@ -69,4 +69,8 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="server_config.ini" />
+    <None Include="server_config.ini.example" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,2 @@
+[Database]
+ConnectionString=Driver={SQL Server};Server=YOUR_IP\SQLEXPRESS;Database=YOUR_DB;Uid=YOUR_ID;Pwd=YOUR_PASSWORD;

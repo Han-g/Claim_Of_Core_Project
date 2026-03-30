@@ -21,7 +21,7 @@ int main()
 
 	server.InitLogger();
 
-	if (server.Init(9000, 8)) {
+	if (server.Init(9000, 3000)) {
 		LOG_INFO("Server Initalized Successfully!");
 		server.Start();
 	}

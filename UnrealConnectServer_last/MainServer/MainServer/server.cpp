@@ -388,7 +388,7 @@ void IOCPServer::SendProtocol(Session* session) {
 // Recive Data Process
 void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
 {
-	if (sessionIndex < 0 || sessionIndex >= m_MaxSessionCount) {
+	if (sessionIndex < 0 || sessionIndex >= MAXCLIENT) {
 		LOG_ERROR("[%d] is Invalid Session Index", sessionIndex);
 		return;
 	}
