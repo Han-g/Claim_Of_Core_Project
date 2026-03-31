@@ -98,6 +98,23 @@ Plugins/*/Intermediate/*
 # Cache files for the editor to use
 DerivedDataCache/*
 
+# Nested Unreal project under ServerTest
+/ServerTest/.editorconfig
+/ServerTest/.vs/
+/ServerTest/.vsconfig
+/ServerTest/Binaries/
+/ServerTest/Config/
+/ServerTest/Content/
+/ServerTest/DerivedDataCache/
+/ServerTest/Intermediate/
+/ServerTest/Saved/
+/ServerTest/Windows/
+/ServerTest/shadertoolsconfig.json
+/ServerTest/ServerTest.uproject
+/ServerTest/Source/ServerTest.Target.cs
+/ServerTest/Source/ServerTestEditor.Target.cs
+/ServerTest/Source/ServerTest_backup
+
 ### UnrealEngine Patch ###
 # Don't ignore icon and splash images for mobile app
 !Build/IOS/Resources/
