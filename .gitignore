@@ -113,6 +113,7 @@ DerivedDataCache/*
 /ServerTest/ServerTest.uproject
 /ServerTest/Source/ServerTest.Target.cs
 /ServerTest/Source/ServerTestEditor.Target.cs
+/ServerTest/Source/ServerTest_backup
 
 ### UnrealEngine Patch ###
 # Don't ignore icon and splash images for mobile app
