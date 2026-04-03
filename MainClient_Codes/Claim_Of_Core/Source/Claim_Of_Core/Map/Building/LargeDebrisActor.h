@@ -1,14 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "../PreFracturedActor.h"
 #include "LargeDebrisActor.generated.h"
 
-class UStaticMeshComponent;
-class UBoxComponent;
+class UPrimitiveComponent;
 
 UCLASS()
-class CLAIM_OF_CORE_API ALargeDebrisActor : public AActor
+class CLAIM_OF_CORE_API ALargeDebrisActor : public APreFracturedActor
 {
 	GENERATED_BODY()
 
@@ -17,35 +16,50 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<USceneComponent> Root;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	bool bUseActorFall = true;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UStaticMeshComponent> MeshComp;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float GravityAcceleration = 980.f;
 
-protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris")
-	bool bFreezeAfterLanding = true;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float MaxFallSpeed = 4000.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris")
-	float MinImpactSpeedToLand = 100.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float GroundZ = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float GroundOffset = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float MinBreakSpeed = 300.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float SpeedToDamageScale = 0.08f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	int32 MaxInitialBreakCount = 2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float BottomChunkTolerance = 30.f;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
-	bool bActivated = false;
+	bool bDebrisActivated = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
 	bool bLanded = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
+	float CurrentFallSpeed = 0.f;
+
 protected:
-	UFUNCTION()
-	void OnDebrisHit(
-		UPrimitiveComponent* HitComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		FVector NormalImpulse,
-		const FHitResult& Hit);
+	void UpdateActorFall(float DeltaTime);
+	void LandAndFracture();
+	void GetBottomChunks(TArray<int32>& OutChunkIndices) const;
+	void BreakInitialBottomChunks(float ImpactSpeed);
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Debris")
@@ -55,13 +69,17 @@ public:
 	void ActivateDebris(float InitialImpulseStrength = 0.f);
 
 	UFUNCTION(BlueprintPure, Category = "Debris")
-	bool IsActivated() const { return bActivated; }
+	bool IsDebrisActivated() const { return bDebrisActivated; }
 
 	UFUNCTION(BlueprintPure, Category = "Debris")
 	bool IsLanded() const { return bLanded; }
 
+public:
+	virtual void BreakChunk(int32 ChunkIndex, bool bFromImpact = false) override;
+
 protected:
-	void FreezeDebris();
+	virtual void DropUnsupportedChunks() override;
+	virtual void OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact) override;
 
 public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Debris")

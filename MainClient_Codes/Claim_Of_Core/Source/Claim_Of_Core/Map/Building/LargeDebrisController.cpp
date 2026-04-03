@@ -103,7 +103,7 @@ void ALargeDebrisController::TriggerPhase3Debris()
 
 	UE_LOG(LogTemp, Warning, TEXT("[LargeDebrisController] Trigger Phase3 Debris"));
 	
-	for (ALargeDebrisActor* DebrisActor : Phase2DebrisActors)
+	for (ALargeDebrisActor* DebrisActor : Phase3DebrisActors)
 	{
 		if (!DebrisActor) continue;
 
