@@ -2,14 +2,19 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "RecCharacter.generated.h"
+#include "TimerManager.h"
+#include "MyCharacter.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
 class UTextRenderComponent;
-
+class UAnimInstance;
+class UAnimMontage;
+class USkeletalMesh;
+class UPrimitiveComponent;
+class ABaseItem;
 class FLifetimeProperty;
 
 UENUM(BlueprintType)
@@ -27,28 +32,51 @@ enum class ERecRoleType : uint8
 	Manipulator UMETA(DisplayName = "Manipulator"),
 };
 
-UCLASS(abstract)
-class REC_API ARecCharacter : public ACharacter
+UENUM(BlueprintType)
+enum class ERecStatusEffectType : uint8
+{
+	Slow      UMETA(DisplayName = "Slow"),
+	Stun      UMETA(DisplayName = "Stun"),
+	Knockback UMETA(DisplayName = "Knockback"),
+};
+
+USTRUCT(BlueprintType)
+struct FRoleVisualData
 {
 	GENERATED_BODY()
 
-	// Camera
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<USkeletalMesh> Mesh = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UAnimInstance> AnimBPClass = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
+};
+
+UCLASS(Abstract)
+class AMyCharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
 
-	// HP Text
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UTextRenderComponent* HPTextComponent;
 
-	// Role Text
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UTextRenderComponent* RoleTextComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* DeathUITextComponent;
+
 protected:
-	// Enhanced Input Actions
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* JumpAction;
 
@@ -61,30 +89,37 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* MouseLookAction;
 
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AttackAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* KnockbackAction;
+
 public:
-	ARecCharacter();
+	AMyCharacter();
 
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
-
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void Jump() override;
 
-	// Damage entry-point
-	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
-		class AController* EventInstigator, AActor* DamageCauser) override;
+	virtual float TakeDamage(
+		float DamageAmount,
+		struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator,
+		AActor* DamageCauser
+	) override;
 
-	// Replication
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
-	// Enhanced Input callbacks
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void Attack();
+	void KnockbackTest();
 
 public:
-	// UI / virtual joystick compatible wrappers
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	virtual void DoMove(float Right, float Forward);
 
@@ -98,14 +133,12 @@ public:
 	virtual void DoJumpEnd();
 
 public:
-	// HP API (BP에서 호출해도 서버에서 동작하도록 RPC 포함)
 	UFUNCTION(BlueprintCallable, Category = "HP")
 	void ApplyDamage(int32 DamageAmount);
 
 	UFUNCTION(BlueprintCallable, Category = "HP")
 	void Heal(int32 HealAmount);
 
-	// Dead 상태에서 호출하면 "부활 + PlayerStart 리스폰"
 	UFUNCTION(BlueprintCallable, Category = "HP")
 	void ResetHP();
 
@@ -121,31 +154,109 @@ public:
 	UFUNCTION(BlueprintPure, Category = "State")
 	bool IsDead() const { return CharacterState == ERecCharacterState::Dead; }
 
-	// Role
 	UFUNCTION(BlueprintPure, Category = "Role")
 	ERecRoleType GetRoleType() const { return RoleType; }
 
+	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
+	void ActivateRoleSkill();
+
+	UFUNCTION(BlueprintPure, Category = "RoleSkill")
+	bool IsRoleSkillActive() const { return bRoleSkillActive; }
+
+	UFUNCTION(BlueprintPure, Category = "RoleSkill")
+	bool IsStatusEffectImmune() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	bool CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const;
+
+	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
+	ERecRoleType RoleType = ERecRoleType::Guardian;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
+	ERecCharacterState CharacterState = ERecCharacterState::Alive;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData StrikerVisual;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData GuardianVisual;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData ManipulatorVisual;
+
+	UFUNCTION()
+	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+
+	UFUNCTION()
+	void OnAttackOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
+	UPROPERTY()
+	ABaseItem* OverlappingItem = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
+	ABaseItem* CurrentItem = nullptr;
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void SetOverlappingItem(ABaseItem* Item);
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void EquipItem();
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void DropCurrentItem();
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void AnimNotify_AttackHit();
+
 private:
-	// Replicated HP state
 	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")
 	int32 MaxHP = 100;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP, VisibleInstanceOnly, Category = "HP")
 	int32 CurrentHP = 100;
 
-	// State machine (enum)
-	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
-	ERecCharacterState CharacterState = ERecCharacterState::Alive;
-
-	// Role (Striker/Guardian/Manipulator)
-	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
-	ERecRoleType RoleType = ERecRoleType::Striker;
-
-	// Base movement speed cache (role 배율 적용의 기준)
 	UPROPERTY(VisibleInstanceOnly, Category = "Role")
-	float BaseWalkSpeed = 500.f;
+	float BaseWalkSpeed = 2000.f;
 
-	// Spectate (when dead)
+	UPROPERTY(VisibleInstanceOnly, Category = "Role")
+	int32 BaseJumpMaxCount = 1;
+
+	UPROPERTY(ReplicatedUsing = OnRep_RoleSkillActive, VisibleInstanceOnly, Category = "RoleSkill")
+	bool bRoleSkillActive = false;
+
+	FTimerHandle RoleSkillTimerHandle;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
+	float DashDuration = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
+	float DashSpeedMultiplier = 1.45f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
+	float DashDamageMultiplier = 1.50f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardDuration = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardSpeedMultiplier = 0.65f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardScaleMultiplier = 1.25f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardDamageTakenMultiplier = 0.60f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Manipulator")
+	float DBJPDuration = 10.0f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
 	float SpectateMoveSpeed = 900.f;
 
@@ -153,15 +264,79 @@ private:
 	float SpectateVerticalSpeed = 700.f;
 
 	bool bCameraDetached = false;
+	bool bSpectateUpHeld = false;
+	bool bSpectateDownHeld = false;
 
-	bool bSpectateUpHeld = false;    // Q
-	bool bSpectateDownHeld = false;  // E
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	float SpectateInputUnlockDelay = 3.0f;
 
-	// 초기 트랜스폼 캐시(래그돌 복구용)
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	float SpectatingUITextDuration = 2.0f;
+
+	FTimerHandle SpectatingUIHideTimerHandle;
+	FTimerHandle SpectateInputUnlockTimerHandle;
+
+	bool bCorpseHidden = false;
+	bool bDeathSequenceLocked = false;
+	bool bCanSpectate = false;
+	bool bAwaitingSpectateInput = false;
+	bool bSpectateInputUnlocked = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	int32 LowHPThreshold = 20;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "LowHP")
+	bool bLowHPEffectActive = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPostProcessBlendWeight = 0.45f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPVignetteIntensity = 0.6f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPSaturation = 0.55f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseSpeed = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseVignetteAmplitude = 0.20f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseBlendAmplitude = 0.12f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	FLinearColor LowHPSceneTint = FLinearColor(1.18f, 0.78f, 0.78f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
+	float DeathCameraTargetArmLength = 650.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
+	float DeathCameraInterpSpeed = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeDuration = 0.30f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeAmplitude = 12.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeFrequency = 32.0f;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DeathCameraShake")
+	bool bDeathCameraShaking = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DeathCameraShake")
+	float DeathShakeElapsed = 0.0f;
+
 	FTransform InitialMeshRelativeTransform = FTransform::Identity;
 	FTransform InitialCameraBoomRelativeTransform = FTransform::Identity;
+	FVector InitialActorScale3D = FVector::OneVector;
+	float InitialCameraBoomArmLength = 400.f;
+	FVector InitialCameraBoomSocketOffset = FVector::ZeroVector;
 
-	// Input helpers
+private:
 	void SpectateUpPressed();
 	void SpectateUpReleased();
 	void SpectateDownPressed();
@@ -170,23 +345,12 @@ private:
 	void SpectateMove(float Right, float Forward);
 	void SpectateMoveVertical(float Axis, float DeltaTime);
 
-	// R키 부활
 	void ResurrectPressed();
-
-	// P키 역할군 변경
 	void CycleRolePressed();
+	void SpectateConfirmPressed();
+	void SelfDamagePressed();
+	void ActivateRoleSkillPressed();
 
-	// Rep callbacks
-	UFUNCTION()
-	void OnRep_CurrentHP();
-
-	UFUNCTION()
-	void OnRep_CharacterState();
-
-	UFUNCTION()
-	void OnRep_RoleType();
-
-	// Server RPCs
 	UFUNCTION(Server, Reliable)
 	void ServerApplyDamage(int32 DamageAmount);
 
@@ -199,23 +363,68 @@ private:
 	UFUNCTION(Server, Reliable)
 	void ServerCycleRole();
 
-	// Internal helpers
+	UFUNCTION(Server, Reliable)
+	void ServerActivateRoleSkill();
+
+	UFUNCTION()
+	void OnRep_CurrentHP();
+
+	UFUNCTION()
+	void OnRep_CharacterState();
+
+	UFUNCTION()
+	void OnRep_RoleType();
+
+	UFUNCTION()
+	void OnRep_RoleSkillActive();
+
 	void SetCurrentHP(int32 NewHP);
 	void UpdateHPText();
 	void UpdateRoleText();
 
-	// Role helpers
 	static FString RoleTypeToString(ERecRoleType InType);
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);
-	void ApplyRoleStats();
 
-	// State helpers
-	void SetCharacterState(ERecCharacterState NewState); // server-only setter
-	void ApplyCharacterState();                          // apply on both server/clients
+	float GetRoleSkillSpeedMultiplier() const;
+	float GetCurrentRoleSkillDuration() const;
+	float GetOutgoingDamageMultiplier() const;
+	float GetIncomingDamageMultiplier() const;
+	FString GetCurrentRoleSkillName() const;
+
+	void ApplyRoleStats();
+	void ApplyRoleVisual();
+	void ApplyRoleSkillState();
+	const FRoleVisualData& GetVisualData(ERecRoleType InRole) const;
+
+	void SetCharacterState(ERecCharacterState NewState);
+	void ApplyCharacterState();
 	void ApplyDeadState();
 	void ApplyAliveState();
 
-	// PlayerStart로 리스폰(서있는 상태)
+	void EnterDeathWaitingState();
+	void EnterSpectateMode();
+	void UnlockSpectateInput();
+
+	void HideCorpse();
+	void ShowCorpse();
+
+	void UpdateLocalPostProcessEffects();
+	void UpdateLowHPEffectState();
+	void UpdateLowHPPulseEffect(float DeltaTime);
+
+	void StartDeathCameraShake();
+	void UpdateDeathCameraShake(float DeltaTime);
+	void StopDeathCameraShake();
+	void UpdateDeathCameraPullback(float DeltaTime);
+
+	void SetDeathVisualsEnabled(bool bEnabled);
+	void SetPlayerControlLocked(bool bLocked);
+
+	void UpdateDeathUI();
+	void ShowSpectatingUI();
+	void HideDeathUI();
+
+	void EndRoleSkill();
 	void RespawnAtPlayerStart();
 
 public:
