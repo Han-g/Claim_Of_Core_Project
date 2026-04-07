@@ -43,6 +43,8 @@ void ALargeDebrisActor::PrepareDebris()
 	bDebrisActivated = false;
 	bLanded = false;
 	CurrentFallSpeed = 0.f;
+	PendingBreakChunks.Empty();
+	GetWorldTimerManager().ClearTimer(SequentialBreakTimerHandle);
 
 	SetActorHiddenInGame(true);
 
@@ -51,12 +53,10 @@ void ALargeDebrisActor::PrepareDebris()
 		if (!MeshComp) continue;
 
 		MeshComp->SetHiddenInGame(false);
-
 		MeshComp->SetSimulatePhysics(false);
 		MeshComp->SetEnableGravity(false);
 		MeshComp->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		MeshComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-		MeshComp->SetMassOverrideInKg(NAME_None, 5000.f, true);
 		MeshComp->SetLinearDamping(0.f);
 		MeshComp->SetAngularDamping(0.f);
 	}
@@ -133,7 +133,7 @@ void ALargeDebrisActor::GetBottomChunks(TArray<int32>& OutChunkIndices) const
 		return;
 	}
 
-	float MinY = TNumericLimits<float>::Max();
+	float MinZ = TNumericLimits<float>::Max();
 
 	for (int32 i = 0; i < ChunkMeshes.Num(); ++i)
 	{
@@ -141,7 +141,7 @@ void ALargeDebrisActor::GetBottomChunks(TArray<int32>& OutChunkIndices) const
 		if (!MeshComp) continue;
 		if (ChunkData.IsValidIndex(i) && ChunkData[i].bBroken) continue;
 
-		MinY = FMath::Min(MinY, MeshComp->GetComponentLocation().Z);
+		MinZ = FMath::Min(MinZ, MeshComp->Bounds.Origin.Z);
 	}
 
 	for (int32 i = 0; i < ChunkMeshes.Num(); ++i)
@@ -150,8 +150,8 @@ void ALargeDebrisActor::GetBottomChunks(TArray<int32>& OutChunkIndices) const
 		if (!MeshComp) continue;
 		if (ChunkData.IsValidIndex(i) && ChunkData[i].bBroken) continue;
 
-		const float ChunkY = MeshComp->GetComponentLocation().Z;
-		if (FMath::Abs(ChunkY - MinY) <= BottomChunkTolerance)
+		const float ChunkZ = MeshComp->Bounds.Origin.Z;
+		if (FMath::Abs(ChunkZ - MinZ) <= BottomChunkTolerance)
 		{
 			OutChunkIndices.Add(i);
 		}
@@ -164,7 +164,7 @@ void ALargeDebrisActor::GetBottomChunks(TArray<int32>& OutChunkIndices) const
 
 			if (!MeshA || !MeshB) return A < B;
 
-			return MeshA->GetComponentLocation().Z < MeshB->GetComponentLocation().Z;
+			return MeshA->Bounds.Origin.X < MeshB->Bounds.Origin.X;
 		});
 }
 
@@ -190,7 +190,7 @@ void ALargeDebrisActor::BreakInitialBottomChunks(float ImpactSpeed)
 	for (int32 i = 0; i < CountToBreak; ++i)
 	{
 		const int32 ChunkIndex = BottomChunks[i];
-		ApplyDamageToChunk(ChunkIndex, DamageAmount * 0.4);
+		ApplyDamageToChunk(ChunkIndex, DamageAmount);
 	}
 }
 
@@ -208,22 +208,18 @@ void ALargeDebrisActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)
 		MeshComp->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		MeshComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 
+		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
+
 		MeshComp->SetSimulatePhysics(true);
 		MeshComp->SetEnableGravity(true);
 		MeshComp->WakeAllRigidBodies();
-		MeshComp->SetCollisionObjectType(ECC_PhysicsBody);
-		MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
-		MeshComp->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Ignore);
 
 		MeshComp->SetMassOverrideInKg(NAME_None, 200.f, true);
-		MeshComp->SetLinearDamping(0.15f);
-		MeshComp->SetAngularDamping(1.5f);
+		MeshComp->SetLinearDamping(0.12f);
+		MeshComp->SetAngularDamping(4.2f);
 
-		MeshComp->SetPhysicsLinearVelocity(FVector(0.f, 0.f, -80.f));
-
-		FVector Vel = MeshComp->GetPhysicsLinearVelocity();
-		Vel.Z = FMath::Min(Vel.Z, 0.f);
-		MeshComp->SetPhysicsLinearVelocity(Vel);
+		MeshComp->SetPhysicsLinearVelocity(FVector(0.f, 0.f, -30.f));
 	}
 
 	BP_OnChunkBroken(ChunkIndex);
@@ -262,6 +258,8 @@ void ALargeDebrisActor::DropUnsupportedChunks()
 		}
 	}
 
+	PendingBreakChunks.Empty();
+
 	for (int32 i = 0; i < ChunkData.Num(); ++i)
 	{
 		if (ChunkData[i].bBroken) continue;
@@ -269,38 +267,74 @@ void ALargeDebrisActor::DropUnsupportedChunks()
 
 		if (!SupportedSet.Contains(i))
 		{
-			ChunkData[i].bBroken = true;
-
-			if (UStaticMeshComponent* MeshComp = ChunkMeshes[i])
+			PendingBreakChunks.Add(i);
+			if (!SupportedSet.Contains(i))
 			{
-				MeshComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-				MeshComp->SetPhysicsLinearVelocity(FVector::ZeroVector);
+				PendingBreakChunks.Add(i);
 
-				MeshComp->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
-
-				MeshComp->SetSimulatePhysics(true);
-				MeshComp->SetEnableGravity(true);
-				MeshComp->WakeAllRigidBodies();
-
-				MeshComp->SetCollisionObjectType(ECC_PhysicsBody);
-				MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
-				FTimerHandle TempHandle;
-				UStaticMeshComponent* LocalMesh = MeshComp;
-
-				MeshComp->SetMassOverrideInKg(NAME_None, 200.f, true);
-				MeshComp->SetLinearDamping(0.15f);
-				MeshComp->SetAngularDamping(1.5f);
-
-				MeshComp->SetPhysicsLinearVelocity(FVector(0.f, 0.f, -80.f));
-
-				FVector Vel = MeshComp->GetPhysicsLinearVelocity();
-				Vel.Y = FMath::Min(Vel.Z, 0.f);
-				MeshComp->SetPhysicsLinearVelocity(Vel);
-
+				if (UStaticMeshComponent* MeshComp = ChunkMeshes[i])
+				{
+					MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				}
 			}
-
-			BP_OnChunkBroken(i);
 		}
+	}
+
+	PendingBreakChunks.Sort([this](int32 A, int32 B)
+		{
+			const UStaticMeshComponent* MeshA = ChunkMeshes.IsValidIndex(A) ? ChunkMeshes[A] : nullptr;
+			const UStaticMeshComponent* MeshB = ChunkMeshes.IsValidIndex(B) ? ChunkMeshes[B] : nullptr;
+
+			if (!MeshA || !MeshB) return A < B;
+
+			return MeshA->Bounds.Origin.Z < MeshB->Bounds.Origin.Z;
+		});
+
+	StartSequentialUnsupportedBreak();
+}
+
+void ALargeDebrisActor::StartSequentialUnsupportedBreak()
+{
+	if (PendingBreakChunks.Num() == 0)
+	{
+		return;
+	}
+
+	if (GetWorldTimerManager().IsTimerActive(SequentialBreakTimerHandle))
+	{
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		SequentialBreakTimerHandle,
+		this,
+		&ALargeDebrisActor::ProcessNextChunkBreak,
+		SequentialBreakInterval,
+		true
+	);
+}
+
+void ALargeDebrisActor::ProcessNextChunkBreak()
+{
+	if (PendingBreakChunks.Num() == 0)
+	{
+		GetWorldTimerManager().ClearTimer(SequentialBreakTimerHandle);
+		return;
+	}
+
+	const int32 CountThisTick = FMath::Min(SequentialBreakBatchSize, PendingBreakChunks.Num());
+
+	for (int32 i = 0; i < CountThisTick; ++i)
+	{
+		const int32 ChunkIndex = PendingBreakChunks[0];
+		PendingBreakChunks.RemoveAt(0);
+
+		BreakChunk(ChunkIndex, false);
+	}
+
+	if (PendingBreakChunks.Num() == 0)
+	{
+		GetWorldTimerManager().ClearTimer(SequentialBreakTimerHandle);
 	}
 }
 
@@ -315,7 +349,7 @@ void ALargeDebrisActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFrom
 			TempHandle,
 			this,
 			&ALargeDebrisActor::FreezeRemainingChunks,
-			4.0f,
+			10.0f,
 			false
 		);
 	}

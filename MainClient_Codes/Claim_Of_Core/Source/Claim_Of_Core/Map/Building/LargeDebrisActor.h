@@ -38,10 +38,10 @@ protected:
 	float MinBreakSpeed = 300.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
-	float SpeedToDamageScale = 0.08f;
+	float SpeedToDamageScale = 0.03f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
-	int32 MaxInitialBreakCount = 2;
+	int32 MaxInitialBreakCount = 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
 	float BottomChunkTolerance = 30.f;
@@ -55,11 +55,26 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
 	float CurrentFallSpeed = 0.f;
 
+	// ¼øÂ÷ ºØ±«¿ë
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
+	float SequentialBreakInterval = 0.02f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
+	int32 SequentialBreakBatchSize = 1;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
+	TArray<int32> PendingBreakChunks;
+
+	FTimerHandle SequentialBreakTimerHandle;
+
 protected:
 	void UpdateActorFall(float DeltaTime);
 	void LandAndFracture();
 	void GetBottomChunks(TArray<int32>& OutChunkIndices) const;
 	void BreakInitialBottomChunks(float ImpactSpeed);
+
+	void StartSequentialUnsupportedBreak();
+	void ProcessNextChunkBreak();
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Debris")

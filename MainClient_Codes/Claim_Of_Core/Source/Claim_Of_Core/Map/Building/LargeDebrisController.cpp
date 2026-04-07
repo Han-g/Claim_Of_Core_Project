@@ -75,7 +75,7 @@ void ALargeDebrisController::TriggerPhase2Debris()
 	{
 		if (!DebrisActor) continue;
 
-		const float RandomDelay = FMath::FRandRange(0.2f, 2.5f);
+		const float RandomDelay = FMath::FRandRange(0.2f, 20.f);
 
 		FTimerHandle TempHandle;
 		FTimerDelegate TimerDel;
@@ -107,7 +107,7 @@ void ALargeDebrisController::TriggerPhase3Debris()
 	{
 		if (!DebrisActor) continue;
 
-		const float RandomDelay = FMath::FRandRange(0.2f, 2.5f);
+		const float RandomDelay = FMath::FRandRange(0.2f, 5.f);
 
 		FTimerHandle TempHandle;
 		FTimerDelegate TimerDel;
