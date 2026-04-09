@@ -10,6 +10,7 @@
 const UINT16 MAX_CLIENT_NUM = 10;
 const UINT32 MAX_IO_WORKER_THREADS = 4;
 
+
 int main()
 {
 	IOCPServer server;
@@ -25,8 +26,12 @@ int main()
 
 	// Wait for MainThread not to end
 	while (true) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		// about 60 Frame Per Seconds (60 FPS)
+		std::this_thread::sleep_for(std::chrono::milliseconds(16));
+
+		server.GameFrameProtocol();
 	}
 
+	LOG_INFO("Server Closed!");
 	return 0;
 }
