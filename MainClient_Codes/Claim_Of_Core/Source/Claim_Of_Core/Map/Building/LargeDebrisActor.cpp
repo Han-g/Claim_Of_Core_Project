@@ -113,6 +113,23 @@ void ALargeDebrisActor::LandAndFracture()
 	bLanded = true;
 	BP_OnDebrisLanded();
 
+	FVector location = GetActorLocation();
+
+	location.Z = GetActorLocation().Z - 500;
+
+	if (LandingDustEffect)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(),
+			LandingDustEffect,
+			location,  // 현재 위치 (바닥 근처)
+			FRotator::ZeroRotator,
+			FVector(DebrisEffectScale * 2.0f),  // 착지는 좀 더 크게
+			true,
+			true
+		);
+	}
+
 	const float ImpactSpeed = CurrentFallSpeed;
 	CurrentFallSpeed = 0.f;
 
@@ -203,6 +220,20 @@ void ALargeDebrisActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)
 
 	if (UStaticMeshComponent* MeshComp = ChunkMeshes[ChunkIndex])
 	{
+
+		if (ChunkBreakEffect)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				GetWorld(),
+				ChunkBreakEffect,
+				MeshComp->GetComponentLocation(), // 청크 위치
+				FRotator::ZeroRotator,
+				FVector(DebrisEffectScale),
+				true,
+				true
+			);
+		}
+
 		MeshComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 
 		MeshComp->SetPhysicsLinearVelocity(FVector::ZeroVector);

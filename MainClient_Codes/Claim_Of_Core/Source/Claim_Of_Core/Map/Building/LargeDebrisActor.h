@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "../PreFracturedActor.h"
+#include "NiagaraSystem.h"
+#include "NiagaraFunctionLibrary.h"
 #include "LargeDebrisActor.generated.h"
 
 class UPrimitiveComponent;
@@ -19,6 +21,15 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|VFX")
+	TObjectPtr<UNiagaraSystem> ChunkBreakEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|VFX")
+	TObjectPtr<UNiagaraSystem> LandingDustEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|VFX")
+	float DebrisEffectScale = 5.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Fall")
 	bool bUseActorFall = true;
 
@@ -57,7 +68,7 @@ protected:
 
 	// ¼øÂ÷ ºØ±«¿ë
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
-	float SequentialBreakInterval = 0.02f;
+	float SequentialBreakInterval = 0.01f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
 	int32 SequentialBreakBatchSize = 1;

@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+using System.IO;
 using UnrealBuildTool;
 
 public class Claim_Of_Core : ModuleRules
@@ -19,11 +20,20 @@ public class Claim_Of_Core : ModuleRules
 			"GameplayStateTreeModule",
 			"UMG",
 			"Slate",
-			"Sockets",
-            "Networking"
+			"SlateCore",
+            "Sockets",
+            "Networking",
+            "Niagara",
+			"NiagaraCore",
         });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+        PublicIncludePaths.AddRange(new string[]
+{
+		 Path.Combine(ModuleDirectory, "Network"),
+		    Path.Combine(ModuleDirectory, "UI")
+		});
+
+        PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"Claim_Of_Core",
