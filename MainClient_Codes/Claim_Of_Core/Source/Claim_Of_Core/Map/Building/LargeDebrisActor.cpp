@@ -1,5 +1,6 @@
 #include "LargeDebrisActor.h"
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Containers/Queue.h"
 #include "TimerManager.h"
 
@@ -138,6 +139,7 @@ void ALargeDebrisActor::LandAndFracture()
 		return;
 	}
 
+	TriggerImpactCameraShake(ImpactSpeed);
 	BreakInitialBottomChunks(ImpactSpeed);
 }
 
@@ -384,4 +386,23 @@ void ALargeDebrisActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFrom
 			false
 		);
 	}
+}
+
+void ALargeDebrisActor::TriggerImpactCameraShake(float ImpactSpeed)
+{
+	if (!CameraShakeClass)
+	{
+		return;
+	}
+
+	const float ShakeScale = FMath::Clamp(ImpactSpeed / MaxFallSpeed, 0.f, 1.f);
+
+	UGameplayStatics::PlayWorldCameraShake(
+		GetWorld(),
+		CameraShakeClass,
+		GetActorLocation(),
+		ShakeInnerRadius,
+		ShakeRadius,
+		ShakeScale
+	);
 }

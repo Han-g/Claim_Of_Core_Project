@@ -76,6 +76,16 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
 	TArray<int32> PendingBreakChunks;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|CameraShake")
+	TSubclassOf<UCameraShakeBase> CameraShakeClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|CameraShake")
+	float ShakeRadius = 3000.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|CameraShake")
+	float ShakeInnerRadius = 0.f;
+
+
 	FTimerHandle SequentialBreakTimerHandle;
 
 protected:
@@ -83,6 +93,7 @@ protected:
 	void LandAndFracture();
 	void GetBottomChunks(TArray<int32>& OutChunkIndices) const;
 	void BreakInitialBottomChunks(float ImpactSpeed);
+	void TriggerImpactCameraShake(float ImpactSpeed);
 
 	void StartSequentialUnsupportedBreak();
 	void ProcessNextChunkBreak();
