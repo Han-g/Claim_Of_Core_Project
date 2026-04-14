@@ -37,19 +37,7 @@ public class Claim_Of_Core : ModuleRules
 
 		PublicIncludePaths.AddRange(new string[] {
 			"Claim_Of_Core",
-			"Claim_Of_Core/Variant_Platforming",
-			"Claim_Of_Core/Variant_Platforming/Animation",
-			"Claim_Of_Core/Variant_Combat",
-			"Claim_Of_Core/Variant_Combat/AI",
-			"Claim_Of_Core/Variant_Combat/Animation",
-			"Claim_Of_Core/Variant_Combat/Gameplay",
-			"Claim_Of_Core/Variant_Combat/Interfaces",
-			"Claim_Of_Core/Variant_Combat/UI",
-			"Claim_Of_Core/Variant_SideScrolling",
-			"Claim_Of_Core/Variant_SideScrolling/AI",
-			"Claim_Of_Core/Variant_SideScrolling/Gameplay",
-			"Claim_Of_Core/Variant_SideScrolling/Interfaces",
-			"Claim_Of_Core/Variant_SideScrolling/UI"
+            "Claim_Of_Core/UI",
 		});
 
 		// Uncomment if you are using Slate UI
