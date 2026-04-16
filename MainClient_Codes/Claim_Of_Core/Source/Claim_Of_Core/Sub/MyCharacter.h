@@ -212,6 +212,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void DropCurrentItem();
 
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void ClearCurrentItemReference(ABaseItem* Item);
+
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
 

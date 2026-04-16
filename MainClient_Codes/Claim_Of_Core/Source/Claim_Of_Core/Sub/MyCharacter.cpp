@@ -1555,7 +1555,17 @@ void AMyCharacter::DropCurrentItem()
 	}
 
 	CurrentItem = nullptr;
+
 }
+
+void AMyCharacter::ClearCurrentItemReference(ABaseItem* Item)
+{
+	if (CurrentItem == Item)
+	{
+		CurrentItem = nullptr;
+	}
+}
+
 
 void AMyCharacter::AnimNotify_AttackHit()
 {
