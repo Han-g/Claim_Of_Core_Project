@@ -6,6 +6,7 @@
 #include "MyCharacter.generated.h"
 
 class USpringArmComponent;
+class UBoxComponent;
 class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
@@ -190,6 +191,22 @@ public:
 	UFUNCTION()
 	void OnAttackOverlap(
 		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item|Umbrella")
+	UBoxComponent* UmbrellaGuardBox;
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void SetUmbrellaGuardActive(bool bActive);
+
+	UFUNCTION()
+	void OnUmbrellaGuardBoxBeginOverlap(
+		UPrimitiveComponent* OverlappedComp,
 		AActor* OtherActor,
 		UPrimitiveComponent* OtherComp,
 		int32 OtherBodyIndex,

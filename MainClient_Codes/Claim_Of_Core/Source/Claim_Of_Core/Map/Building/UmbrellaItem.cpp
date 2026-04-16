@@ -13,16 +13,6 @@ AUmbrellaItem::AUmbrellaItem()
 	ItemMesh->SetupAttachment(RootComponent);
 	ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	GuardBox = CreateDefaultSubobject<UBoxComponent>(TEXT("GuardBox"));
-	GuardBox->SetupAttachment(ItemMesh);
-	GuardBox->SetBoxExtent(FVector(45.f, 45.f, 15.f));
-	GuardBox->SetRelativeLocation(FVector(10.f, 0.f, 55.f));
-	GuardBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	GuardBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	GuardBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-
-	GuardBox->OnComponentBeginOverlap.AddDynamic(this, &AUmbrellaItem::OnGuardBoxBeginOverlap);
-
 	MaxDurability = 3;
 	CurrentDurability = 3;
 	OpenedMoveSpeedMultiplier = 0.85f;
@@ -37,7 +27,6 @@ void AUmbrellaItem::BeginPlay()
 
 	CurrentDurability = MaxDurability;
 	CurrentMode = EUmbrellaMode::Closed;
-	SetGuardEnabled(false);
 	UpdateAttackStat();
 }
 
@@ -89,7 +78,6 @@ void AUmbrellaItem::OpenUmbrella()
 	}
 
 	CurrentMode = EUmbrellaMode::Opened;
-	SetGuardEnabled(true);
 	UpdateAttackStat();
 
 	if (UCharacterMovementComponent* MoveComp = OwnerCharacter->GetCharacterMovement())
@@ -102,6 +90,8 @@ void AUmbrellaItem::OpenUmbrella()
 		}
 	}
 
+	OwnerCharacter->SetUmbrellaGuardActive(true);
+
 	UE_LOG(LogTemp, Warning, TEXT("[Umbrella] Opened"));
 }
 
@@ -113,7 +103,6 @@ void AUmbrellaItem::CloseUmbrella()
 	}
 
 	CurrentMode = EUmbrellaMode::Closed;
-	SetGuardEnabled(false);
 	UpdateAttackStat();
 
 	if (UCharacterMovementComponent* MoveComp = OwnerCharacter->GetCharacterMovement())
@@ -124,6 +113,8 @@ void AUmbrellaItem::CloseUmbrella()
 			bSpeedModified = false;
 		}
 	}
+
+	OwnerCharacter->SetUmbrellaGuardActive(false);
 
 	UE_LOG(LogTemp, Warning, TEXT("[Umbrella] Closed"));
 }
@@ -180,19 +171,16 @@ void AUmbrellaItem::BreakUmbrella()
 
 	UE_LOG(LogTemp, Warning, TEXT("[Umbrella] Broken"));
 
-	if (CurrentMode == EUmbrellaMode::Opened)
+	if (OwnerCharacter)
 	{
-		SetGuardEnabled(false);
+		OwnerCharacter->SetUmbrellaGuardActive(false);
 
-		if (OwnerCharacter)
+		if (UCharacterMovementComponent* MoveComp = OwnerCharacter->GetCharacterMovement())
 		{
-			if (UCharacterMovementComponent* MoveComp = OwnerCharacter->GetCharacterMovement())
+			if (bSpeedModified)
 			{
-				if (bSpeedModified)
-				{
-					MoveComp->MaxWalkSpeed = CachedOriginalWalkSpeed;
-					bSpeedModified = false;
-				}
+				MoveComp->MaxWalkSpeed = CachedOriginalWalkSpeed;
+				bSpeedModified = false;
 			}
 		}
 	}
@@ -219,7 +207,6 @@ void AUmbrellaItem::BreakUmbrella()
 
 	Destroy();
 }
-
 void AUmbrellaItem::OnGuardBoxBeginOverlap(
 	UPrimitiveComponent* OverlappedComp,
 	AActor* OtherActor,
@@ -239,13 +226,6 @@ void AUmbrellaItem::OnGuardBoxBeginOverlap(
 	}
 
 	HandleGuardHit(OtherActor, 30.f);
-}
-
-void AUmbrellaItem::SetGuardEnabled(bool bEnable)
-{
-	GuardBox->SetCollisionEnabled(
-		bEnable ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision
-	);
 }
 
 void AUmbrellaItem::UpdateAttackStat()

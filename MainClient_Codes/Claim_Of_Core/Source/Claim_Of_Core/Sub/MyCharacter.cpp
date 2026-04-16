@@ -4,6 +4,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/BoxComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -21,6 +22,8 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+
+#include "../Map/Building/UmbrellaItem.h"
 
 #include "BaseItem.h"
 
@@ -87,6 +90,15 @@ AMyCharacter::AMyCharacter()
 	DeathUITextComponent->SetHiddenInGame(true);
 	DeathUITextComponent->SetOnlyOwnerSee(true);
 	DeathUITextComponent->SetCastShadow(false);
+
+	UmbrellaGuardBox = CreateDefaultSubobject<UBoxComponent>(TEXT("UmbrellaGuardBox"));
+	UmbrellaGuardBox->SetupAttachment(RootComponent);
+	UmbrellaGuardBox->SetBoxExtent(FVector(60.f, 60.f, 20.f));
+	UmbrellaGuardBox->SetRelativeLocation(FVector(0.f, 0.f, 260.f));
+	UmbrellaGuardBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	UmbrellaGuardBox->SetCollisionResponseToAllChannels(ECR_Ignore);
+	UmbrellaGuardBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+	UmbrellaGuardBox->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnUmbrellaGuardBoxBeginOverlap);
 
 	MaxHP = 100;
 	CurrentHP = MaxHP;
@@ -1174,6 +1186,8 @@ void AMyCharacter::ApplyDeadState()
 		return;
 	}
 
+	SetUmbrellaGuardActive(false);
+
 	ShowCorpse();
 
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -1543,6 +1557,7 @@ void AMyCharacter::DropCurrentItem()
 	{
 		return;
 	}
+	SetUmbrellaGuardActive(false);
 
 	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	CurrentItem->SetOwnerCharacter(nullptr);
@@ -1555,7 +1570,6 @@ void AMyCharacter::DropCurrentItem()
 	}
 
 	CurrentItem = nullptr;
-
 }
 
 void AMyCharacter::ClearCurrentItemReference(ABaseItem* Item)
@@ -1566,6 +1580,46 @@ void AMyCharacter::ClearCurrentItemReference(ABaseItem* Item)
 	}
 }
 
+void AMyCharacter::SetUmbrellaGuardActive(bool bActive)
+{
+	if (!UmbrellaGuardBox) return;
+
+	UmbrellaGuardBox->SetCollisionEnabled(
+		bActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision
+	);
+}
+
+void AMyCharacter::OnUmbrellaGuardBoxBeginOverlap(
+	UPrimitiveComponent* OverlappedComp,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult)
+{
+	if (!OtherActor || !CurrentItem)
+	{
+		return;
+	}
+
+	if (!OtherActor->ActorHasTag(TEXT("FallingDebris")))
+	{
+		return;
+	}
+
+	AUmbrellaItem* Umbrella = Cast<AUmbrellaItem>(CurrentItem);
+	if (!Umbrella)
+	{
+		return;
+	}
+
+	if (!Umbrella->IsOpened() || Umbrella->IsBroken())
+	{
+		return;
+	}
+
+	Umbrella->HandleGuardHit(OtherActor, 30.f);
+}
 
 void AMyCharacter::AnimNotify_AttackHit()
 {

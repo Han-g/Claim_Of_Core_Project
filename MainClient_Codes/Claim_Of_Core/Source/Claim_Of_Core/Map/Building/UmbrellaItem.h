@@ -31,9 +31,6 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Umbrella")
 	UStaticMeshComponent* ItemMesh;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Umbrella")
-	UBoxComponent* GuardBox;
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Umbrella")
 	EUmbrellaMode CurrentMode = EUmbrellaMode::Closed;
 
@@ -96,7 +93,6 @@ protected:
 	virtual void OnStartUse() override;
 	virtual void OnHitTarget(AActor* Target) override;
 
-	void SetGuardEnabled(bool bEnable);
 	void UpdateAttackStat();
 	bool IsFallingDebrisActor(AActor* OtherActor) const;
 
