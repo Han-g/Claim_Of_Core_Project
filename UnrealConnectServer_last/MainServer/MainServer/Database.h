@@ -34,16 +34,22 @@ class DBHelper
 public:
     static DBHelper* GetInstance() { static DBHelper instance; return &instance; }
 
-    // DB에 접속하는 함수 (서버 켤 때 한 번 호출)
+    // Connects to the database once during server startup.
     bool Connect();
 
-    // 연결을 끊는 함수
+    // Closes the active database connection and releases ODBC handles.
     void Disconnect();
 
-    // 간단한 로그인 확인 함수 (예시)
+    // Validates login credentials and returns the matching player UID on success.
     bool CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID);
+    // Creates a new account after validating the requested ID and password.
     bool CreateAccount(const std::wstring& userID, const std::wstring& userPW);
+    // Applies the basic length and character rules shared by account strings.
     bool IsValidAccountString(const std::wstring& inputStr);
+    // Validates the user ID format and rejects reserved words.
+    bool IsValidUserID(const std::wstring& inputID);
+    // Validates the password format before account creation.
+    bool IsValidUserPW(const std::wstring& inputPW);
 
 private:
     DBHelper();
@@ -52,13 +58,13 @@ private:
     DBHelper(const DBHelper&) = delete;
     DBHelper& operator=(const DBHelper&) = delete;
 
-    // 에러 발생 시 로그 찍는 함수
+    // Logs diagnostic information returned by the given ODBC handle.
     void PrintError(SQLHANDLE handle, SQLSMALLINT type);
 
 private:
-    SQLHENV hEnv;   // 환경 핸들
-    SQLHDBC hDbc;   // 연결 핸들
-    SQLHSTMT hStmt; // 쿼리 수행 핸들
+    SQLHENV hEnv;   // ODBC environment handle.
+    SQLHDBC hDbc;   // Database connection handle.
+    SQLHSTMT hStmt; // Statement handle used for query execution.
 
 public:
     bool m_IsConnected = false;

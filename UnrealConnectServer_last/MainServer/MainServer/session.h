@@ -18,7 +18,7 @@
 
 #include <windows.h>
 
-// Ring Buffer
+// Ring buffer utilities
 #define BUF_SIZE 10240
 
 typedef struct {
@@ -35,11 +35,11 @@ inline int GetRingBufSize(s_ringbuf* buf) {
 
 inline bool IsRingbufAvailalbe(s_ringbuf* buf) { return buf->head == buf->tail; }
 
-// EnQueue 1 letter
+// Pushes a single byte into the ring buffer.
 inline void RingBufEnQueue(s_ringbuf* buf, char c) {
 	unsigned int i = (unsigned int)(buf->head + 1) % BUF_SIZE;
 
-	// Check Buffer is full
+	// Ignore the write when the ring buffer is already full.
 	if (i != buf->tail) {
 		buf->data[buf->head] = c;
 		buf->head = i;
@@ -47,11 +47,11 @@ inline void RingBufEnQueue(s_ringbuf* buf, char c) {
 	else { LOG_ERROR("Buffer is no room to store data!"); }
 }
 
-// DeQueue 1 letter
+// Pops a single byte from the ring buffer.
 inline char RingBufDeQueue(s_ringbuf* buf) {
 	char c = '\0';
 
-	// Check Buffer is empty
+	// Warn when attempting to read from an empty ring buffer.
 	if (buf->head == buf->tail) { LOG_ERROR("Buffer is empty!"); }
 
 	else {
@@ -62,21 +62,21 @@ inline char RingBufDeQueue(s_ringbuf* buf) {
 	return c;
 }
 
-// Data Recived from WSARecv Copy to Ringbuffer
+// Copies bytes received by WSARecv into the ring buffer.
 inline bool RingBufPush(s_ringbuf* buf, char* recvData, int len) {
-	// Check Buffer overflow
+	// Reject the write when the incoming payload would overflow the buffer.
 	int freeSpace = BUF_SIZE - GetRingBufSize(buf) - 1;
 	if (freeSpace < len) { LOG_ERROR("Buffer has no enough space"); return false; }
 
 	int leftCapacity = BUF_SIZE - buf->head;
 
-	// Can Copy At first
+	// Copy directly when the remaining tail space is large enough.
 	if (leftCapacity >= len) {
 		memcpy(&buf->data[buf->head], recvData, len);
 		buf->head = (buf->head + len) % BUF_SIZE;
 	}
 
-	// Need Wrap around over the end of Buffer
+	// Wrap around when the payload crosses the end of the buffer.
 	else {
 		memcpy(&buf->data[buf->head], recvData, leftCapacity);
 		memcpy(&buf->data[0], recvData + leftCapacity, len - leftCapacity);
@@ -86,7 +86,7 @@ inline bool RingBufPush(s_ringbuf* buf, char* recvData, int len) {
 	return true;
 }
 
-// Data Read for cheak header
+// Peeks at buffered data without consuming it.
 inline bool RingBufPeek(s_ringbuf* buf, char* dest, int len) {
 	if (GetRingBufSize(buf) < len) {
 		LOG_ERROR("Read size is less than Data size");
@@ -104,20 +104,20 @@ inline bool RingBufPeek(s_ringbuf* buf, char* dest, int len) {
 	return true;
 }
 
-// Data delete
+// Removes consumed bytes from the ring buffer.
 inline void RingBufpop(s_ringbuf* buf, int len) {
 	buf->tail = (buf->tail + len) % BUF_SIZE;
 }
 
 
-// Check kind of IO Work
+// Identifies the type of asynchronous I/O work.
 enum class IO_OPERATION {
 	RECV,
 	SEND,
 	AWAIT
 };
 
-// Extend WSAOVERLAPPED by containing IO work type
+// Extends WSAOVERLAPPED with a lightweight I/O operation tag.
 struct OverlappedEx : public WSAOVERLAPPED {
 	IO_OPERATION type;
 };
@@ -129,7 +129,7 @@ enum class ESessionState {
 	INGAME
 };
 
-// Client Session Info
+// Stores the socket state and runtime data for one client session.
 struct Session {
 	SOCKET socket;
 	int playerUID;
@@ -137,9 +137,11 @@ struct Session {
 	int roomID;		// -1: Not Entering a Room
 
 	bool isConnected = false;
+	bool isReady = false;
 
 	ESessionState now_state;
 	GameData gameDatas;
+	std::wstring playerName;
 
 	char TempBuffer[1024];
 	s_ringbuf recvBuffer;
@@ -155,6 +157,8 @@ struct Session {
 		playerUID = -1;
 		sessionID = -1;
 		roomID = -1;
+
+		now_state = ESessionState::LOGIN;
 
 		ZeroMemory(TempBuffer, sizeof(TempBuffer));
 		ZeroMemory(&recvBuffer, sizeof(s_ringbuf));

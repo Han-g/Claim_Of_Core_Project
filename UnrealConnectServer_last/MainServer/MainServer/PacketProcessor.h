@@ -16,13 +16,15 @@ public:
 	PacketProcessor();
 	~PacketProcessor() = default;
 
+	static GameLogic* GameLogicHelper(IOCPServer* server, Session* session);
+
 	using HandlerFunc = std::function<void(IOCPServer*, Session*, PacketReader&)>;
 
 	void InitHandler();
 	void Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data);
 
 private:
-	// Packet Process Functions
+	// Individual packet handler functions.
 	static void Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_RegisterReq(IOCPServer* server, Session* session, PacketReader& reader);
 	
@@ -30,7 +32,8 @@ private:
 	static void Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader);
-	
+	static void Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader);
+
 	static void Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
@@ -38,5 +41,5 @@ private:
 	static void Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 
 private:
-	std::unordered_map<int, HandlerFunc> m_FuncHanderMap;
+	std::unordered_map<int, HandlerFunc> m_FuncHandlerMap;
 };

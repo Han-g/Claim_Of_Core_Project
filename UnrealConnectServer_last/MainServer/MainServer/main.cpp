@@ -1,7 +1,7 @@
 #include <thread>
 #include <vector>
 
-// Must include first winsock and ws2tcpip than Windows.h
+// Include winsock headers before Windows.h.
 #include "server.h"
 
 #include <Windows.h>
@@ -30,12 +30,16 @@ int main()
 
 	//Test(&server);
 
-	// Wait for MainThread not to end
+	// Keep the main thread alive and drive the server frame loop.
 	while (true) {
-		// about 60 Frame Per Seconds (60 FPS)
-		std::this_thread::sleep_for(std::chrono::milliseconds(16));
+		static auto lastTime = std::chrono::steady_clock::now();
+		auto now = std::chrono::steady_clock::now();
+		float deltaTime = std::chrono::duration<float>(now - lastTime).count();
 
-		server.GameFrameProtocol();
+		server.GameFrameProtocol(deltaTime);
+
+		// Run the frame loop at roughly 60 frames per second.
+		std::this_thread::sleep_for(std::chrono::milliseconds(16));
 	}
 
 	LOG_INFO("Server Closed!");

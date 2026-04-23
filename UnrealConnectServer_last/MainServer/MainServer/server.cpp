@@ -1,7 +1,7 @@
 #include "server.h"
 
 
-// ----------------Test Func----------------
+// ---------------- Test Helpers ----------------
 
 void IOCPServer::TestPacketProcessor()
 {
@@ -22,16 +22,16 @@ void IOCPServer::TestPacketProcessor()
 	const char* headerPtr = reinterpret_cast<const char*>(&dummyHeader);
 	dummyPacketData.insert(dummyPacketData.end(), headerPtr, headerPtr + sizeof(int32_t));
 
-	// 문자열을 버퍼에 직렬화하는 람다 함수 (PacketReader의 규격과 일치시킴)
+	// Helper lambda that serializes strings in the same format PacketReader expects.
 	auto AppendStringToBuffer = [&dummyPacketData](const std::wstring& str) {
-		// 1. 길이를 부호 있는 정수로 캐스팅한 뒤, NULL 문자(+1)를 포함하여 음수로 만듭니다.
+		// 1. Encode the UTF-16 string length as a negative value including the null terminator.
 		int32_t len = -(static_cast<int32_t>(str.length()) + 1);
 
-		// 길이 4바이트 삽입 (예: L"admin"이면 -6이 삽입됨)
+		// Insert the 4-byte length prefix. For example, L"admin" becomes -6.
 		const char* lenPtr = reinterpret_cast<const char*>(&len);
 		dummyPacketData.insert(dummyPacketData.end(), lenPtr, lenPtr + sizeof(int32_t));
 
-		// 2. 실제 와이드 문자열 삽입
+		// 2. Append the raw wide-character payload.
 		int32_t realLen = -len;
 		const char* strPtr = reinterpret_cast<const char*>(str.c_str());
 		dummyPacketData.insert(dummyPacketData.end(), strPtr, strPtr + (realLen * sizeof(wchar_t)));
@@ -45,14 +45,14 @@ void IOCPServer::TestPacketProcessor()
 	m_PacketProcessor.Process(this, &dummySession, TEST_PKT, dummyPacketData);
 
 	if (!m_DBLoginQueue.empty()) {
-		DBData queuedData = m_DBLoginQueue.back(); // 큐의 맨 뒤에 방금 넣은 데이터 확인
+		DBData queuedData = m_DBLoginQueue.back(); // Inspect the test item that was just pushed into the queue.
 
 		LOG_INFO("[Test Result] DB Queue Pushed - ID: %ls, PW: %ls",
 			queuedData.UserID.c_str(), queuedData.UserPW.c_str());
 
 		LOG_INFO("========== Login Packet Test SUCCESS ==========");
 
-		// (선택) 실제 DB 스레드가 가져가기 전에 테스트용 데이터를 지우려면 pop 처리
+		// Optionally pop the test item before the real DB worker consumes it.
 		// m_DBLoginQueue.pop(); 
 	}
 	else {
@@ -73,12 +73,14 @@ IOCPServer::~IOCPServer() {
 }
 
 void IOCPServer::InitLogger() {
-	// Create Log setting
+	// Configure file-based logging.
 	logging::logging_config_t config;
 	config["type"] = "file";
-	config["file_name"] = "ServerLog.txt";
+	config["file_name"] = "ServerLog";
 
 	logging::configure(config);
+
+	CleanupOldLogs("ServerLog", 14);
 
 	LOG_INFO("------------- LOGGING START -------------");
 }
@@ -89,11 +91,11 @@ bool IOCPServer::Init(int port, int maxSessionCount) {
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) { return false; }
 	m_MaxSessionCount = maxSessionCount;
 
-	// Create IOCP Object
+	// Create the shared I/O completion port.
 	m_hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0);
 	if (m_hIOCP == nullptr) { return false; }
 
-	// Create and Set Listen Socket
+	// Create and bind the listening socket.
 	m_ListenSocket = WSASocket(AF_INET, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
 	if (m_ListenSocket == INVALID_SOCKET) { return false; }
 
@@ -116,7 +118,7 @@ bool IOCPServer::Init(int port, int maxSessionCount) {
 void IOCPServer::Start() {
 	m_IsRunning = true;
 
-	// Num of WorkerThread == Num of CPU Core * 2
+	// Use roughly two worker threads per CPU core.
 	SYSTEM_INFO sysInfo;
 	GetSystemInfo(&sysInfo);
 	int threadCount = sysInfo.dwNumberOfProcessors * 2;
@@ -140,10 +142,10 @@ void IOCPServer::AcceptThread() {
 
 		if (clientSocket == INVALID_SOCKET) { continue; }
 
-		// Operate Session with Lock
+		// Allocate a session slot for the accepted socket.
 		Session* newSession = m_SessionManager->AcceptNewClient(clientSocket);
 
-		// Check Session connected User
+		// Reject the connection when all session slots are already in use.
 		if (newSession == nullptr) {
 			LOG_ERROR("User can't connect by Session is full!");
 			closesocket(clientSocket);
@@ -174,7 +176,7 @@ void IOCPServer::WorkerThread() {
 			continue;
 		}
 
-		// work by task type
+		// Dispatch the completion based on the operation type.
 		if (p_Ex->type == IO_OPERATION::RECV) { 
 			OnRecv(session->sessionID, transferredBytes); 
 		}
@@ -184,11 +186,11 @@ void IOCPServer::WorkerThread() {
 		}
 		
 		else if (p_Ex->type == IO_OPERATION::AWAIT) {
-			// Await progess
+			// Reserved for future await-style completions.
 		}
 		
 		else {
-			// Error progess
+			// Reserved for unsupported or invalid completion types.
 		}
 	}
 }
@@ -206,7 +208,7 @@ void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
 
 	//newSession->gameDatas = newData;
 
-	// Socket connect with IOCP handle
+	// Associate the accepted socket with the IOCP handle.
 	CreateIoCompletionPort((HANDLE)newSession->socket, m_hIOCP, (ULONG_PTR)newSession, 0);
 
 	char clientIP[32];
@@ -219,14 +221,14 @@ void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
 
 	SendPacket(newSession->sessionID, PKT_S2C_ACCESS_ALLOW, (char*)&loginPacket, sizeof(GameDataPacket));
 
-	// Request Asyn Recv
+	// Post the first asynchronous receive request.
 	DWORD flags = 0;
 	DWORD recvBytes = 0;
 	WSABUF wsaBuf;
 	wsaBuf.buf = newSession->TempBuffer;
 	wsaBuf.len = sizeof(newSession->TempBuffer);
 
-	// init Overlapped struct ( very important )
+	// Initialize the overlapped structure before WSARecv.
 	ZeroMemory(&newSession->recvOverlapped, sizeof(WSAOVERLAPPED));
 	newSession->recvOverlapped.type = IO_OPERATION::RECV;
 
@@ -234,7 +236,7 @@ void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
 }
 
 void IOCPServer::OnDisconnect(int sessionIndex) {
-	// Deque at vector
+	// Legacy vector-based session cleanup kept for reference.
 	/*for (std::vector<Session*>::iterator it = m_Sessions.begin(); it != m_Sessions.end();) {
 		Session* delSession = *it;
 		
@@ -249,13 +251,14 @@ void IOCPServer::OnDisconnect(int sessionIndex) {
 }
 
 void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
-	// need mapping system between sessionID and Index
+	// Resolve the active session object from the session ID.
 	Session* recvSession = m_SessionManager->GetSession(sessionIndex);
+	if (recvSession == nullptr) { LOG_ERROR("Session is empty!"); return; }
 
-	// Recv Data Progressing
+	// Process newly received bytes.
 	//LOG_INFO("Recv Data");
 
-	// After Recv Data need to Recv again
+	// Push received bytes into the ring buffer before decoding packets.
 	if (RingBufPush(&recvSession->recvBuffer, recvSession->TempBuffer, transferredBytes) == false) {
 		LOG_ERROR("RingBuffer Overflow!");
 		OnDisconnect(sessionIndex);
@@ -263,7 +266,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	}
 
 	while (true) {
-		// Check Data is gathered by size of header
+		// Wait until at least a full packet header is available.
 		if (GetRingBufSize(&recvSession->recvBuffer) < sizeof(PacketHeader)) { 
 			//LOG_WARN("Check Data is gathered by size of header [Left Buffer Size: %d| Header Size: %d]", GetRingBufSize(&recvSession->recvBuffer), sizeof(PacketHeader));
 			break; 
@@ -272,13 +275,13 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		PacketHeader header;
 		RingBufPeek(&recvSession->recvBuffer, (char*)&header, sizeof(PacketHeader));
 
-		// Entire Data doesn't receive wait next Recv
+		// Wait for the remainder when the full packet body has not arrived yet.
 		if (GetRingBufSize(&recvSession->recvBuffer) < header.packet_size) {
 			LOG_WARN("Entire Data doesn't receive wait next Recv");
 			break; 
 		}
 
-		// Packet assamble Complete
+		// The full packet is available, so assemble it into a contiguous buffer.
 		std::vector<char> packetData(header.packet_size);
 
 		RingBufPeek(&recvSession->recvBuffer, packetData.data(), header.packet_size);
@@ -288,7 +291,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		LOG_INFO("[SESSION ID: %d] [PACKET ID: %d - SIZE: %d] Pakcet Received!",
 			sessionIndex, header.packet_ID, header.packet_size);
 
-		// Call Packet Process Function
+		// Hand the decoded packet to the packet processor.
 		PacketProcess(sessionIndex, header.packet_ID, packetData);
 	}
 
@@ -311,6 +314,7 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 
 void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 	Session* session = m_SessionManager->GetSession(sessionIndex);
+	if (session == nullptr) { LOG_ERROR("Session is empty!"); return; }
 
 	std::lock_guard<std::mutex> sendlock(session->sendLock);
 
@@ -318,7 +322,7 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 	if (!session->sendQueue.empty()) { SendProtocol(session); }
 	else { session->isSending = false; }
 
-	//LOG_INFO("Send Data");
+	// LOG_INFO("Send Data");
 }
 
 void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len) {
@@ -330,7 +334,7 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 
 	PacketHeader header;
 	header.packet_ID = (unsigned int)packetID;
-	header.packet_size = sizeof(PacketHeader) + len;
+	header.packet_size = static_cast <unsigned short>(sizeof(PacketHeader) + len);
 
 	std::vector<char> sendData;
 	sendData.resize(header.packet_size);
@@ -340,7 +344,7 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 		memcpy(sendData.data() + sizeof(PacketHeader), data, len);
 	}
 
-	// Critical Section Start
+	// Guard the outgoing queue while appending a new packet.
 	{
 		std::lock_guard<std::mutex> sendlock(session->sendLock);
 
@@ -350,7 +354,7 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 			SendProtocol(session);
 		}
 	}
-	// Critical Section End
+	// Leave the send queue critical section.
 }
 
 void IOCPServer::SendProtocol(Session* session) {
@@ -361,7 +365,7 @@ void IOCPServer::SendProtocol(Session* session) {
 
 	std::vector<char>& packet = session->sendQueue.front();
 
-	// Init Overlapped 
+	// Initialize the overlapped structure for WSASend.
 	session->isSending = true;
 
 	WSABUF wsaBuf;
@@ -374,7 +378,7 @@ void IOCPServer::SendProtocol(Session* session) {
 	ZeroMemory(&session->sendOverlapped, sizeof(WSAOVERLAPPED));
 	session->sendOverlapped.type = IO_OPERATION::SEND;
 
-	// Async Send request
+	// Submit the asynchronous send request.
 	if (WSASend(session->socket, &wsaBuf, 1, &sentBytes, flags,
 		(LPWSAOVERLAPPED)&session->sendOverlapped, nullptr) == SOCKET_ERROR) {
 		if (WSAGetLastError() != ERROR_IO_PENDING) {
@@ -385,7 +389,7 @@ void IOCPServer::SendProtocol(Session* session) {
 	}
 }
 
-// Recive Data Process
+// Packet dispatch entry point after a full payload has been assembled.
 void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector<char>& data)
 {
 	if (sessionIndex < 0 || sessionIndex >= MAXCLIENT) {
@@ -425,18 +429,25 @@ void IOCPServer::DBWorkerThread()
 		switch (data.TaskType)
 		{
 		case EDBTaskType::LOGIN:
-			// Check Valid Login Data
+			// Validate credentials and transition the session to the lobby on success.
 			if (m_DB->CheckLogin(data.UserID, data.UserPW, userUID)) {
 				LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
 
-				// Init Game Data and Assign UID to Client
+				// Cache player identity data on the session object.
+				Session* loginSession = m_SessionManager->GetSession(data.SessionIndex);
+				if (loginSession) {
+					loginSession->playerName = data.UserID;
+					loginSession->playerUID = userUID;
+				}
+
+				// Build the login-success payload with the assigned user UID.
 				GameDataPacket dataPacket;
 				dataPacket.Session_ID = data.SessionIndex;
 				GameData newData;
 				newData.userUID = userUID;
 				dataPacket.data = newData;
 
-				// Change session state
+				// Move the session into the lobby state.
 				m_SessionManager->SetState(data.SessionIndex, ESessionState::LOBBY);
 
 				SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
@@ -510,7 +521,7 @@ void IOCPServer::BroadcastRoomList()
 	std::vector<RoomPacket> roomList = m_RoomManager->GetRoomList();
 	int roomCount = (int)roomList.size();
 
-	// Packet Serializetion
+	// Serialize the room list payload.
 	int dataSize = sizeof(int) + (roomCount * sizeof(RoomPacket));
 	std::vector<char> sendBuffer(dataSize);
 
@@ -522,7 +533,7 @@ void IOCPServer::BroadcastRoomList()
 		memcpy(sendBuffer.data() + offset, roomList.data(), roomCount * sizeof(RoomPacket));
 	}
 
-	// Only Sent to LOBBY State Clients
+	// Send room-list updates only to lobby sessions.
 	for (int i = 0; i < m_MaxSessionCount; ++i) {
 		Session* session = m_SessionManager->GetSession(i);
 
@@ -534,9 +545,34 @@ void IOCPServer::BroadcastRoomList()
 	LOG_INFO("Send Update Room List Packets!");
 }
 
+void IOCPServer::BroadcastRoomInfo(Session* client)
+{
+	if (client->roomID == -1) { return; }
+
+	Room* room = m_RoomManager->GetRoom(client->roomID);
+	if (room == nullptr) { return; }
+
+	std::vector<RoomMemberPacket> memberList = room->GetMemberInfoList();
+	int32_t memberCount = (int32_t)memberList.size();
+
+	int dataSize = sizeof(int32_t) + (memberCount * sizeof(RoomMemberPacket));
+	std::vector<char> sendBuffer(dataSize);
+
+	int offset = 0;
+	memcpy(sendBuffer.data() + offset, &memberCount, sizeof(int32_t));
+	offset += sizeof(int32_t);
+
+	if (memberCount > 0) {
+		memcpy(sendBuffer.data() + offset, memberList.data(), memberCount * sizeof(RoomMemberPacket));
+	}
+
+	// Broadcast to every member in the room without exclusions.
+	room->BroadcastToMembers(PKT_S2C_ROOM_INFO_BRD, sendBuffer.data(), dataSize);
+}
 
 
-void IOCPServer::GameFrameProtocol() {
+
+void IOCPServer::GameFrameProtocol(float deltaTime) {
 	/*
 	if (m_Sessions.empty()) { 
 		//LOG_ERROR("Now Connected Client is not Exist!"); 
@@ -569,5 +605,5 @@ void IOCPServer::GameFrameProtocol() {
 		}
 	}
 	*/
-	m_RoomManager->UpdateRooms();
+	m_RoomManager->UpdateRooms(deltaTime);
 }

@@ -1,364 +1,225 @@
-[2026-03-28 | 00:47:12] [INFO] ------------- LOGGING START -------------
-[2026-03-28 | 00:47:12] [INFO] Server Initalized Successfully!
-[2026-03-28 | 00:47:12] [INFO] Server Start Successful!
-[2026-03-28 | 00:47:12] [INFO] DB Connect Successful!
-[2026-03-28 | 00:47:16] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 00:47:21] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 00:47:21] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 00:47:21] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 00:47:21] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-28 | 00:47:22] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 00:47:34] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-28 | 00:48:01] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 00:48:06] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 00:48:06] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 00:48:06] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 00:48:06] [INFO] [1] Session Login Success! [UID: 1]
-[2026-03-28 | 00:48:54] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 00:50:01] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-28 | 00:50:05] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 00:50:09] [INFO] [SESSION ID: 2] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 00:50:09] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 00:50:09] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 00:50:09] [INFO] [2] Session Login Success! [UID: 1]
-[2026-03-28 | 00:51:15] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-28 | 00:54:38] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 00:54:42] [INFO] [SESSION ID: 3] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 00:54:42] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 00:54:42] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 00:54:42] [INFO] [3] Session Login Success! [UID: 1]
-[2026-03-28 | 00:54:46] [INFO] [SESSION ID: 3] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:00:19] [INFO] [SESSION ID: 3] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:00:50] [INFO] [SESSION ID: 3] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:00:53] [ERROR] [ID: 3] Fail to Register IOCP handle
-[2026-03-28 | 01:05:08] [INFO] ------------- LOGGING START -------------
-[2026-03-28 | 01:05:08] [INFO] Server Initalized Successfully!
-[2026-03-28 | 01:05:08] [INFO] Server Start Successful!
-[2026-03-28 | 01:05:08] [INFO] DB Connect Successful!
-[2026-03-28 | 01:07:48] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 01:07:53] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 01:07:53] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 01:07:53] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 01:07:53] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-28 | 01:07:53] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:08:04] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:08:04] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:08:37] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:08:37] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:08:44] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:13:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:13:55] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-28 | 01:14:03] [INFO] ------------- LOGGING START -------------
-[2026-03-28 | 01:14:03] [INFO] Server Initalized Successfully!
-[2026-03-28 | 01:14:03] [INFO] Server Start Successful!
-[2026-03-28 | 01:14:03] [INFO] DB Connect Successful!
-[2026-03-28 | 01:14:09] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 01:14:13] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 01:14:13] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 01:14:13] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 01:14:13] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-28 | 01:14:19] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:14:25] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:14:27] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:14:50] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-28 | 01:30:22] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 01:30:27] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 01:30:27] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 01:30:27] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 01:30:27] [INFO] [1] Session Login Success! [UID: 1]
-[2026-03-28 | 01:30:29] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:30:36] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 01:30:38] [INFO] Send Update Room List Packets!
-[2026-03-28 | 01:30:58] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-28 | 21:53:16] [INFO] ------------- LOGGING START -------------
-[2026-03-28 | 21:53:16] [INFO] Server Initalized Successfully!
-[2026-03-28 | 21:53:16] [INFO] Server Start Successful!
-[2026-03-28 | 21:53:16] [INFO] DB Connect Successful!
-[2026-03-28 | 21:54:38] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 21:54:43] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 21:54:43] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 21:54:43] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 21:54:43] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-28 | 21:54:43] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:44] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:44] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:52] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:52] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:55] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:55] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:55] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:55] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:55] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:54:55] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:54:55] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:55:12] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:58:50] [INFO] Send Update Room List Packets!
-[2026-03-28 | 21:58:50] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 21:58:50] [INFO] Send Update Room List Packets!
-[2026-03-28 | 22:00:37] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 22:00:48] [INFO] Send Update Room List Packets!
-[2026-03-28 | 22:01:44] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-28 | 22:21:54] [INFO] ------------- LOGGING START -------------
-[2026-03-28 | 22:21:54] [INFO] Server Initalized Successfully!
-[2026-03-28 | 22:21:54] [INFO] Server Start Successful!
-[2026-03-28 | 22:21:54] [INFO] DB Connect Successful!
-[2026-03-28 | 22:21:59] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 22:22:04] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 22:22:04] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 22:22:04] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 22:22:04] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-28 | 22:22:04] [INFO] Send Update Room List Packets!
-[2026-03-28 | 22:22:24] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 22:22:24] [INFO] Send Update Room List Packets!
-[2026-03-28 | 22:22:35] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 22:26:06] [INFO] Send Update Room List Packets!
-[2026-03-28 | 22:26:09] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-28 | 22:26:17] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 22:26:21] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 22:26:21] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 22:26:21] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 22:26:21] [INFO] [1] Session Login Success! [UID: 1]
-[2026-03-28 | 22:26:21] [INFO] Send Update Room List Packets!
-[2026-03-28 | 22:26:40] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-28 | 23:13:22] [INFO] ------------- LOGGING START -------------
-[2026-03-28 | 23:13:22] [INFO] Server Initalized Successfully!
-[2026-03-28 | 23:13:22] [INFO] Server Start Successful!
-[2026-03-28 | 23:13:22] [INFO] DB Connect Successful!
-[2026-03-28 | 23:14:00] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-28 | 23:14:11] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-28 | 23:14:11] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-28 | 23:14:11] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-28 | 23:14:11] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-28 | 23:14:11] [INFO] Send Update Room List Packets!
-[2026-03-28 | 23:14:12] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-28 | 23:14:12] [INFO] Send Update Room List Packets!
-[2026-03-28 | 23:14:15] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-29 | 02:26:25] [INFO] ------------- LOGGING START -------------
-[2026-03-29 | 02:26:25] [INFO] Server Initalized Successfully!
-[2026-03-29 | 02:26:25] [INFO] Server Start Successful!
-[2026-03-29 | 02:26:25] [INFO] DB Connect Successful!
-[2026-03-29 | 02:27:15] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-29 | 02:27:41] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-29 | 02:27:41] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-29 | 02:27:41] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-29 | 02:27:41] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-29 | 02:27:41] [INFO] Send Update Room List Packets!
-[2026-03-29 | 02:27:43] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-29 | 02:27:43] [INFO] Send Update Room List Packets!
-[2026-03-29 | 02:27:45] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-29 | 02:27:46] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-29 | 02:27:51] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-29 | 02:27:51] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-29 | 02:27:51] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-29 | 02:27:51] [INFO] [1] Session Login Success! [UID: 1]
-[2026-03-29 | 02:27:51] [INFO] Send Update Room List Packets!
-[2026-03-29 | 02:27:59] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-29 | 10:58:29] [INFO] ------------- LOGGING START -------------
-[2026-03-29 | 10:58:29] [INFO] Server Initalized Successfully!
-[2026-03-29 | 10:58:29] [INFO] Server Start Successful!
-[2026-03-29 | 10:58:29] [INFO] DB Connect Successful!
-[2026-03-29 | 11:01:12] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-29 | 11:01:21] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-29 | 11:01:21] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-29 | 11:01:21] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-29 | 11:01:21] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-29 | 11:01:21] [INFO] Send Update Room List Packets!
-[2026-03-29 | 11:01:21] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-29 | 11:01:21] [INFO] Send Update Room List Packets!
-[2026-03-29 | 11:01:26] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-29 | 11:02:11] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-29 | 11:02:11] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-29 | 11:02:19] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-29 | 11:02:19] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-29 | 11:02:19] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-29 | 11:02:19] [INFO] [1] Session Login Success! [UID: 1]
-[2026-03-29 | 11:02:19] [INFO] Send Update Room List Packets!
-[2026-03-29 | 11:02:26] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-29 | 11:02:26] [INFO] Send Update Room List Packets!
-[2026-03-29 | 11:02:27] [INFO] [SESSION ID: 2] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-29 | 11:02:27] [INFO] [Login Req] ID: admin1, PW: admin1
-[2026-03-29 | 11:02:27] [INFO] Login to Server Successful! [UID: 2]
-[2026-03-29 | 11:02:27] [INFO] [2] Session Login Success! [UID: 2]
-[2026-03-29 | 11:02:27] [INFO] Send Update Room List Packets!
-[2026-03-29 | 11:02:54] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-29 | 11:02:54] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-30 | 01:08:59] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 01:08:59] [INFO] Server Initalized Successfully!
-[2026-03-30 | 01:08:59] [INFO] Server Start Successful!
-[2026-03-30 | 01:08:59] [INFO] DB Connect Successful!
-[2026-03-30 | 01:53:15] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 01:53:15] [INFO] Server Initalized Successfully!
-[2026-03-30 | 01:53:15] [INFO] Server Start Successful!
-[2026-03-30 | 01:53:15] [INFO] DB Connect Successful!
-[2026-03-30 | 01:53:21] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:21] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:21] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:21] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:21] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:21] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:22] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:53:22] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:54:18] [ERROR] [ID: 7] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 6] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 5] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 4] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 3] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-30 | 01:54:18] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-30 | 01:54:25] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:54:26] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:54:26] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:54:37] [INFO] [SESSION ID: 8] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-30 | 01:54:37] [ERROR] [8] is Invalid Session Index
-[2026-03-30 | 01:54:50] [INFO] [SESSION ID: 8] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-30 | 01:54:50] [ERROR] [8] is Invalid Session Index
-[2026-03-30 | 01:54:52] [INFO] [SESSION ID: 9] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 01:54:52] [ERROR] [9] is Invalid Session Index
-[2026-03-30 | 01:54:53] [INFO] [SESSION ID: 10] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 01:54:53] [ERROR] [10] is Invalid Session Index
-[2026-03-30 | 01:57:45] [ERROR] [ID: 10] Fail to Register IOCP handle
-[2026-03-30 | 01:57:45] [ERROR] [ID: 9] Fail to Register IOCP handle
-[2026-03-30 | 01:57:45] [ERROR] [ID: 8] Fail to Register IOCP handle
-[2026-03-30 | 01:58:23] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 01:58:23] [INFO] Server Initalized Successfully!
-[2026-03-30 | 01:58:23] [INFO] Server Start Successful!
-[2026-03-30 | 01:58:23] [INFO] DB Connect Successful!
-[2026-03-30 | 01:58:27] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:58:27] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:58:27] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:58:29] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-30 | 01:58:29] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-30 | 01:58:29] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-30 | 01:58:30] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:58:30] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:58:30] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 01:58:36] [INFO] [SESSION ID: 3] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-30 | 01:58:36] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-30 | 01:58:36] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-30 | 01:58:36] [INFO] [3] Session Login Success! [UID: 1]
-[2026-03-30 | 01:58:36] [INFO] Send Update Room List Packets!
-[2026-03-30 | 01:58:42] [INFO] [SESSION ID: 4] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 01:58:42] [INFO] [Login Req] ID: admin1, PW: admin1
-[2026-03-30 | 01:58:42] [INFO] Login to Server Successful! [UID: 2]
-[2026-03-30 | 01:58:42] [INFO] [4] Session Login Success! [UID: 2]
-[2026-03-30 | 01:58:42] [INFO] Send Update Room List Packets!
-[2026-03-30 | 01:58:44] [INFO] [SESSION ID: 3] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 01:58:44] [INFO] Send Update Room List Packets!
-[2026-03-30 | 01:58:53] [INFO] [SESSION ID: 5] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 01:58:53] [INFO] [Login Req] ID: admin2, PW: admin2
-[2026-03-30 | 01:58:53] [INFO] Login to Server Successful! [UID: 3]
-[2026-03-30 | 01:58:53] [INFO] [5] Session Login Success! [UID: 3]
-[2026-03-30 | 01:58:53] [INFO] Send Update Room List Packets!
-[2026-03-30 | 01:58:59] [ERROR] [ID: 5] Fail to Register IOCP handle
-[2026-03-30 | 01:58:59] [ERROR] [ID: 4] Fail to Register IOCP handle
-[2026-03-30 | 01:58:59] [ERROR] [ID: 3] Fail to Register IOCP handle
-[2026-03-30 | 02:04:53] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 02:04:53] [INFO] Server Initalized Successfully!
-[2026-03-30 | 02:04:53] [INFO] Server Start Successful!
-[2026-03-30 | 02:04:53] [INFO] DB Connect Successful!
-[2026-03-30 | 02:05:55] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 02:05:55] [INFO] Server Initalized Successfully!
-[2026-03-30 | 02:05:55] [INFO] Server Start Successful!
-[2026-03-30 | 02:05:55] [INFO] DB Connect Successful!
-[2026-03-30 | 02:06:03] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:06:03] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:06:04] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:06:10] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-30 | 02:06:10] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-30 | 02:06:10] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-30 | 02:06:10] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-30 | 02:06:10] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:06:16] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 02:06:16] [INFO] [Login Req] ID: admin1, PW: admin1
-[2026-03-30 | 02:06:16] [INFO] Login to Server Successful! [UID: 2]
-[2026-03-30 | 02:06:16] [INFO] [1] Session Login Success! [UID: 2]
-[2026-03-30 | 02:06:16] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:06:22] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 02:06:22] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:06:30] [INFO] [SESSION ID: 2] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 02:06:30] [INFO] [Login Req] ID: admin2, PW: admin2
-[2026-03-30 | 02:06:30] [INFO] Login to Server Successful! [UID: 3]
-[2026-03-30 | 02:06:30] [INFO] [2] Session Login Success! [UID: 3]
-[2026-03-30 | 02:06:30] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:06:31] [INFO] [SESSION ID: 1] [PACKET ID: 506 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 02:06:31] [ERROR] [Session: 1] Failed to join at Game Room
-[2026-03-30 | 02:07:58] [INFO] [SESSION ID: 1] [PACKET ID: 506 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 02:07:58] [ERROR] [Session: 1] Failed to join at Game Room
-[2026-03-30 | 02:08:26] [INFO] [SESSION ID: 1] [PACKET ID: 506 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 02:08:33] [ERROR] [Session: 1] Failed to join at Game Room
-[2026-03-30 | 02:08:37] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-30 | 02:08:37] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-30 | 02:08:37] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-30 | 02:19:49] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 02:19:49] [INFO] Server Initalized Successfully!
-[2026-03-30 | 02:19:49] [INFO] Server Start Successful!
-[2026-03-30 | 02:19:49] [INFO] DB Connect Successful!
-[2026-03-30 | 02:20:29] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:20:29] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:20:29] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:20:44] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-30 | 02:20:44] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-30 | 02:20:44] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-30 | 02:20:44] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-30 | 02:20:44] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:21:09] [INFO] [SESSION ID: 2] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 02:21:09] [INFO] [Login Req] ID: admin1, PW: admin1
-[2026-03-30 | 02:21:09] [INFO] Login to Server Successful! [UID: 2]
-[2026-03-30 | 02:21:09] [INFO] [2] Session Login Success! [UID: 2]
-[2026-03-30 | 02:21:09] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:21:10] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 02:21:15] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:21:19] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 02:21:19] [INFO] [Login Req] ID: admin2, PW: admin2
-[2026-03-30 | 02:21:19] [INFO] Login to Server Successful! [UID: 3]
-[2026-03-30 | 02:21:19] [INFO] [1] Session Login Success! [UID: 3]
-[2026-03-30 | 02:21:19] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:21:20] [INFO] [SESSION ID: 2] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
-[2026-03-30 | 02:21:20] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:21:21] [INFO] [SESSION ID: 1] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
-[2026-03-30 | 02:21:21] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:21:22] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-30 | 02:21:23] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-30 | 02:21:23] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-30 | 02:28:37] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 02:28:37] [INFO] Server Initalized Successfully!
-[2026-03-30 | 02:28:37] [INFO] Server Start Successful!
-[2026-03-30 | 02:28:37] [INFO] DB Connect Successful!
-[2026-03-30 | 02:28:40] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:28:40] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:28:40] [INFO] Client Session Connect with IOCP handle successful!
-[2026-03-30 | 02:28:47] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
-[2026-03-30 | 02:28:47] [INFO] [Login Req] ID: admin, PW: admin
-[2026-03-30 | 02:28:47] [INFO] Login to Server Successful! [UID: 1]
-[2026-03-30 | 02:28:47] [INFO] [0] Session Login Success! [UID: 1]
-[2026-03-30 | 02:28:47] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:28:48] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
-[2026-03-30 | 02:28:48] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:28:55] [INFO] [SESSION ID: 2] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 02:28:55] [INFO] [Login Req] ID: admin1, PW: admin1
-[2026-03-30 | 02:28:55] [INFO] Login to Server Successful! [UID: 2]
-[2026-03-30 | 02:28:55] [INFO] [2] Session Login Success! [UID: 2]
-[2026-03-30 | 02:28:55] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:28:56] [INFO] [SESSION ID: 2] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
-[2026-03-30 | 02:28:56] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:29:05] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 26] Pakcet Received!
-[2026-03-30 | 02:29:05] [INFO] [Login Req] ID: admin2, PW: admin2
-[2026-03-30 | 02:29:05] [INFO] Login to Server Successful! [UID: 3]
-[2026-03-30 | 02:29:05] [INFO] [1] Session Login Success! [UID: 3]
-[2026-03-30 | 02:29:05] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:29:07] [INFO] [SESSION ID: 1] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
-[2026-03-30 | 02:29:07] [INFO] Send Update Room List Packets!
-[2026-03-30 | 02:29:08] [ERROR] [ID: 2] Fail to Register IOCP handle
-[2026-03-30 | 02:29:08] [ERROR] [ID: 1] Fail to Register IOCP handle
-[2026-03-30 | 02:29:08] [ERROR] [ID: 0] Fail to Register IOCP handle
-[2026-03-30 | 02:29:08] [INFO] Room [0] is Empty and Destroyed by Server.
-[2026-03-30 | 23:50:54] [INFO] ------------- LOGGING START -------------
-[2026-03-30 | 23:50:54] [INFO] Server Initalized Successfully!
-[2026-03-30 | 23:50:54] [INFO] Server Start Successful!
-[2026-03-30 | 23:50:54] [INFO] DB Connect Successful!
+[2026-04-16 | 21:57:46] [INFO] ------------- LOGGING START -------------
+[2026-04-16 | 21:57:46] [INFO] Server Initalized Successfully!
+[2026-04-16 | 21:57:46] [INFO] Server Start Successful!
+[2026-04-16 | 21:57:46] [INFO] DB Connect Successful!
+[2026-04-16 | 21:57:46] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 21:58:16] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 21:58:29] [ERROR] [ID: 1] Fail to Register IOCP handle
+[2026-04-16 | 21:58:33] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 21:58:45] [ERROR] [ID: 2] Fail to Register IOCP handle
+[2026-04-16 | 22:01:15] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-04-16 | 22:01:16] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 22:01:18] [ERROR] [ID: 3] Fail to Register IOCP handle
+[2026-04-16 | 22:09:44] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 22:09:50] [INFO] [SESSION ID: 4] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-16 | 22:09:50] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-16 | 22:09:50] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-16 | 22:09:50] [INFO] [4] Session Login Success! [UID: 1]
+[2026-04-16 | 22:09:50] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:09:51] [INFO] [SESSION ID: 4] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:09:51] [ERROR] Room is full
+[2026-04-16 | 22:10:04] [ERROR] [ID: 4] Fail to Register IOCP handle
+[2026-04-16 | 22:10:04] [INFO] Room [0] is Empty and Destroyed by Server.
+[2026-04-16 | 22:10:04] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:20:23] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 22:20:27] [INFO] [SESSION ID: 5] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-16 | 22:20:27] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-16 | 22:20:27] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-16 | 22:20:27] [INFO] [5] Session Login Success! [UID: 1]
+[2026-04-16 | 22:20:27] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:20:28] [INFO] [SESSION ID: 5] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:20:28] [ERROR] Room is full
+[2026-04-16 | 22:30:41] [ERROR] [ID: 5] Fail to Register IOCP handle
+[2026-04-16 | 22:30:41] [INFO] Room [0] is Empty and Destroyed by Server.
+[2026-04-16 | 22:30:41] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:31:31] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 22:31:36] [INFO] [SESSION ID: 6] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-16 | 22:31:36] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-16 | 22:31:36] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-16 | 22:31:36] [INFO] [6] Session Login Success! [UID: 1]
+[2026-04-16 | 22:31:36] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:31:37] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:37] [ERROR] Room is full
+[2026-04-16 | 22:31:38] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:38] [ERROR] Room is full
+[2026-04-16 | 22:31:38] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:38] [ERROR] Room is full
+[2026-04-16 | 22:31:39] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:39] [ERROR] Room is full
+[2026-04-16 | 22:31:39] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:39] [ERROR] Room is full
+[2026-04-16 | 22:31:39] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:39] [ERROR] Room is full
+[2026-04-16 | 22:31:39] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:39] [ERROR] Room is full
+[2026-04-16 | 22:31:40] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:40] [ERROR] Room is full
+[2026-04-16 | 22:31:40] [INFO] [SESSION ID: 6] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:31:40] [ERROR] Room is full
+[2026-04-16 | 22:35:27] [ERROR] [ID: 6] Fail to Register IOCP handle
+[2026-04-16 | 22:35:27] [INFO] Room [8] is Empty and Destroyed by Server.
+[2026-04-16 | 22:35:27] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:35:28] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-16 | 22:35:33] [INFO] [SESSION ID: 7] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-16 | 22:35:33] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-16 | 22:35:33] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-16 | 22:35:33] [INFO] [7] Session Login Success! [UID: 1]
+[2026-04-16 | 22:35:33] [INFO] Send Update Room List Packets!
+[2026-04-16 | 22:35:35] [INFO] [SESSION ID: 7] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:35:35] [ERROR] Room is full
+[2026-04-16 | 22:35:41] [INFO] [SESSION ID: 7] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
+[2026-04-16 | 22:35:41] [ERROR] Room is full
+[2026-04-16 | 22:35:42] [INFO] [SESSION ID: 7] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
+[2026-04-16 | 22:35:42] [ERROR] Room is full
+[2026-04-16 | 22:35:42] [INFO] [SESSION ID: 7] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
+[2026-04-16 | 22:35:42] [ERROR] Room is full
+[2026-04-16 | 22:35:42] [INFO] [SESSION ID: 7] [PACKET ID: 506 - SIZE: 8] Pakcet Received!
+[2026-04-16 | 22:35:42] [ERROR] Room is full
+[2026-04-16 | 22:35:43] [INFO] [SESSION ID: 7] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-16 | 22:35:43] [ERROR] Room is full
+[2026-04-16 | 22:35:46] [ERROR] [ID: 7] Fail to Register IOCP handle
+[2026-04-16 | 22:35:46] [INFO] Room [9] is Empty and Destroyed by Server.
+[2026-04-16 | 22:35:46] [INFO] Send Update Room List Packets!
+[2026-04-17 | 01:05:23] [INFO] ------------- LOGGING START -------------
+[2026-04-17 | 01:05:23] [INFO] Server Initalized Successfully!
+[2026-04-17 | 01:05:23] [INFO] Server Start Successful!
+[2026-04-17 | 01:05:23] [INFO] DB Connect Successful!
+[2026-04-17 | 01:07:02] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 01:07:06] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-17 | 01:07:06] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-17 | 01:07:06] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-17 | 01:07:06] [INFO] [0] Session Login Success! [UID: 1]
+[2026-04-17 | 01:07:06] [INFO] Send Update Room List Packets!
+[2026-04-17 | 01:07:07] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:07] [INFO] Room [0] Owner set to Session [0]
+[2026-04-17 | 01:07:07] [ERROR] Room is full
+[2026-04-17 | 01:07:10] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-04-17 | 01:07:10] [INFO] Room [0] is Empty and Destroyed (disconnect).
+[2026-04-17 | 01:07:10] [INFO] Send Update Room List Packets!
+[2026-04-17 | 01:07:11] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 01:07:15] [INFO] [SESSION ID: 1] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-17 | 01:07:15] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-17 | 01:07:15] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-17 | 01:07:15] [INFO] [1] Session Login Success! [UID: 1]
+[2026-04-17 | 01:07:15] [INFO] Send Update Room List Packets!
+[2026-04-17 | 01:07:17] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:17] [INFO] Room [0] Owner set to Session [1]
+[2026-04-17 | 01:07:17] [ERROR] Room is full
+[2026-04-17 | 01:07:17] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:17] [INFO] Room [1] Owner set to Session [1]
+[2026-04-17 | 01:07:17] [ERROR] Room is full
+[2026-04-17 | 01:07:17] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:17] [INFO] Room [2] Owner set to Session [1]
+[2026-04-17 | 01:07:17] [ERROR] Room is full
+[2026-04-17 | 01:07:17] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:17] [INFO] Room [3] Owner set to Session [1]
+[2026-04-17 | 01:07:17] [ERROR] Room is full
+[2026-04-17 | 01:07:17] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:17] [INFO] Room [4] Owner set to Session [1]
+[2026-04-17 | 01:07:17] [ERROR] Room is full
+[2026-04-17 | 01:07:17] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:17] [INFO] Room [5] Owner set to Session [1]
+[2026-04-17 | 01:07:17] [ERROR] Room is full
+[2026-04-17 | 01:07:18] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:18] [INFO] Room [6] Owner set to Session [1]
+[2026-04-17 | 01:07:18] [ERROR] Room is full
+[2026-04-17 | 01:07:18] [INFO] [SESSION ID: 1] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:07:18] [INFO] Room [7] Owner set to Session [1]
+[2026-04-17 | 01:07:18] [ERROR] Room is full
+[2026-04-17 | 01:07:24] [ERROR] [ID: 1] Fail to Register IOCP handle
+[2026-04-17 | 01:07:24] [INFO] Room [7] is Empty and Destroyed (disconnect).
+[2026-04-17 | 01:07:24] [INFO] Send Update Room List Packets!
+[2026-04-17 | 01:08:26] [INFO] ------------- LOGGING START -------------
+[2026-04-17 | 01:08:26] [INFO] Server Initalized Successfully!
+[2026-04-17 | 01:08:26] [INFO] Server Start Successful!
+[2026-04-17 | 01:08:26] [INFO] DB Connect Successful!
+[2026-04-17 | 01:08:30] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 01:08:34] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-17 | 01:08:34] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-17 | 01:08:34] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-17 | 01:08:34] [INFO] [0] Session Login Success! [UID: 1]
+[2026-04-17 | 01:08:34] [INFO] Send Update Room List Packets!
+[2026-04-17 | 01:08:35] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:08:35] [INFO] Room [0] Owner set to Session [0]
+[2026-04-17 | 01:08:35] [ERROR] Room is full
+[2026-04-17 | 01:08:41] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:08:41] [INFO] Room [1] Owner set to Session [0]
+[2026-04-17 | 01:08:41] [ERROR] Room is full
+[2026-04-17 | 01:08:41] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:08:41] [INFO] Room [2] Owner set to Session [0]
+[2026-04-17 | 01:08:41] [ERROR] Room is full
+[2026-04-17 | 01:08:41] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:08:41] [INFO] Room [3] Owner set to Session [0]
+[2026-04-17 | 01:08:41] [ERROR] Room is full
+[2026-04-17 | 01:08:41] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 01:08:41] [INFO] Room [4] Owner set to Session [0]
+[2026-04-17 | 01:08:41] [ERROR] Room is full
+[2026-04-17 | 01:08:48] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-04-17 | 01:08:48] [INFO] Room [4] is Empty and Destroyed (disconnect).
+[2026-04-17 | 01:08:48] [INFO] Send Update Room List Packets!
+[2026-04-17 | 03:36:34] [INFO] ------------- LOGGING START -------------
+[2026-04-17 | 03:36:34] [INFO] Server Initalized Successfully!
+[2026-04-17 | 03:36:34] [INFO] Server Start Successful!
+[2026-04-17 | 03:36:34] [INFO] DB Connect Successful!
+[2026-04-17 | 04:12:28] [INFO] ------------- LOGGING START -------------
+[2026-04-17 | 04:12:28] [INFO] Server Initalized Successfully!
+[2026-04-17 | 04:12:28] [INFO] Server Start Successful!
+[2026-04-17 | 04:12:28] [INFO] DB Connect Successful!
+[2026-04-17 | 04:13:24] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 04:13:28] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-17 | 04:13:28] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-17 | 04:13:28] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-17 | 04:13:28] [INFO] [0] Session Login Success! [UID: 1]
+[2026-04-17 | 04:13:28] [INFO] Send Update Room List Packets!
+[2026-04-17 | 04:13:29] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 04:13:29] [INFO] Room [0] Owner set to Session [0]
+[2026-04-17 | 04:13:29] [INFO] Send Update Room List Packets!
+[2026-04-17 | 04:13:31] [INFO] [SESSION ID: 0] [PACKET ID: 509 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 04:13:31] [WARN] GameStart failed - not all players ready
+[2026-04-17 | 04:13:35] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-04-17 | 04:13:35] [INFO] Room [0] is Empty and Destroyed (disconnect).
+[2026-04-17 | 04:13:35] [INFO] Send Update Room List Packets!
+[2026-04-17 | 22:15:31] [INFO] ------------- LOGGING START -------------
+[2026-04-17 | 22:15:31] [INFO] Server Initalized Successfully!
+[2026-04-17 | 22:15:31] [INFO] Server Start Successful!
+[2026-04-17 | 22:15:31] [INFO] DB Connect Successful!
+[2026-04-17 | 22:16:20] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 22:16:23] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-04-17 | 22:21:42] [INFO] ------------- LOGGING START -------------
+[2026-04-17 | 22:21:42] [INFO] Server Initalized Successfully!
+[2026-04-17 | 22:21:42] [INFO] Server Start Successful!
+[2026-04-17 | 22:21:42] [INFO] DB Connect Successful!
+[2026-04-17 | 22:21:54] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 22:22:01] [INFO] [SESSION ID: 0] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-17 | 22:22:01] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-17 | 22:22:01] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-17 | 22:22:01] [INFO] [0] Session Login Success! [UID: 1]
+[2026-04-17 | 22:22:01] [INFO] Send Update Room List Packets!
+[2026-04-17 | 22:22:02] [INFO] [SESSION ID: 0] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 22:22:02] [INFO] Room [0] Owner set to Session [0]
+[2026-04-17 | 22:22:02] [INFO] Send Update Room List Packets!
+[2026-04-17 | 22:22:03] [INFO] [SESSION ID: 0] [PACKET ID: 509 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 22:22:03] [WARN] GameStart failed - not all players ready
+[2026-04-17 | 22:22:07] [INFO] [SESSION ID: 0] [PACKET ID: 509 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 22:22:07] [WARN] GameStart failed - not all players ready
+[2026-04-17 | 22:22:08] [INFO] [SESSION ID: 0] [PACKET ID: 509 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 22:22:08] [WARN] GameStart failed - not all players ready
+[2026-04-17 | 22:22:10] [ERROR] [ID: 0] Fail to Register IOCP handle
+[2026-04-17 | 22:22:10] [INFO] Room [0] is Empty and Destroyed (disconnect).
+[2026-04-17 | 22:22:10] [INFO] Send Update Room List Packets!
+[2026-04-17 | 22:38:02] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 22:38:06] [ERROR] [ID: 1] Fail to Register IOCP handle
+[2026-04-17 | 22:38:11] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 22:38:22] [ERROR] [ID: 2] Fail to Register IOCP handle
+[2026-04-17 | 22:51:34] [INFO] Client Session Connect with IOCP handle successful!
+[2026-04-17 | 22:51:38] [INFO] [SESSION ID: 3] [PACKET ID: 501 - SIZE: 24] Pakcet Received!
+[2026-04-17 | 22:51:38] [INFO] [Login Req] ID: admin, PW: admin
+[2026-04-17 | 22:51:38] [INFO] Login to Server Successful! [UID: 1]
+[2026-04-17 | 22:51:38] [INFO] [3] Session Login Success! [UID: 1]
+[2026-04-17 | 22:51:38] [INFO] Send Update Room List Packets!
+[2026-04-17 | 22:51:39] [INFO] [SESSION ID: 3] [PACKET ID: 505 - SIZE: 4] Pakcet Received!
+[2026-04-17 | 22:51:39] [INFO] Room [0] Owner set to Session [3]
+[2026-04-17 | 22:51:39] [INFO] Send Update Room List Packets!
+[2026-04-17 | 22:51:42] [ERROR] [ID: 3] Fail to Register IOCP handle
+[2026-04-17 | 22:51:42] [INFO] Room [0] is Empty and Destroyed (disconnect).
+[2026-04-17 | 22:51:42] [INFO] Send Update Room List Packets!

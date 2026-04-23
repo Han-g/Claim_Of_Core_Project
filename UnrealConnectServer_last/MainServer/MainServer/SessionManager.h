@@ -14,11 +14,16 @@ class SessionManager
 public:
 	static SessionManager* GetInstance() { static SessionManager instance; return &instance; }
 
+	// Pre-allocates reusable session slots and the free-session queue.
 	void Init();
 	
+	// Assigns a free session slot to a newly accepted client socket.
 	Session* AcceptNewClient(SOCKET clientSocket);
+	// Disconnects a session, removes it from any room, and recycles the slot.
 	void DisconnectClient(int clientID);
+	// Updates the current high-level state for a session.
 	void SetState(int sessionID, ESessionState state);
+	// Returns the active session pointer when the slot is connected.
 	Session* GetSession(int sessionID);
 
 private:

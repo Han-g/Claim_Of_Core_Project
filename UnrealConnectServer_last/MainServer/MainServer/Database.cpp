@@ -14,24 +14,24 @@ bool DBHelper::Connect()
 {
     SQLRETURN ret;
 
-    // 1. 환경 핸들 할당
+    // 1. Allocate the ODBC environment handle.
     ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
     if (!SQL_SUCCEEDED(ret)) return false;
 
-    // 2. ODBC 버전 설정
+    // 2. Select the ODBC 3.x API version.
     ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
     if (!SQL_SUCCEEDED(ret)) return false;
 
-    // 3. 연결 핸들 할당
+    // 3. Allocate the database connection handle.
     ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
     if (!SQL_SUCCEEDED(ret)) return false;
 
-    // 4. 타임아웃 설정 (5초)
+    // 4. Fail fast if the login handshake takes too long.
     SQLSetConnectAttr(hDbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 
-    // 5. DB 접속 (DSN 방식)
-    // [주의] 제어판 -> 관리 도구 -> ODBC 데이터 원본 관리자에서 "NorthWind"라는 DSN을 먼저 만들어야 합니다.
-    // 두 번째 인자는 DSN 이름, 네 번째 인자는 ID, 여섯 번째 인자는 암호입니다.
+    // 5. Open the database connection using the configured connection string.
+    // Legacy DSN-based examples are kept below for reference only.
+    // The active path below reads the full connection string from configuration.
     /*ret = SQLConnect(hDbc, (SQLWCHAR*)L"ClaimOfCore", SQL_NTS,
         (SQLWCHAR*)L"ServerConnection", SQL_NTS,
         (SQLWCHAR*)L"server", SQL_NTS);*/
@@ -47,10 +47,10 @@ bool DBHelper::Connect()
 
     SQLWCHAR connectStr[1024] = { 0 };
 
-    // ini 파일의 [Database] 섹션에서 ConnectionString 값을 읽어옵니다.
+    // Read the connection string from the [Database] section of server_config.ini.
     GetPrivateProfileStringW(L"Database", L"ConnectionString", L"", connectStr, 1024, iniPath.c_str());
 
-    // 값을 제대로 못 읽어왔다면 에러 처리
+    // Stop early when the configuration file does not provide a connection string.
     if (wcslen(connectStr) == 0) {
         LOG_ERROR("Failed to load Database ConnectionString from server_config.ini");
         return false;
@@ -123,14 +123,14 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
 {
     if (!m_IsConnected) { return false; }
 
-    // Query Setting
+    // Stored procedure shape kept here for reference.
     /*std::wstring query = L"{call SP_LoginAccess('";
     query += userID;
     query += L"', '";
     query += userPW;
     query += L"')}";*/
 
-    // Alloc Query Statement Handle
+    // Allocate a fresh statement handle for this login request.
     SQLHSTMT hStmt = SQL_NULL_HANDLE;
     bool bSuccess = false;
 
@@ -139,21 +139,25 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
         return false;
     }
 
-    // Setting query frame
+    // Prepare a parameterized stored procedure call.
     SQLWCHAR* query = (SQLWCHAR*)L"{call SP_LoginAccess(?, ?)}";
-    if (SQLPrepare(hStmt, query, SQL_NTS) != SQL_SUCCESS) { LOG_ERROR("SQL Prepare Failed!"); return false; }
+    if (SQLPrepare(hStmt, query, SQL_NTS) != SQL_SUCCESS) { 
+        LOG_ERROR("SQL Prepare Failed!"); 
+        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+        return false; 
+    }
 
-    // SQL_NTS : Indicated value that data ends with NULL(\0) to calculate Len of String
+    // SQL_NTS tells ODBC to treat the bound string as null-terminated.
     SQLLEN idLen = SQL_NTS;
     SQLLEN pwLen = SQL_NTS;
 
-    // Variable binding to question mark in Frame
+    // Bind the input values to the prepared procedure parameters.
     SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
         userID.length(), 0, (SQLPOINTER)userID.c_str(), 0, &idLen);
     SQLBindParameter(hStmt, 2, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
         userPW.length(), 0, (SQLPOINTER)userPW.c_str(), 0, &pwLen);
 
-    // Execute Query
+    // Execute the stored procedure.
     if (SQLExecDirect(hStmt, query, SQL_NTS) != SQL_SUCCESS) { 
         SQLWCHAR sqlState[6], message[SQL_MAX_MESSAGE_LENGTH];
         SQLINTEGER nativeError;
@@ -162,6 +166,7 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
         SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, message, sizeof(message) / sizeof(SQLWCHAR), &textLength);
 
         LOG_ERROR("DB Query Failed! State: %ls, Msg: %ls", sqlState, message);
+        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
         return false; 
     }
 
@@ -173,7 +178,8 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
 
         if (loginResult == 0) {
             LOG_ERROR("Failed to Server Login - ID / PW is InValid");
-            SQLCloseCursor(hStmt); // Need to Close Cursor
+            SQLCloseCursor(hStmt); // Close the cursor before releasing the statement handle.
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
             return false;
         }
 
@@ -184,7 +190,7 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
             playerUID = accountUID;
 
             SQLCloseCursor(hStmt);
-
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
             LOG_INFO("Login to Server Successful! [UID: %d]", accountUID);
             return true;
         }
@@ -196,10 +202,10 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
 
 bool DBHelper::IsValidAccountString(const std::wstring& inputStr)
 {
-    // ^ : 시작
-    // [a-zA-Z0-9] : 알파벳 대소문자 및 숫자만
-    // {4,12} : 4글자 이상 12글자 이하
-    // $ : 끝
+    // ^          : start of the string
+    // [a-zA-Z0-9]: letters and digits only
+    // {4,12}     : 4 to 12 characters
+    // $          : end of the string
     std::wregex pattern(L"^[a-zA-Z0-9]{4,12}$");
 
     return std::regex_match(inputStr, pattern);
@@ -207,25 +213,25 @@ bool DBHelper::IsValidAccountString(const std::wstring& inputStr)
 
 bool DBHelper::IsValidUserID(const std::wstring& inputID)
 {
-    // 1. 정규식 검사 (영문자 시작, 영문/숫자 4~12자리)
+    // 1. Enforce an English-letter prefix and a 4-12 character alphanumeric ID.
     std::wregex pattern(L"^[a-zA-Z][a-zA-Z0-9]{3,11}$");
     if (!std::regex_match(inputID, pattern)) {
         return false;
     }
 
-    // 2. 대소문자 무시를 위해 소문자로 일괄 변환
+    // 2. Normalize to lowercase for case-insensitive reserved-word checks.
     std::wstring lowerID = inputID;
     std::transform(lowerID.begin(), lowerID.end(), lowerID.begin(), ::towlower);
 
-    // 3. 금칙어 리스트 정의
-    // static const를 사용해 함수가 호출될 때마다 벡터를 다시 생성하는 오버헤드를 막습니다.
+    // 3. Keep a shared reserved-word list so repeated calls avoid reallocation.
+    // Using static const avoids rebuilding the vector on every validation call.
     static const std::vector<std::wstring> forbiddenWords = {
         L"admin", L"gm", L"master", L"manager", L"system", L"test"
     };
 
-    // 4. 금칙어 순회 검사
+    // 4. Reject IDs that contain any reserved word as a substring.
     for (const std::wstring& word : forbiddenWords) {
-        // 아이디에 금칙어가 하나라도 포함되어 있다면 거절
+        // Reject the request as soon as a forbidden fragment is found.
         if (lowerID.find(word) != std::wstring::npos) {
             return false;
         }
@@ -236,10 +242,10 @@ bool DBHelper::IsValidUserID(const std::wstring& inputID)
 
 bool DBHelper::IsValidUserPW(const std::wstring& inputPW)
 {
-    // ^ : 시작
-    // [a-zA-Z0-9] : 알파벳 대소문자 및 숫자만
-    // {4,12} : 4글자 이상 12글자 이하
-    // $ : 끝
+    // ^          : start of the string
+    // [a-zA-Z0-9]: letters and digits only
+    // {4,12}     : 4 to 12 characters
+    // $          : end of the string
     std::wregex pattern(L"^[a-zA-Z0-9]{4,12}$");
 
     return std::regex_match(inputPW, pattern);
@@ -252,13 +258,13 @@ bool DBHelper::CreateAccount(const std::wstring& userID, const std::wstring& use
     SQLHSTMT hStmt = SQL_NULL_HANDLE;
     bool bSuccess = false;
 
-    // Allocate Query Statement Handle
+    // Allocate a fresh statement handle for this account creation request.
     if (SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt) != SQL_SUCCESS) {
         LOG_ERROR("Failed to Allocate Statement Handle in CreateAccount");
         return false;
     }
 
-    // Setting Query
+    // Prepare the stored procedure call.
     SQLWCHAR* query = (SQLWCHAR*)L"{call SP_CreateAccount(?, ?)}";
     if (SQLPrepare(hStmt, query, SQL_NTS) != SQL_SUCCESS) {
         LOG_ERROR("SQL Prepare Failed in CreateAccount");
@@ -266,7 +272,7 @@ bool DBHelper::CreateAccount(const std::wstring& userID, const std::wstring& use
         return false;
     }
 
-    // Variable binding to question mark in Frame
+    // Bind the input values to the prepared procedure parameters.
     SQLLEN idLen = SQL_NTS;
     SQLLEN pwLen = SQL_NTS;
 
@@ -275,29 +281,29 @@ bool DBHelper::CreateAccount(const std::wstring& userID, const std::wstring& use
     SQLBindParameter(hStmt, 2, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
         userPW.length(), 0, (SQLPOINTER)userPW.c_str(), 0, &pwLen);
 
-    // Execute Query
+    // Execute the stored procedure.
     if (SQLExecDirect(hStmt, query, SQL_NTS) != SQL_SUCCESS) {
         LOG_ERROR("DB Query Failed: SP_CreateAccount for ID: %ls", userID.c_str());
         SQLFreeStmt(hStmt, SQL_CLOSE);
         return false;
     }
 
-    // Get Result from DB
+    // Read the stored procedure result.
     if (SQLFetch(hStmt) == SQL_SUCCESS) {
         int resultCode = 0;
         SQLLEN len = 0;
 
-        // 첫 번째 컬럼(ResultCode) 값을 읽어옵니다.
+        // The first column returns either an error code or the new AccountUID.
         SQLGetData(hStmt, 1, SQL_C_LONG, &resultCode, sizeof(int), &len);
 
         if (resultCode == -1) {
-            // 결과가 -1이면 중복된 아이디
+            // -1 indicates that the requested user ID already exists.
             LOG_WARN("Create Account Failed - UserID Already Exists! [%ls]", userID.c_str());
             SQLCloseCursor(hStmt);
             return false;
         }
         else {
-            // 결과가 -1이 아니면 성공! 새로 생성된 AccountUID가 반환됨
+            // Any other value is treated as the UID of the newly created account.
             int newAccountUID = resultCode;
             LOG_INFO("Account Created Successfully! [New UID: %d]", newAccountUID);
             SQLCloseCursor(hStmt);

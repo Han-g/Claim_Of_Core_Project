@@ -6,34 +6,46 @@ PacketProcessor::PacketProcessor()
 	InitHandler();
 }
 
+GameLogic* PacketProcessor::GameLogicHelper(IOCPServer* server, Session* session)
+{
+	if (session->roomID < 0) { return nullptr; }
+
+	Room* room = RoomManager::GetInstance()->GetRoom(session->roomID);
+	if (!room) return nullptr;
+	if (room->GetState() != ERoomState::PLAYING) return nullptr;
+
+	return room->GetgameLogic();
+}
+
 void PacketProcessor::InitHandler()
 {
-	// Test Code
-	m_FuncHanderMap[9999] = &PacketProcessor::Handle_LoginReq;
-	// (if Not used Change to Comment!)
+	// Temporary test binding used by the local packet processor smoke test.
+	m_FuncHandlerMap[9999] = &PacketProcessor::Handle_LoginReq;
+	// Comment out this mapping when the manual test packet is no longer needed.
 
-	// Bind Packet ID and Member Function
+	// Bind each packet ID to its matching handler.
 
-	m_FuncHanderMap[PKT_C2S_LOGIN_REQ] = &PacketProcessor::Handle_LoginReq;
-	m_FuncHanderMap[PKT_C2S_REGISTER_REQ] = &PacketProcessor::Handle_RegisterReq;
+	m_FuncHandlerMap[PKT_C2S_LOGIN_REQ] = &PacketProcessor::Handle_LoginReq;
+	m_FuncHandlerMap[PKT_C2S_REGISTER_REQ] = &PacketProcessor::Handle_RegisterReq;
 
-	m_FuncHanderMap[PKT_C2S_ROOM_CREATE_REQ] = &PacketProcessor::Handle_Room_CreateReq;
-	m_FuncHanderMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
+	m_FuncHandlerMap[PKT_C2S_ROOM_CREATE_REQ] = &PacketProcessor::Handle_Room_CreateReq;
+	m_FuncHandlerMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
 
-	m_FuncHanderMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
+	m_FuncHandlerMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
+	m_FuncHandlerMap[PKT_C2S_READY_REQ] = &PacketProcessor::Handle_Game_ReadyReq;
 
-	m_FuncHanderMap[PKT_C2S_MOVE_KEYINPUT] = &PacketProcessor::Handle_Move_KeyInput;
-	m_FuncHanderMap[PKT_C2S_JUMP_KEYINPUT] = &PacketProcessor::Handle_Jump_KeyInput;
-	m_FuncHanderMap[PKT_C2S_ATTACK_KEYINPUT] = &PacketProcessor::Handle_Attack_KeyInput;
-	m_FuncHanderMap[PKT_C2S_ITEMPICKUP_KEYINPUT] = &PacketProcessor::Handle_ItemPickup_KeyInput;
-	m_FuncHanderMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
+	m_FuncHandlerMap[PKT_C2S_MOVE_KEYINPUT] = &PacketProcessor::Handle_Move_KeyInput;
+	m_FuncHandlerMap[PKT_C2S_JUMP_KEYINPUT] = &PacketProcessor::Handle_Jump_KeyInput;
+	m_FuncHandlerMap[PKT_C2S_ATTACK_KEYINPUT] = &PacketProcessor::Handle_Attack_KeyInput;
+	m_FuncHandlerMap[PKT_C2S_ITEMPICKUP_KEYINPUT] = &PacketProcessor::Handle_ItemPickup_KeyInput;
+	m_FuncHandlerMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
 }
 
 void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data)
 {
-	auto it = m_FuncHanderMap.find(packetID);
+	auto it = m_FuncHandlerMap.find(packetID);
 
-	if (it != m_FuncHanderMap.end()) {
+	if (it != m_FuncHandlerMap.end()) {
 		PacketReader reader(data, sizeof(PacketHeader));
 		it->second(server, session, reader);
 	}
@@ -43,15 +55,15 @@ void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID
 }
 
 // -----------------------------
-// Packet Handler Functions (Unifrom Interface)
-// all Function need arguments (IOCPServer* server, Session* session, PacketReader& reader)
-// Not used arguments made Commect and skip like that бщ
+// Packet handler functions share one uniform interface.
+// Every handler accepts (IOCPServer* server, Session* session, PacketReader& reader).
+// If an argument is intentionally unused, mark it like this:
 // (IOCPServer* server, Session* session, PacketReader& /*reader*/)
 // -----------------------------
 
 
 // -----------------------------
-// Game Setting Part
+// Lobby and match setup handlers
 // -----------------------------
 void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
@@ -114,13 +126,21 @@ void PacketProcessor::Handle_Room_RemoveReq(IOCPServer* server, Session* session
 
 void PacketProcessor::Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	server->GameStartTry(session);
+}
 
+void PacketProcessor::Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	session->isReady = !session->isReady;
+	LOG_INFO("[Session: %d] Ready toggled -> %s", session->sessionID, session->isReady ? "READY" : "WAITING");
+
+	server->BroadcastRoomInfo(session);
 }
 
 
 
 // -----------------------------
-// Game Play Logic Part
+// In-game input handlers
 // -----------------------------
 void PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
@@ -134,7 +154,11 @@ void PacketProcessor::Handle_Jump_KeyInput(IOCPServer* server, Session* session,
 
 void PacketProcessor::Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
 
+	logic->HandleAttackInput(session->sessionID);
+	LOG_INFO("[Attack] Handle_Attack_KeyInput session=%d", session->sessionID);
 }
 
 void PacketProcessor::Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
