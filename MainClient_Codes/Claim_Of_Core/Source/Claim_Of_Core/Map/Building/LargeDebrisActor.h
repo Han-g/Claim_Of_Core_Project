@@ -20,6 +20,13 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
+	void OnChunkHit(
+		UPrimitiveComponent* HitComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		FVector NormalImpulse,
+		const FHitResult& Hit);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|VFX")
 	TObjectPtr<UNiagaraSystem> ChunkBreakEffect;
@@ -119,6 +126,7 @@ protected:
 	virtual void OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact) override;
 
 public:
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "Debris")
 	void BP_OnDebrisActivated();
 

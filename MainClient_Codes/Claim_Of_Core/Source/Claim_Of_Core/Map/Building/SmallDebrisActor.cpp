@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 #include "GameFramework/Character.h"
+#include "../Sub/MyCharacter.h"
 
 ASmallDebrisActor::ASmallDebrisActor()
 {
@@ -28,6 +29,8 @@ ASmallDebrisActor::ASmallDebrisActor()
 	MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
 	MeshComp->SetSimulatePhysics(true);
 	MeshComp->SetNotifyRigidBodyCollision(true);
+
+	Tags.AddUnique(TEXT("FallingDebris"));
 }
 
 void ASmallDebrisActor::BeginPlay()
@@ -52,10 +55,6 @@ void ASmallDebrisActor::OnDebrisHit(
 	FVector NormalImpulse,
 	const FHitResult& Hit)
 {
-	if (bHasHitSomething)
-	{
-		return;
-	}
 
 	if (!OtherActor || OtherActor == this)
 	{
@@ -63,37 +62,15 @@ void ASmallDebrisActor::OnDebrisHit(
 	}
 
 	// 플레이어 맞았을 때 데미지
-	if (!bHasDamagedPlayer && OtherActor->IsA<ACharacter>())
+	if (OtherActor->IsA<AMyCharacter>())
 	{
-		UGameplayStatics::ApplyDamage(
-			OtherActor,
-			Damage,
-			GetInstigatorController(),
-			this,
-			nullptr
-		);
+		AMyCharacter* Player = Cast<AMyCharacter>(OtherActor);
 
-		bHasDamagedPlayer = true;
-		bHasHitSomething = true;
-
-		UE_LOG(LogTemp, Warning, TEXT("[SmallDebris] Hit Player: %s"), *OtherActor->GetName());
-
-		if (bDestroyOnPlayerHit)
-		{
-			DestroySelf();
-		}
-		else
-		{
-			StartDestroyTimer();
-		}
+		Player->ApplyDamage(Damage);
+		DestroySelf();
 
 		return;
 	}
-
-	// 바닥 / 벽 / 지형 맞았을 때
-	bHasHitSomething = true;
-
-	UE_LOG(LogTemp, Warning, TEXT("[SmallDebris] Hit Ground or World: %s"), *OtherActor->GetName());
 
 	StartDestroyTimer();
 }

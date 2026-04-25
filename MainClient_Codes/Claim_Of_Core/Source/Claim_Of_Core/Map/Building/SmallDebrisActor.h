@@ -35,15 +35,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris")
 	float DestroyDelayAfterHitGround = 1.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris")
-	bool bDestroyOnPlayerHit = false;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
-	bool bHasHitSomething = false;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
-	bool bHasDamagedPlayer = false;
-
 	FTimerHandle TimerHandle_Destroy;
 
 protected:

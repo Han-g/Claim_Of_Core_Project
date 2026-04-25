@@ -148,18 +148,12 @@ void AUmbrellaItem::HandleGuardHit(AActor* DamageCauser, float IncomingDamage)
 
 	CurrentDurability = FMath::Max(0, CurrentDurability - 1);
 
-	const float ReducedDamage = IncomingDamage * GuardedDamageMultiplier;
-	OwnerCharacter->ApplyDamage(FMath::RoundToInt(ReducedDamage));
-
-	UE_LOG(LogTemp, Warning,
-		TEXT("[Umbrella] Guard Success / Durability: %d / Damage: %.1f"),
-		CurrentDurability,
-		ReducedDamage);
-
 	if (CurrentDurability <= 0)
 	{
 		BreakUmbrella();
 	}
+
+	DamageCauser->Destroy();
 }
 
 void AUmbrellaItem::BreakUmbrella()
@@ -220,6 +214,12 @@ void AUmbrellaItem::OnGuardBoxBeginOverlap(
 		return;
 	}
 
+	if (IsLargeDebrisActor(OtherActor))
+	{
+		BreakUmbrella();
+		return;
+	}
+
 	if (!IsFallingDebrisActor(OtherActor))
 	{
 		return;
@@ -245,4 +245,9 @@ void AUmbrellaItem::UpdateAttackStat()
 bool AUmbrellaItem::IsFallingDebrisActor(AActor* OtherActor) const
 {
 	return OtherActor && OtherActor->ActorHasTag(TEXT("FallingDebris"));
+}
+
+bool AUmbrellaItem::IsLargeDebrisActor(AActor* OtherActor) const
+{
+	return OtherActor && OtherActor->ActorHasTag(TEXT("LargeDebris"));
 }

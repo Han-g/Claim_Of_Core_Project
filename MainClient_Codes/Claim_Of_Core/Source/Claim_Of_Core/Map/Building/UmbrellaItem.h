@@ -95,6 +95,7 @@ protected:
 
 	void UpdateAttackStat();
 	bool IsFallingDebrisActor(AActor* OtherActor) const;
+	bool IsLargeDebrisActor(AActor* OtherActor) const;
 
 	float CachedOriginalWalkSpeed = 0.f;
 	bool bSpeedModified = false;

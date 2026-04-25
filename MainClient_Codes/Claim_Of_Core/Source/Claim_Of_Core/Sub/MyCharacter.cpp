@@ -60,8 +60,6 @@ AMyCharacter::AMyCharacter()
 
 	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
 	HPTextComponent->SetupAttachment(GetMesh());
-	HPTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 220.f));
-	HPTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
 	HPTextComponent->SetHorizontalAlignment(EHTA_Center);
 	HPTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
 	HPTextComponent->SetWorldSize(20.f);
@@ -70,8 +68,6 @@ AMyCharacter::AMyCharacter()
 
 	RoleTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("RoleText"));
 	RoleTextComponent->SetupAttachment(GetMesh());
-	RoleTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 255.f));
-	RoleTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
 	RoleTextComponent->SetHorizontalAlignment(EHTA_Center);
 	RoleTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
 	RoleTextComponent->SetWorldSize(18.f);
@@ -93,8 +89,6 @@ AMyCharacter::AMyCharacter()
 
 	UmbrellaGuardBox = CreateDefaultSubobject<UBoxComponent>(TEXT("UmbrellaGuardBox"));
 	UmbrellaGuardBox->SetupAttachment(RootComponent);
-	UmbrellaGuardBox->SetBoxExtent(FVector(60.f, 60.f, 20.f));
-	UmbrellaGuardBox->SetRelativeLocation(FVector(0.f, 0.f, 260.f));
 	UmbrellaGuardBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	UmbrellaGuardBox->SetCollisionResponseToAllChannels(ECR_Ignore);
 	UmbrellaGuardBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
@@ -1602,23 +1596,29 @@ void AMyCharacter::OnUmbrellaGuardBoxBeginOverlap(
 		return;
 	}
 
-	if (!OtherActor->ActorHasTag(TEXT("FallingDebris")))
-	{
-		return;
-	}
-
 	AUmbrellaItem* Umbrella = Cast<AUmbrellaItem>(CurrentItem);
 	if (!Umbrella)
 	{
 		return;
 	}
 
-	if (!Umbrella->IsOpened() || Umbrella->IsBroken())
+	if (!Umbrella->IsOpened())
 	{
 		return;
 	}
 
-	Umbrella->HandleGuardHit(OtherActor, 30.f);
+	if (OtherActor->ActorHasTag(TEXT("LargeDebris")))
+	{
+		Umbrella->BreakUmbrella();
+		return;
+	}
+
+	if (OtherActor->ActorHasTag(TEXT("FallingDebris")))
+	{
+		Umbrella->HandleGuardHit(OtherActor, 30.f);
+		return;
+	}
+
 }
 
 void AMyCharacter::AnimNotify_AttackHit()
