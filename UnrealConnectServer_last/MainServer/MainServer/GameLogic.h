@@ -2,6 +2,7 @@
 
 #include <map>
 #include <vector>
+#include <cmath>
 
 class Room;
 struct Session;
@@ -9,6 +10,30 @@ struct Session;
 enum ERecCharacterState { Alive, Dead };
 enum ERecRoleType { Striker, Guardian, Manipulator };
 enum ERoundState { Waiting, Playing, Finished };
+
+namespace GameMath {
+	constexpr float PI = 3.141592;
+
+	inline float DegreesToRadians(float degrees)
+	{
+		return degrees * (PI / 180.0f);
+	}
+
+	inline float Length2D(float x, float y)
+	{
+		return std::sqrt(x * x + y * y);
+	}
+
+	inline void Normalize2D(float& x, float& y)
+	{
+		const float len = Length2D(x, y);
+		if (len > 0.0001f)
+		{
+			x /= len;
+			y /= len;
+		}
+	}
+}
 
 
 //struct PlayerData {
@@ -85,6 +110,11 @@ struct DebrisSpawnConfig {
 };
 
 
+struct CollisionBox {
+	float MinX = 0.f, MinY = 0.f, MaxX = 0.f, MaxY = 0.f;
+};
+struct Vector3 { float x = 0.f, y = 0.f, z = 0.f; };
+
 class GameLogic
 {
 public:
@@ -156,6 +186,13 @@ public:
 	void ApplyKnockback(int attackerID, int targetID, float power);
 	// Processes the attack hit frame once the animation reaches it.
 	void AnimNotify_AttackHit();
+	// Character Movement Update
+	void UpdatePlayerMovement(Session* player, float DeltaTime);
+	// Check Collision with Other Player and Objects
+	float GetCollisionRadius(int roleType) const;
+	bool CanOccupyPosition(const Vector3& pos, float radius) const;
+	Vector3 ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const;
+
 
 private:
 	int MaxHP = 100;
@@ -165,6 +202,16 @@ private:
 
 	int RoleType = 0;				// 0 = Striker, 1 = Guardian, 2 = Manipulator
 	float BaseWalkSpeed = 500.f;	// Striker: 1.2x, Guardian: 0.8x, Manipulator: 1.0x
+
+	// =============================================
+	// =============	Need  Modify	============
+	// =============	Set Map Size	============
+	// =============================================
+	float MapMinX = -5000.0f;
+	float MapMaxX = 5000.0f;
+	float MapMinY = -5000.0f;
+	float MapMaxY = 5000.0f;
+	float FixedGroundZ = 1200.0f;
 
 public:
 	// ------------------------------------

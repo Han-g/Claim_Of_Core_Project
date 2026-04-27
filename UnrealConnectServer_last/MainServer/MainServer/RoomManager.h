@@ -20,10 +20,6 @@ enum class ERoomState {
 	FINISHED
 };
 
-struct Vector3 {
-	float x, y, z;
-};
-
 class Room {
 public:
 	Room(){}
@@ -36,6 +32,8 @@ public:
 	void InitRoom(int id, Session* firstMember, IOCPServer* server);
 	// Attaches game logic and seeds player runtime data for the room.
 	void InitGameLogic(GameLogic* logic);
+	// Initializes a game Setting like CharacterData, MapData ...
+	void InitCharacter(Session* member, GameLogic* logic);
 
 	bool IsEmpty() { return m_Members.empty(); }
 	int GetID() const { return m_roomID; }
@@ -50,15 +48,18 @@ public:
 
 	// Adds a member if the room still has capacity.
 	bool addMember(Session* member);
+	int AllocateRoomSlot();
 	// Removes a member from the room by session ID.
 	void RemoveMember(int clientID);
 	// Transfers host ownership to the next member or clears it when the room is empty.
 	void TransferOwnership();
 
-	void SelectStage();
+	int TeamCalculateBySlot(int roomSlot) const;
+	void SelectStage(int stageNum);
 	void LoadStage();
 	// Returns the spawn location used when players enter or respawn.
-	Vector3 GetRespwanLocation();
+	Vector3 GetRespawnLocation(int slot);
+	float GetSpawnYawBySlot(int slot) const;
 	// Placeholder for future matchmaking-driven room assembly.
 	void MatchMaking();
 
@@ -78,6 +79,8 @@ public:
 private:
 	int m_roomID = -1;
 	int m_OwnerSessionID = -1;
+	bool UsedSlots[MaxMember] = { false };
+
 	IOCPServer* m_Server = nullptr;
 	GameLogic* m_GameLogic = nullptr;
 	ERoomState m_State = ERoomState::WAITING;

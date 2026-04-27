@@ -129,15 +129,28 @@ enum class ESessionState {
 	INGAME
 };
 
+struct MoveIntent
+{
+	float Forward = 0.0f; // W/S
+	float Right = 0.0f;   // A/D
+	float Yaw = 0.0f;     // Client View
+	bool bHasInput = false;
+};
+
 // Stores the socket state and runtime data for one client session.
 struct Session {
 	SOCKET socket;
 	int playerUID;
 	int sessionID;
 	int roomID;		// -1: Not Entering a Room
+	int roomSlot;
+	int teamID;
 
 	bool isConnected = false;
 	bool isReady = false;
+
+	MoveIntent LastMoveIntent;
+	std::mutex MoveIntentLock;
 
 	ESessionState now_state;
 	GameData gameDatas;
@@ -157,6 +170,8 @@ struct Session {
 		playerUID = -1;
 		sessionID = -1;
 		roomID = -1;
+		roomSlot = -1;
+		teamID = -1;
 
 		now_state = ESessionState::LOGIN;
 

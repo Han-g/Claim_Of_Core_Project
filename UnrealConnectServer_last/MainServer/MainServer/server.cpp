@@ -431,25 +431,33 @@ void IOCPServer::DBWorkerThread()
 		case EDBTaskType::LOGIN:
 			// Validate credentials and transition the session to the lobby on success.
 			if (m_DB->CheckLogin(data.UserID, data.UserPW, userUID)) {
-				LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
+				//LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
 
 				// Cache player identity data on the session object.
 				Session* loginSession = m_SessionManager->GetSession(data.SessionIndex);
 				if (loginSession) {
 					loginSession->playerName = data.UserID;
 					loginSession->playerUID = userUID;
+
+					loginSession->gameDatas.userUID = userUID;
+					loginSession->gameDatas.isConnected = true;
+					loginSession->gameDatas.characterState = 0;
+					loginSession->gameDatas.roleType = -1;
+					loginSession->gameDatas.animationNum = 0;
 				}
 
 				// Build the login-success payload with the assigned user UID.
 				GameDataPacket dataPacket;
 				dataPacket.Session_ID = data.SessionIndex;
-				GameData newData;
-				newData.userUID = userUID;
-				dataPacket.data = newData;
+				dataPacket.data = loginSession->gameDatas;
 
 				// Move the session into the lobby state.
 				m_SessionManager->SetState(data.SessionIndex, ESessionState::LOBBY);
 
+				LOG_INFO("[LoginSync] session=%d playerUID=%d gameDataUID=%d",
+					loginSession->sessionID,
+					loginSession->playerUID,
+					loginSession->gameDatas.userUID);
 				SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
 				BroadcastRoomList();
 			}

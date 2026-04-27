@@ -32,6 +32,7 @@ void PacketProcessor::InitHandler()
 	m_FuncHandlerMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
 
 	m_FuncHandlerMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
+	m_FuncHandlerMap[PKT_C2S_CHARACTER_SELECT_REQ] = &PacketProcessor::Handle_Character_SelectReq;
 	m_FuncHandlerMap[PKT_C2S_READY_REQ] = &PacketProcessor::Handle_Game_ReadyReq;
 
 	m_FuncHandlerMap[PKT_C2S_MOVE_KEYINPUT] = &PacketProcessor::Handle_Move_KeyInput;
@@ -129,6 +130,50 @@ void PacketProcessor::Handle_Game_StartReq(IOCPServer* server, Session* session,
 	server->GameStartTry(session);
 }
 
+void PacketProcessor::Handle_Character_SelectReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	if (server == nullptr || session == nullptr) {
+		LOG_WARN("[RoleSelect] Failed to Find Client.");
+		return;
+	}
+
+	int roleType = -1;
+	if (!reader.Read(roleType))
+	{
+		LOG_WARN("[RoleSelect] Failed to read roleType. session=%d", session->sessionID);
+		return;
+	}
+
+	if (roleType < 0 || roleType > 2)
+	{
+		LOG_WARN("[RoleSelect] Invalid roleType=%d session=%d", roleType, session->sessionID);
+		return;
+	}
+
+	if (session->roomID < 0)
+	{
+		LOG_WARN("[RoleSelect] session=%d is not in room", session->sessionID);
+		return;
+	}
+
+	session->gameDatas.roleType = roleType;
+
+	Room* room = RoomManager::GetInstance()->GetRoom(session->roomID);
+	if (!room)
+	{
+		return;
+	}
+
+	RoleChangePacket pkt{};
+	pkt.targetID = session->playerUID;
+	pkt.newRoleType = roleType;
+
+	room->BroadcastToMembers(PKT_S2C_CHARACTER_SELECT_BRD, reinterpret_cast<const char*>(&pkt), sizeof(pkt));
+
+	LOG_INFO("[RoleSelect] session=%d uid=%d role=%d",
+		session->sessionID, session->playerUID, roleType);
+}
+
 void PacketProcessor::Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
 	session->isReady = !session->isReady;
@@ -142,9 +187,55 @@ void PacketProcessor::Handle_Game_ReadyReq(IOCPServer* server, Session* session,
 // -----------------------------
 // In-game input handlers
 // -----------------------------
-void PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
+bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	if (session == nullptr || server == nullptr) {
+		LOG_WARN("[MoveInput] Failed to Find Move Objects!");
+		return false;
+	}
 
+	MovePacket packet{};
+
+	if (!reader.Read(packet.x) || !reader.Read(packet.y) || !reader.Read(packet.z) ||
+		!reader.Read(packet.yaw) ||
+		!reader.Read(packet.velocityX) || !reader.Read(packet.velocityY)) {
+		LOG_WARN("[MoveInput] Failed to deserialize MovePacket!");
+		return false;
+	}
+
+	if (packet.velocityX < -1.0f) { packet.velocityX = -1.0f; }
+	if (packet.velocityX > 1.0f) { packet.velocityX = 1.0f; }
+
+	if (packet.velocityY < -1.0f) { packet.velocityY = -1.0f; }
+	if (packet.velocityY > 1.0f) { packet.velocityY = 1.0f; }
+
+	if (_isnan(packet.yaw)) { packet.yaw = 0.0f; }
+
+	{
+		std::lock_guard<std::mutex> lock(session->MoveIntentLock);
+		session->LastMoveIntent.Right = packet.velocityX;
+		session->LastMoveIntent.Forward = packet.velocityY;
+		session->LastMoveIntent.Yaw = packet.yaw;
+		session->LastMoveIntent.bHasInput =
+			(packet.velocityX != 0.0f || packet.velocityY != 0.0f);
+	}
+
+	session->gameDatas.y = packet.y;
+	session->gameDatas.x = packet.x;
+	session->gameDatas.z = packet.z;
+	session->gameDatas.rotate = packet.yaw;
+
+	session->gameDatas.animationNum =
+		(std::abs(packet.velocityX) > 0.01f || std::abs(packet.velocityY) > 0.01f) ? 1 : 0;
+
+	LOG_INFO("[MoveRecv] session=%d uid=%d pos=(%.1f, %.1f, %.1f) vel=(%.2f, %.2f) yaw=%.2f",
+		session->sessionID,
+		session->playerUID,
+		packet.x, packet.y, packet.z,
+		packet.velocityX, packet.velocityY,
+		packet.yaw);
+
+	return true;
 }
 
 void PacketProcessor::Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)

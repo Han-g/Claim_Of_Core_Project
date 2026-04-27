@@ -32,9 +32,10 @@ private:
 	static void Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Character_SelectReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader);
 
-	static void Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static bool Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);

@@ -35,6 +35,7 @@ Session* SessionManager::AcceptNewClient(SOCKET clientSocket)
 
     // Reset gameplay state for the reused session slot.
     session->gameDatas.isConnected = true;
+    session->gameDatas.userUID = -1;
     session->gameDatas.x = 0;
     session->gameDatas.y = 0;
     session->gameDatas.z = 0;
@@ -73,6 +74,7 @@ void SessionManager::DisconnectClient(int clientID)
 
         session->isConnected = false;
         session->gameDatas.isConnected = false;
+        session->gameDatas.userUID = -1;
 
         if (session->socket != INVALID_SOCKET) {
             closesocket(session->socket);

@@ -180,7 +180,7 @@ struct PacketHeader {
 };
 
 struct GameData {
-	int userUID = 0;
+	int userUID = -1;
 	bool isConnected = false;
 
 	int maxHP = 100;
@@ -303,7 +303,9 @@ struct RoleChangePacket {
 // ---------------------------------------
 
 struct MovePacket {
-
+    float x, y, z;
+    float yaw;
+    float velocityX, velocityY;
 };
 
 struct JumpPakcet {

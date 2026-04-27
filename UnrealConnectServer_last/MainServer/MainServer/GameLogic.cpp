@@ -19,9 +19,16 @@ void GameLogic::Update(float deltaTime)
         timeAccumlator -= 1.f;
         CountdownTick();
     }
+    
+    // Adapt Player Movement
+    /*for (auto& Pair : players)
+    {
+        Session* player = Pair.second;
+        UpdatePlayerMovement(player, deltaTime);
+    }*/
 
     // Update map-specific hazard logic.
-    if (mapType == 1) { UpdateBuildingMap(deltaTime); }
+    if (mapType == 1) { UpdateBuildingMap(deltaTime); } 
     else if (mapType == 2) { UpdateIceCaveMap(deltaTime); }
     else { LOG_ERROR("InValid Map Type!"); return; }
 }
@@ -277,7 +284,17 @@ void GameLogic::HandleRespawn(int sessionID)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    const int slot = targetSession->roomSlot;
+    if (slot < 0)
+    {
+        LOG_WARN("HandleRespawn failed - invalid roomSlot. session=%d", sessionID);
+        return;
+    }
+
+    GameData& gd = targetSession->gameDatas;
     if (gd.characterState != 1) { return; } // ignore if not currently dead
 
     // Restore HP before sending the respawn update.
@@ -289,7 +306,7 @@ void GameLogic::HandleRespawn(int sessionID)
     // Resolve a server-authoritative respawn position.
     // This will eventually use map-specific predefined spawn locations.
     // It currently falls back to the room-provided spawn helper.
-    Vector3 spawnPoint = ownerRoom->GetRespwanLocation();
+    Vector3 spawnPoint = ownerRoom->GetRespawnLocation(slot);
     gd.x = spawnPoint.x;
     gd.y = spawnPoint.y;
     gd.z = spawnPoint.z;
@@ -664,3 +681,90 @@ void GameLogic::BreakFloor(int tileID)
     ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
 }
 
+void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)
+{
+    if (player == nullptr) { return; }
+
+    // Movement Update data
+    GameData& gd = player->gameDatas;
+
+    if (!gd.isConnected) { return; }            // If Client Connection is disconnected
+    if (gd.characterState != 0) { return; }     // If Character is Dead state
+
+    // Synchronizate Character Coordination datas
+    MoveIntent input;
+    {
+        std::lock_guard<std::mutex> lock(player->MoveIntentLock);
+        input = player->LastMoveIntent;
+    }
+
+    if (!input.bHasInput) {
+        gd.animationNum = 0; // Idle animation 
+        return;
+    }
+
+    // Calculate Forward and Side Vector On the basis of Client Sight
+    const float yawRad = GameMath::DegreesToRadians(input.Yaw);
+
+    const float forwardX = std::cos(yawRad);
+    const float forwardY = std::sin(yawRad);
+
+    const float rightX = -std::sin(yawRad);
+    const float rightY = std::cos(yawRad);
+
+    float moveX = forwardX * input.Forward + rightX * input.Right;
+    float moveY = forwardY * input.Forward + rightY * input.Right;
+
+    GameMath::Normalize2D(moveX, moveY);
+
+    const float moveDistance = gd.baseWalkSpeed * deltaTime;
+
+    Vector3 currentPos;
+    currentPos.x = gd.x;
+    currentPos.y = gd.y;
+    currentPos.z = gd.z;
+
+    Vector3 desiredPos;
+    desiredPos.x = currentPos.x + moveX * moveDistance;
+    desiredPos.y = currentPos.y + moveY * moveDistance;
+    desiredPos.z = FixedGroundZ;
+
+    const float collisionRadius = GetCollisionRadius(gd.roleType);
+    const Vector3 resolvedPos = ResolveMovementWithCollision(currentPos, desiredPos, collisionRadius);
+
+    gd.x = resolvedPos.x;
+    gd.y = resolvedPos.y;
+    gd.z = resolvedPos.z;
+    gd.rotate = input.Yaw;
+
+    if (std::abs(moveX) > 0.001f || std::abs(moveY) > 0.001f)
+    {
+        gd.animationNum = 1; // Run
+    }
+    else
+    {
+        gd.animationNum = 0; // Idle
+    }
+}
+
+float GameLogic::GetCollisionRadius(int roleType) const
+{
+    switch (roleType)
+    {
+    case 0: return 45.0f; // Striker
+    case 1: return 55.0f; // Guardian
+    case 2: return 45.0f; // Manipulator
+    default: return 50.0f;
+    }
+}
+
+bool GameLogic::CanOccupyPosition(const Vector3& pos, float radius) const
+{
+    return false;
+}
+
+Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const
+{
+    // Temporary Treat
+    return desiredPos;
+}

@@ -16,22 +16,66 @@ void Room::InitGameLogic(GameLogic* logic)
 {
     std::lock_guard<std::mutex> lock(m_RoomLock);
     m_GameLogic = logic;
+    LOG_INFO("[InitGameLogic] memberCount=%d", static_cast<int>(m_Members.size()));
 
     for (Session* member : m_Members) {
         logic->players[member->sessionID] = member;
+        LOG_INFO("[InitLoop] session=%d uid=%d slot=%d team=%d",
+            member->sessionID,
+            member->playerUID,
+            member->roomSlot,
+            member->teamID);
 
         GameData& pd = member->gameDatas;
-        pd.maxHP = 100;
-        pd.currentHP = 100;
-        pd.characterState = 0;
-        pd.roleType = 0;
-        pd.baseWalkSpeed = 500.f;
-        // Reset spawn-related player data to default values until map-specific spawn points are wired in.
-        pd.x = 0; pd.y = 0; pd.z = 0;
+        pd.userUID = member->playerUID;
+        /*pd.maxHP = 100;
+        //pd.currentHP = 100;
+        //pd.characterState = 0;
+        //pd.roleType = 0;
+        //pd.baseWalkSpeed = 500.f;
+        //// Reset spawn-related player data to default values until map-specific spawn points are wired in.
+        pd.x = 0; pd.y = 0; pd.z = 0;*/
+
+        InitCharacter(member, logic);
     }
 
     logic->SetMapType(selectedMapType);
     logic->StartGameRound();
+}
+
+void Room::InitCharacter(Session* member, GameLogic* logic)
+{
+    if (member == nullptr) { return; }
+
+    const int slot = member->roomSlot;
+    if (slot < 0) {
+        LOG_WARN("[Init Character] failed to find empty slot.");
+        return;
+    }
+
+    member->teamID = TeamCalculateBySlot(slot);
+
+    GameData& gd = member->gameDatas;
+    gd.userUID = member->playerUID;
+    gd.isConnected = true;
+    gd.characterState = 0; // Alive
+
+    logic->ApplyRoleStats(member->sessionID);
+    gd.currentHP = gd.maxHP;
+
+    const Vector3 spawn = GetRespawnLocation(slot);
+
+    gd.x = spawn.x;
+    gd.y = spawn.y;
+    gd.z = spawn.z;
+    gd.rotate = GetSpawnYawBySlot(slot);
+
+    LOG_INFO("InitCharacter session=%d uid=%d slot=%d team=%d pos=(%.1f, %.1f, %.1f)",
+        member->sessionID,
+        gd.userUID,
+        member->roomSlot,
+        member->teamID,
+        gd.x, gd.y, gd.z);
 }
 
 bool Room::IsAllReady()
@@ -50,9 +94,20 @@ bool Room::addMember(Session* member)
 {
     std::lock_guard<std::mutex> lock(m_RoomLock);
 
-    if (m_Members.size() >= MaxMember) {
+    if (m_Members.size() >= MaxMember || !member) {
+        LOG_ERROR("Invalid Member Access");
         return false;
     }
+
+    int slot = AllocateRoomSlot();
+    if (slot == -1) {
+        LOG_ERROR("Failed to Allocate Room Slot");
+        return false; 
+    }
+
+    member->roomSlot = slot;
+    member->teamID = TeamCalculateBySlot(slot);
+    member->roomID = m_roomID;
 
     // The first member added to the room becomes the host.
     if (m_Members.empty()) {
@@ -60,9 +115,22 @@ bool Room::addMember(Session* member)
         LOG_INFO("Room [%d] Owner set to Session [%d]", m_roomID, m_OwnerSessionID);
     }
 
-    member->roomID = m_roomID;
     m_Members.push_back(member);
     return true;
+}
+
+int Room::AllocateRoomSlot()
+{
+    for (int i = 0; i < MaxMember; ++i)
+    {
+        if (!UsedSlots[i])
+        {
+            UsedSlots[i] = true;
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 void Room::RemoveMember(int clientID)
@@ -71,8 +139,15 @@ void Room::RemoveMember(int clientID)
 
     for (auto it = m_Members.begin(); it != m_Members.end(); ++it)
     {
-        if ((*it)->sessionID == clientID)
+        Session* member = *it;
+        if (member->sessionID == clientID)
         {
+            if (member->roomSlot >= 0 && member->roomSlot < MaxMember)
+            {
+                UsedSlots[member->roomSlot] = false;
+            }
+            member->roomSlot = -1;
+
             m_Members.erase(it);
             break;
         }
@@ -92,7 +167,14 @@ void Room::TransferOwnership()
     LOG_INFO("Room [%d] New owner = Session [%d]", m_roomID, m_OwnerSessionID);
 }
 
-void Room::SelectStage()
+int Room::TeamCalculateBySlot(int roomSlot) const
+{
+    if (roomSlot >= 0 && roomSlot < 3) { return 0; }
+    if (roomSlot >= 3 && roomSlot < 6) { return 1; }
+    return -1;
+}
+
+void Room::SelectStage(int stageNum)
 {
 
 }
@@ -102,17 +184,44 @@ void Room::LoadStage()
 
 }
 
-Vector3 Room::GetRespwanLocation()
+Vector3 Room::GetRespawnLocation(int slot)
 {
-    Vector3 newLocation;
+    static const Vector3 SpawnTable[6] =
+    {
+        {   0.f,   0.f, 1200.f },  // team 1 Member1
+        { 300.f,   0.f, 1200.f },  // team 1 Member2
+        { 600.f,   0.f, 1200.f },  // team 1 Member3
+        {   0.f, 800.f, 1200.f },  // team 2 Member4
+        { 300.f, 800.f, 1200.f },  // team 2 Member5
+        { 600.f, 800.f, 1200.f }   // team 2 Member6
+    };
 
-    /*
-    * Load a spawn location from map configuration or another runtime data source.
-    */
-    // Temporary fallback spawn location.
-    newLocation = { 0,0,0 };
+    if (slot < 0 || slot >= 6) {
+        // Invalid slot Connect
+        return { -100.f, -100.f, -100.f };
+    }
 
-    return Vector3();
+    return SpawnTable[slot];
+}
+
+float Room::GetSpawnYawBySlot(int slot) const
+{
+    static const float SpawnYawTable[6] =
+    {
+        0.0f,   // slot 0
+        0.0f,   // slot 1
+        0.0f,   // slot 2
+        180.0f, // slot 3
+        180.0f, // slot 4
+        180.0f  // slot 5
+    };
+
+    if (slot < 0 || slot >= 6)
+    {
+        return 0.0f;
+    }
+
+    return SpawnYawTable[slot];
 }
 
 void Room::MatchMaking()
@@ -487,6 +596,9 @@ void RoomManager::GameStart(Session* client)
     GameLogic* logic = new GameLogic();
     logic->ownerRoom = room;
     room->InitGameLogic(logic);
+
+    // Set Player Data Init
+    //room->InitCharacter(client, logic);
 
     // Broadcast the game-start event to every room member.
     room->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
