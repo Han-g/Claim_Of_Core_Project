@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>Claim Of Core Code Reference</title>
+  <style>
+    body { font-family: 'Malgun Gothic', 'Segoe UI', sans-serif; margin: 28px; line-height: 1.45; color: #222; }
+    h1, h2, h3, h4 { color: #0f2d40; }
+    h1 { border-bottom: 2px solid #0f2d40; padding-bottom: 8px; }
+    h2 { margin-top: 28px; border-bottom: 1px solid #9bb7c7; padding-bottom: 4px; }
+    h3 { margin-top: 22px; background: #eef5f8; padding: 8px 10px; border-left: 4px solid #0f2d40; }
+    table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 11px; table-layout: fixed; }
+    th, td { border: 1px solid #c9d6de; padding: 6px 8px; vertical-align: top; word-wrap: break-word; }
+    th { background: #dfeef5; }
+    code { font-family: Consolas, 'Courier New', monospace; font-size: 0.95em; background: #f3f4f6; padding: 1px 3px; }
+    pre code { display: block; padding: 12px; white-space: pre-wrap; }
+    ul { margin-top: 4px; }
+    @page { size: A4; margin: 16mm; }
+  </style>
+</head>
+<body>
+<h1>Claim Of Core Client/Server Code Reference</h1>
+<p>이 문서는 클라이언트와 서버 프로젝트의 주요 소스 파일을 기준으로, 프로젝트 내부에서 정의된 함수와 멤버 변수를 파일별로 정리한 참조 문서입니다.</p>
+<ul><li>생성 기준: 프로젝트 소스 파일의 선언/정의 자동 추출 + 이름 기반 기능 설명</li><li>용도: 이후 GPT에게 구조 설명, 수정 위치 질문, 네트워크 흐름 질문을 할 때 참조 자료로 사용</li><li>주의: 일부 설명은 함수/변수명과 위치를 바탕으로 한 요약 설명이며, 엔진 내부 동작까지 완전히 대체하지는 않습니다.</li></ul>
+<h2>문서 구성</h2>
+<ul><li>클라이언트 파일 수: 26</li><li>서버 파일 수: 11</li><li>전체 파일 수: 37</li></ul>
+<h2>클라이언트</h2>
+<h3>BaseItem.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\BaseItem.h`</li><li>파일 목적: 아이템 기본 동작과 줍기/버리기 상호작용 기반을 담당하는 파일입니다.</li><li>함수 수(추출): 10</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void ABaseItem::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>SetOwnerCharacter</td><td>void ABaseItem::SetOwnerCharacter(AMyCharacter* NewOwner)</td><td>Owner Character 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>OnBeginOverlap</td><td>void ABaseItem::OnBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult&amp; SweepResult)</td><td>On Begin Overlap 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnEndOverlap</td><td>void ABaseItem::OnEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)</td><td>On End Overlap 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartUse</td><td>void ABaseItem::StartUse()</td><td>Start Use 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DoHit</td><td>void ABaseItem::DoHit()</td><td>Do Hit 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ApplyDamage</td><td>void ABaseItem::ApplyDamage(AActor* Target)</td><td>Damage 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>ApplyKnockback</td><td>void ABaseItem::ApplyKnockback(ACharacter* Target)</td><td>Knockback 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>OnStartUse</td><td>void ABaseItem::OnStartUse()</td><td>On Start Use 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnHitTarget</td><td>void ABaseItem::OnHitTarget(AActor* Target)</td><td>On Hit Target 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Base\Claim_Of_Core.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Base\Claim_Of_Core.h`</li><li>파일 목적: 게임 모듈, 플레이어 컨트롤러 등 엔진 진입점과 기본 클래스를 담당하는 파일입니다.</li><li>함수 수(추출): 0</li><li>멤버 변수 수(추출): 0</li></ul>
+<h3>Base\Claim_Of_CorePlayerController.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Base\Claim_Of_CorePlayerController.h`</li><li>파일 목적: 게임 모듈, 플레이어 컨트롤러 등 엔진 진입점과 기본 클래스를 담당하는 파일입니다.</li><li>함수 수(추출): 2</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AClaim_Of_CorePlayerController::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>SetupInputComponent</td><td>void AClaim_Of_CorePlayerController::SetupInputComponent()</td><td>up Input Component 값을 현재 객체에 설정합니다.</td></tr>
+</tbody></table>
+<h3>CharacterInfoWidget.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\CharacterInfoWidget.h`</li><li>파일 목적: 클라이언트 측 CharacterInfoWidget 기능을 정의하는 파일입니다.</li><li>함수 수(추출): 6</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>NativeConstruct</td><td>void UCharacterInfoWidget::NativeConstruct()</td><td>Native Construct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>NativeDestruct</td><td>void UCharacterInfoWidget::NativeDestruct()</td><td>Native Destruct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnStrikerClicked</td><td>void UCharacterInfoWidget::OnStrikerClicked()</td><td>On Striker Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnGuardianClicked</td><td>void UCharacterInfoWidget::OnGuardianClicked()</td><td>On Guardian Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnManipulatorClicked</td><td>void UCharacterInfoWidget::OnManipulatorClicked()</td><td>On Manipulator Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>HandleRoleSelected</td><td>void UCharacterInfoWidget::HandleRoleSelected(int32 InRoleType)</td><td>Role Selected 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+</tbody></table>
+<h3>GameState\InGame_GameState.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\GameState\InGame_GameState.h`</li><li>파일 목적: 인게임 공용 상태와 라운드 흐름 표시를 담당하는 파일입니다.</li><li>함수 수(추출): 7</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AInGame_GameState::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>StartReady</td><td>void AInGame_GameState::StartReady()</td><td>Start Ready 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartRound</td><td>void AInGame_GameState::StartRound()</td><td>Start Round 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EndRound</td><td>void AInGame_GameState::EndRound()</td><td>End Round 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CountdownTick</td><td>void AInGame_GameState::CountdownTick()</td><td>Countdown Tick 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ActivateGameplayFromServerStart</td><td>void AInGame_GameState::ActivateGameplayFromServerStart()</td><td>Activate Gameplay From Server Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdatePhase</td><td>void AInGame_GameState::UpdatePhase()</td><td>Phase 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+</tbody></table>
+<h3>Map\BreakableActor.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\BreakableActor.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 7</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void ABreakableActor::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>ActivateBreakable</td><td>void ABreakableActor::ActivateBreakable()</td><td>Activate Breakable 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ResetBreakable</td><td>void ABreakableActor::ResetBreakable()</td><td>Reset Breakable 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ApplyBreakableDamage</td><td>void ABreakableActor::ApplyBreakableDamage(float DamageAmount)</td><td>Breakable Damage 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>BreakActor</td><td>void ABreakableActor::BreakActor()</td><td>Break Actor 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnActivatedInternal</td><td>void ABreakableActor::OnActivatedInternal()</td><td>On Activated Internal 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnBrokenInternal</td><td>void ABreakableActor::OnBrokenInternal()</td><td>On Broken Internal 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\Building\DebrisSpawner.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\Building\DebrisSpawner.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 6</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void ADebrisSpawner::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>Tick</td><td>void ADebrisSpawner::Tick(float DeltaTime)</td><td>매 프레임 또는 주기적으로 호출되어 상태를 갱신합니다.</td></tr>
+<tr><td>InitializeGameState</td><td>void ADebrisSpawner::InitializeGameState()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>UpdateSpawner</td><td>void ADebrisSpawner::UpdateSpawner(float DeltaTime)</td><td>Spawner 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>SpawnDebrisByCurrentPhase</td><td>void ADebrisSpawner::SpawnDebrisByCurrentPhase()</td><td>Spawn Debris By Current Phase 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>PostEditChangeProperty</td><td>if WITH_EDITOR void ADebrisSpawner::PostEditChangeProperty(FPropertyChangedEvent&amp; PropertyChangedEvent)</td><td>Post Edit Change Property 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\Building\LargeDebrisActor.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\Building\LargeDebrisActor.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 12</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void ALargeDebrisActor::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>Tick</td><td>void ALargeDebrisActor::Tick(float DeltaTime)</td><td>매 프레임 또는 주기적으로 호출되어 상태를 갱신합니다.</td></tr>
+<tr><td>PrepareDebris</td><td>void ALargeDebrisActor::PrepareDebris()</td><td>Prepare Debris 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ActivateDebris</td><td>void ALargeDebrisActor::ActivateDebris(float InitialImpulseStrength)</td><td>Activate Debris 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateActorFall</td><td>void ALargeDebrisActor::UpdateActorFall(float DeltaTime)</td><td>Actor Fall 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>LandAndFracture</td><td>void ALargeDebrisActor::LandAndFracture()</td><td>Land And Fracture 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BreakInitialBottomChunks</td><td>void ALargeDebrisActor::BreakInitialBottomChunks(float ImpactSpeed)</td><td>Break Initial Bottom Chunks 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BreakChunk</td><td>void ALargeDebrisActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)</td><td>Break Chunk 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DropUnsupportedChunks</td><td>void ALargeDebrisActor::DropUnsupportedChunks()</td><td>Drop Unsupported Chunks 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartSequentialUnsupportedBreak</td><td>void ALargeDebrisActor::StartSequentialUnsupportedBreak()</td><td>Start Sequential Unsupported Break 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ProcessNextChunkBreak</td><td>void ALargeDebrisActor::ProcessNextChunkBreak()</td><td>입력 데이터를 해석하고 적절한 처리 흐름으로 연결합니다.</td></tr>
+<tr><td>OnChunkBrokenInternal</td><td>void ALargeDebrisActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact)</td><td>On Chunk Broken Internal 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\Building\LargeDebrisController.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\Building\LargeDebrisController.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 10</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>HandleGameplayActivated</td><td>void ALargeDebrisController::HandleGameplayActivated()</td><td>Gameplay Activated 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>ActivateGameplayRuntime</td><td>void ALargeDebrisController::ActivateGameplayRuntime()</td><td>Activate Gameplay Runtime 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BeginPlay</td><td>void ALargeDebrisController::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>Tick</td><td>void ALargeDebrisController::Tick(float DeltaTime)</td><td>매 프레임 또는 주기적으로 호출되어 상태를 갱신합니다.</td></tr>
+<tr><td>InitializeGameState</td><td>void ALargeDebrisController::InitializeGameState()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>HandlePhaseLogic</td><td>void ALargeDebrisController::HandlePhaseLogic()</td><td>Phase Logic 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>TriggerPhase2Debris</td><td>void ALargeDebrisController::TriggerPhase2Debris()</td><td>Trigger Phase 2 Debris 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerPhase3Debris</td><td>void ALargeDebrisController::TriggerPhase3Debris()</td><td>Trigger Phase 3 Debris 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>PrepareDebrisActors</td><td>void ALargeDebrisController::PrepareDebrisActors(const TArray&lt;TObjectPtr&lt;ALargeDebrisActor&gt;&gt;&amp; DebrisActors)</td><td>Prepare Debris Actors 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ActivateDebrisActors</td><td>void ALargeDebrisController::ActivateDebrisActors(const TArray&lt;TObjectPtr&lt;ALargeDebrisActor&gt;&gt;&amp; DebrisActors)</td><td>Activate Debris Actors 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\Building\SmallDebrisActor.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\Building\SmallDebrisActor.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 4</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void ASmallDebrisActor::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>OnDebrisHit</td><td>void ASmallDebrisActor::OnDebrisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult&amp; Hit)</td><td>On Debris Hit 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartDestroyTimer</td><td>void ASmallDebrisActor::StartDestroyTimer()</td><td>Start Destroy Timer 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DestroySelf</td><td>void ASmallDebrisActor::DestroySelf()</td><td>Destroy Self 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\IceCave\IceFloorTile.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceFloorTile.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 4</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AIceFloorTile::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>SetCracked</td><td>void AIceFloorTile::SetCracked()</td><td>Cracked 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>StartBreaking</td><td>void AIceFloorTile::StartBreaking()</td><td>Start Breaking 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BreakFloor</td><td>void AIceFloorTile::BreakFloor()</td><td>Break Floor 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\IceCave\IceMapController.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceMapController.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 6</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AIceMapController::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>StartIceMap</td><td>void AIceMapController::StartIceMap()</td><td>Start Ice Map 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnterPhase2</td><td>void AIceMapController::EnterPhase2()</td><td>Enter Phase 2 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnterPhase3</td><td>void AIceMapController::EnterPhase3()</td><td>Enter Phase 3 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerRandomIcicle</td><td>void AIceMapController::TriggerRandomIcicle()</td><td>Trigger Random Icicle 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerRandomFloorTile</td><td>void AIceMapController::TriggerRandomFloorTile()</td><td>Trigger Random Floor Tile 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\IceCave\IcicleActor.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IcicleActor.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 5</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AIcicleActor::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>StartWarning</td><td>void AIcicleActor::StartWarning()</td><td>Start Warning 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartFalling</td><td>void AIcicleActor::StartFalling()</td><td>Start Falling 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnIcicleHit</td><td>void AIcicleActor::OnIcicleHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult&amp; Hit)</td><td>On Icicle Hit 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BreakIcicle</td><td>void AIcicleActor::BreakIcicle()</td><td>Break Icicle 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Map\MapPhaseManager.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\MapPhaseManager.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 6</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AMapPhaseManager::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>Tick</td><td>void AMapPhaseManager::Tick(float DeltaTime)</td><td>매 프레임 또는 주기적으로 호출되어 상태를 갱신합니다.</td></tr>
+<tr><td>InitializeFromGameState</td><td>void AMapPhaseManager::InitializeFromGameState()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>UpdateFromGameState</td><td>void AMapPhaseManager::UpdateFromGameState()</td><td>From Game State 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>HandlePhaseChanged</td><td>void AMapPhaseManager::HandlePhaseChanged(EMapPhase NewPhase)</td><td>Phase Changed 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleRoundStateChanged</td><td>void AMapPhaseManager::HandleRoundStateChanged(ERoundState NewRoundState)</td><td>Round State Changed 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+</tbody></table>
+<h3>Map\PreFracturedActor.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\PreFracturedActor.h`</li><li>파일 목적: 맵 기믹, 지형 오브젝트, 파괴/빙판/잔해 등 환경 상호작용을 담당하는 파일입니다.</li><li>함수 수(추출): 15</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void APreFracturedActor::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>InitializeGameState</td><td>void APreFracturedActor::InitializeGameState()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>HandleGameplayActivated</td><td>void APreFracturedActor::HandleGameplayActivated()</td><td>Gameplay Activated 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>ActivateFractureRuntime</td><td>void APreFracturedActor::ActivateFractureRuntime()</td><td>Activate Fracture Runtime 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CollectChunkMeshes</td><td>void APreFracturedActor::CollectChunkMeshes()</td><td>Collect Chunk Meshes 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitializeChunkData</td><td>void APreFracturedActor::InitializeChunkData()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>PrepareFracture</td><td>void APreFracturedActor::PrepareFracture()</td><td>Prepare Fracture 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ApplyDamageToChunk</td><td>void APreFracturedActor::ApplyDamageToChunk(int32 ChunkIndex, float DamageAmount)</td><td>Damage To Chunk 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>BreakChunk</td><td>void APreFracturedActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)</td><td>Break Chunk 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnChunkBrokenInternal</td><td>void APreFracturedActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact)</td><td>On Chunk Broken Internal 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DropUnsupportedChunks</td><td>void APreFracturedActor::DropUnsupportedChunks()</td><td>Drop Unsupported Chunks 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>FreezeRemainingChunks</td><td>void APreFracturedActor::FreezeRemainingChunks()</td><td>Freeze Remaining Chunks 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnBrokenInternal</td><td>void APreFracturedActor::OnBrokenInternal()</td><td>On Broken Internal 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AutoBuildNeighborGraph</td><td>void APreFracturedActor::AutoBuildNeighborGraph()</td><td>Auto Build Neighbor Graph 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AutoSetAnchoredChunks</td><td>void APreFracturedActor::AutoSetAnchoredChunks()</td><td>Auto Set Anchored Chunks 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Networking\ClientNetworkTypes.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworkTypes.h`</li><li>파일 목적: 네트워크 연결, 패킷 전송/수신, 이벤트 분배를 담당하는 파일입니다.</li><li>주요 타입: `GameData, FPacketHeader, FLoginPacket, FRoomPacketData, FRoomMemberPacketData, FGamedataPacket, FMapEventPacket, FSpawnObjectPacket, FPhaseChangePacket, FMovePacket`</li><li>함수 수(추출): 0</li><li>멤버 변수 수(추출): 32</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>userUID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>isConnected</td><td>bool</td><td>isConnected 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>maxHP</td><td>int</td><td>체력 관련 현재값/최대값을 저장합니다.</td></tr>
+<tr><td>currentHP</td><td>int</td><td>체력 관련 현재값/최대값을 저장합니다.</td></tr>
+<tr><td>x</td><td>float</td><td>x 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>rotate</td><td>float</td><td>rotate 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>baseWalkSpeed</td><td>float</td><td>기능 토글 또는 현재 상태를 나타내는 불리언 플래그입니다.</td></tr>
+<tr><td>animationNum</td><td>int</td><td>animationNum 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>PacketSize</td><td>uint16</td><td>PacketSize 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>PacketID</td><td>uint16</td><td>PacketID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>userID</td><td>FString</td><td>userID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>userPW</td><td>FString</td><td>userPW 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>RoomID</td><td>int32</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>RoomName[20]</td><td>wchar_t</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>CurrentPlayers</td><td>int32</td><td>CurrentPlayers 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>PlayerName[20]</td><td>wchar_t</td><td>PlayerName[20] 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isReady</td><td>bool</td><td>isReady 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isHost</td><td>bool</td><td>isHost 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>sessionID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>data</td><td>GameData</td><td>data 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>eventType</td><td>int32_t</td><td>eventType 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>objectIndex</td><td>int32_t</td><td>objectIndex 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>eventState</td><td>int32_t</td><td>eventState 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>objectType</td><td>int32_t</td><td>objectType 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>z</td><td>float x, y,</td><td>z 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>objectID</td><td>int32_t</td><td>objectID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>roundState</td><td>int32_t</td><td>roundState 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>mapPhase</td><td>int32_t</td><td>맵, 레벨, 라운드 흐름과 관련된 참조 또는 상태값입니다.</td></tr>
+<tr><td>gameTime</td><td>float</td><td>gameTime 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>Z</td><td>float X, Y,</td><td>Z 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>Yaw</td><td>float</td><td>Yaw 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>VelocityY</td><td>float VelocityX,</td><td>VelocityY 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h3>Networking\ClientNetworkWorker.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworkWorker.h`</li><li>파일 목적: 네트워크 연결, 패킷 전송/수신, 이벤트 분배를 담당하는 파일입니다.</li><li>함수 수(추출): 26</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>Init</td><td>bool FClientNetworkWorker::Init()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Run</td><td>uint32 FClientNetworkWorker::Run()</td><td>Run 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Stop</td><td>void FClientNetworkWorker::Stop()</td><td>Stop 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Exit</td><td>void FClientNetworkWorker::Exit()</td><td>Exit 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>WakeUp</td><td>void FClientNetworkWorker::WakeUp()</td><td>Wake Up 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TryConnectBlocking</td><td>bool FClientNetworkWorker::TryConnectBlocking(const FString&amp; IP, int32 Port)</td><td>조건을 확인한 뒤 요청 또는 동작을 시도합니다.</td></tr>
+<tr><td>CloseSocket</td><td>void FClientNetworkWorker::CloseSocket()</td><td>Close Socket 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>FlushInboundCommands</td><td>void FClientNetworkWorker::FlushInboundCommands()</td><td>Flush Inbound Commands 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>RecvAndParsePackets</td><td>void FClientNetworkWorker::RecvAndParsePackets()</td><td>Recv And Parse Packets 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>HandlePacket</td><td>void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadData, uint16 PayloadSize)</td><td>Packet 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(int32))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(int32) * 2)</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FAttackActionPacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FDamageApplyPacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FStateChangePacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FStatusUpdatePacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FRespawnPacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FSyncAnimationPacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FRoleChangePacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FSyncGameTimePacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FMapEventPacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FSpawnObjectPacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>sizeof</td><td>PayloadSize &lt; sizeof(FPhaseChangePacket))</td><td>sizeof 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SendRawPacket</td><td>void FClientNetworkWorker::SendRawPacket(uint16 PacketID, const TArray&lt;uint8&gt;&amp; Payload)</td><td>Raw Packet 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>PushEvent</td><td>void FClientNetworkWorker::PushEvent(FNetEvent&amp;&amp; Event)</td><td>Push Event 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>HandleReconnect</td><td>void FClientNetworkWorker::HandleReconnect()</td><td>Reconnect 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+</tbody></table>
+<h3>Networking\ClientNetworking.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworking.h`</li><li>파일 목적: 네트워크 연결, 패킷 전송/수신, 이벤트 분배를 담당하는 파일입니다.</li><li>함수 수(추출): 17</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>TestFuncInput</td><td>void ClientNetworking::TestFuncInput(PacketID testPacket)</td><td>Test Func Input 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Start</td><td>void ClientNetworking::Start(const FString&amp; IP, int32 Port)</td><td>Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Shutdown</td><td>void ClientNetworking::Shutdown()</td><td>종료 시점 정리와 리소스 해제를 수행합니다.</td></tr>
+<tr><td>PumpEvents</td><td>void ClientNetworking::PumpEvents()</td><td>Pump Events 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnqueueSendCommand</td><td>void ClientNetworking::EnqueueSendCommand(uint16 PacketID, const TArray&lt;uint8&gt;&amp; Payload)</td><td>Enqueue Send Command 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnqueueSendCommand</td><td>void ClientNetworking::EnqueueSendCommand(uint16 PacketID)</td><td>Enqueue Send Command 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>RequestConnect</td><td>void ClientNetworking::RequestConnect(const FString&amp; IP, int32 Port)</td><td>Connect 요청 패킷 또는 서버 호출을 전송합니다.</td></tr>
+<tr><td>RequestDisconnect</td><td>void ClientNetworking::RequestDisconnect()</td><td>Disconnect 요청 패킷 또는 서버 호출을 전송합니다.</td></tr>
+<tr><td>RequestReconnect</td><td>void ClientNetworking::RequestReconnect()</td><td>Reconnect 요청 패킷 또는 서버 호출을 전송합니다.</td></tr>
+<tr><td>LoginAccess</td><td>void ClientNetworking::LoginAccess(FString&amp; ID, FString&amp; PW)</td><td>Login Access 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>RegisterRequest</td><td>void ClientNetworking::RegisterRequest(FString&amp; ID, FString&amp; PW)</td><td>Register Request 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CreateRoomRequest</td><td>void ClientNetworking::CreateRoomRequest()</td><td>Room Request 객체 또는 리소스를 생성합니다.</td></tr>
+<tr><td>CharacterSelectRequest</td><td>void ClientNetworking::CharacterSelectRequest(int32 RoleType)</td><td>Character Select Request 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>JoinRoomRequest</td><td>void ClientNetworking::JoinRoomRequest(int32 RoomID)</td><td>Room Request 흐름에 참가하거나 연결을 수립합니다.</td></tr>
+<tr><td>ReadyToggleRequest</td><td>void ClientNetworking::ReadyToggleRequest()</td><td>Ready Toggle Request 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>GameStartRequest</td><td>void ClientNetworking::GameStartRequest()</td><td>Game Start Request 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SendMoveInput</td><td>void ClientNetworking::SendMoveInput(const FMovePacket&amp; MoveData)</td><td>Move Input 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+</tbody></table>
+<h3>Sub\HPComponent.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Sub\HPComponent.h`</li><li>파일 목적: 체력 관련 공통 계산과 상태 표시 보조를 담당하는 파일입니다.</li><li>함수 수(추출): 9</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void UHPComponent::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>ApplyDamage</td><td>void UHPComponent::ApplyDamage(int32 DamageAmount)</td><td>Damage 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>Heal</td><td>void UHPComponent::Heal(int32 HealAmount)</td><td>Heal 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ResetHP</td><td>void UHPComponent::ResetHP()</td><td>Reset HP 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerResetHP_Implementation</td><td>void UHPComponent::ServerResetHP_Implementation()</td><td>Server Reset Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnRep_CurrentHP</td><td>void UHPComponent::OnRep_CurrentHP(int32 OldHP)</td><td>Current HP 복제 값이 변경되었을 때 후속 동기화를 수행합니다.</td></tr>
+<tr><td>HandleHPChanged</td><td>void UHPComponent::HandleHPChanged(int32 OldHP)</td><td>HP Changed 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>ServerApplyDamage_Implementation</td><td>void UHPComponent::ServerApplyDamage_Implementation(int32 DamageAmount)</td><td>Server Apply Damage Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerHeal_Implementation</td><td>void UHPComponent::ServerHeal_Implementation(int32 HealAmount)</td><td>Server Heal Implementation 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>Sub\MyCharacter.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Sub\MyCharacter.h`</li><li>파일 목적: 플레이어 캐릭터의 입력, 상태, 역할, 전투, 네트워크 동기화 적용을 담당하는 핵심 파일입니다.</li><li>함수 수(추출): 80</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>BeginPlay</td><td>void AMyCharacter::BeginPlay()</td><td>액터가 월드에 배치된 직후 실행되는 시작 로직입니다.</td></tr>
+<tr><td>Tick</td><td>void AMyCharacter::Tick(float DeltaTime)</td><td>매 프레임 또는 주기적으로 호출되어 상태를 갱신합니다.</td></tr>
+<tr><td>OnRep_CurrentHP</td><td>void AMyCharacter::OnRep_CurrentHP()</td><td>Current HP 복제 값이 변경되었을 때 후속 동기화를 수행합니다.</td></tr>
+<tr><td>OnRep_CharacterState</td><td>void AMyCharacter::OnRep_CharacterState()</td><td>Character State 복제 값이 변경되었을 때 후속 동기화를 수행합니다.</td></tr>
+<tr><td>OnRep_RoleType</td><td>void AMyCharacter::OnRep_RoleType()</td><td>Role Type 복제 값이 변경되었을 때 후속 동기화를 수행합니다.</td></tr>
+<tr><td>OnRep_RoleSkillActive</td><td>void AMyCharacter::OnRep_RoleSkillActive()</td><td>Role Skill Active 복제 값이 변경되었을 때 후속 동기화를 수행합니다.</td></tr>
+<tr><td>UpdateHPText</td><td>void AMyCharacter::UpdateHPText()</td><td>HP Text 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>UpdateRoleText</td><td>void AMyCharacter::UpdateRoleText()</td><td>Role Text 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>GetRoleSpeedMultiplier</td><td>float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)</td><td>Role Speed Multiplier 값을 조회하여 반환합니다.</td></tr>
+<tr><td>ApplyRoleStats</td><td>void AMyCharacter::ApplyRoleStats()</td><td>Role Stats 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>ApplyRoleVisual</td><td>void AMyCharacter::ApplyRoleVisual()</td><td>Role Visual 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>ApplyRoleSkillState</td><td>void AMyCharacter::ApplyRoleSkillState()</td><td>Role Skill State 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>RoleTypeToString</td><td>FString AMyCharacter::RoleTypeToString(ERecRoleType InType)</td><td>Role Type To String 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetCurrentHP</td><td>void AMyCharacter::SetCurrentHP(int32 NewHP)</td><td>Current HP 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>SetCharacterState</td><td>void AMyCharacter::SetCharacterState(ERecCharacterState NewState)</td><td>Character State 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>ApplyCharacterState</td><td>void AMyCharacter::ApplyCharacterState()</td><td>Character State 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>ApplyDamage</td><td>void AMyCharacter::ApplyDamage(int32 DamageAmount)</td><td>Damage 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>Heal</td><td>void AMyCharacter::Heal(int32 HealAmount)</td><td>Heal 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ResetHP</td><td>void AMyCharacter::ResetHP()</td><td>Reset HP 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ActivateRoleSkill</td><td>void AMyCharacter::ActivateRoleSkill()</td><td>Activate Role Skill 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EndRoleSkill</td><td>void AMyCharacter::EndRoleSkill()</td><td>End Role Skill 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerApplyDamage_Implementation</td><td>void AMyCharacter::ServerApplyDamage_Implementation(int32 DamageAmount)</td><td>Server Apply Damage Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerHeal_Implementation</td><td>void AMyCharacter::ServerHeal_Implementation(int32 HealAmount)</td><td>Server Heal Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerResetHP_Implementation</td><td>void AMyCharacter::ServerResetHP_Implementation()</td><td>Server Reset Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerCycleRole_Implementation</td><td>void AMyCharacter::ServerCycleRole_Implementation()</td><td>Server Cycle Role Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ServerActivateRoleSkill_Implementation</td><td>void AMyCharacter::ServerActivateRoleSkill_Implementation()</td><td>Server Activate Role Skill Implementation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TakeDamage</td><td>float AMyCharacter::TakeDamage(float DamageAmount, FDamageEvent const&amp; DamageEvent, AController* EventInstigator, AActor* DamageCauser)</td><td>Take Damage 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetupPlayerInputComponent</td><td>void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)</td><td>up Player Input Component 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>TestFunc</td><td>void AMyCharacter::TestFunc()</td><td>Test Func 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Move</td><td>void AMyCharacter::Move(const FInputActionValue&amp; Value)</td><td>Move 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Look</td><td>void AMyCharacter::Look(const FInputActionValue&amp; Value)</td><td>Look 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DoMove</td><td>void AMyCharacter::DoMove(float Right, float Forward)</td><td>Do Move 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DoLook</td><td>void AMyCharacter::DoLook(float Yaw, float Pitch)</td><td>Do Look 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DoJumpStart</td><td>void AMyCharacter::DoJumpStart()</td><td>Do Jump Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DoJumpEnd</td><td>void AMyCharacter::DoJumpEnd()</td><td>Do Jump End 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Jump</td><td>void AMyCharacter::Jump()</td><td>Jump 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SelfDamagePressed</td><td>void AMyCharacter::SelfDamagePressed()</td><td>Self Damage Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ActivateRoleSkillPressed</td><td>void AMyCharacter::ActivateRoleSkillPressed()</td><td>Activate Role Skill Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateLocalPostProcessEffects</td><td>void AMyCharacter::UpdateLocalPostProcessEffects()</td><td>Local Post Process Effects 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>UpdateLowHPEffectState</td><td>void AMyCharacter::UpdateLowHPEffectState()</td><td>Low HP Effect State 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>UpdateLowHPPulseEffect</td><td>void AMyCharacter::UpdateLowHPPulseEffect(float DeltaTime)</td><td>Low HP Pulse Effect 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>StartDeathCameraShake</td><td>void AMyCharacter::StartDeathCameraShake()</td><td>Start Death Camera Shake 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateDeathCameraShake</td><td>void AMyCharacter::UpdateDeathCameraShake(float DeltaTime)</td><td>Death Camera Shake 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>StopDeathCameraShake</td><td>void AMyCharacter::StopDeathCameraShake()</td><td>Stop Death Camera Shake 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateDeathCameraPullback</td><td>void AMyCharacter::UpdateDeathCameraPullback(float DeltaTime)</td><td>Death Camera Pullback 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>SetDeathVisualsEnabled</td><td>void AMyCharacter::SetDeathVisualsEnabled(bool bEnabled)</td><td>Death Visuals Enabled 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>SetPlayerControlLocked</td><td>void AMyCharacter::SetPlayerControlLocked(bool bLocked)</td><td>Player Control Locked 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>UpdateDeathUI</td><td>void AMyCharacter::UpdateDeathUI()</td><td>Death UI 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>ShowSpectatingUI</td><td>void AMyCharacter::ShowSpectatingUI()</td><td>화면 요소 또는 UI를 생성/표시합니다.</td></tr>
+<tr><td>HideDeathUI</td><td>void AMyCharacter::HideDeathUI()</td><td>Hide Death UI 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ShowCorpse</td><td>void AMyCharacter::ShowCorpse()</td><td>화면 요소 또는 UI를 생성/표시합니다.</td></tr>
+<tr><td>HideCorpse</td><td>void AMyCharacter::HideCorpse()</td><td>Hide Corpse 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnterDeathWaitingState</td><td>void AMyCharacter::EnterDeathWaitingState()</td><td>Enter Death Waiting State 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UnlockSpectateInput</td><td>void AMyCharacter::UnlockSpectateInput()</td><td>Unlock Spectate Input 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnterSpectateMode</td><td>void AMyCharacter::EnterSpectateMode()</td><td>Enter Spectate Mode 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ApplyDeadState</td><td>void AMyCharacter::ApplyDeadState()</td><td>Dead State 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>ApplyAliveState</td><td>void AMyCharacter::ApplyAliveState()</td><td>Alive State 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>RespawnAtPlayerStart</td><td>void AMyCharacter::RespawnAtPlayerStart()</td><td>Respawn At Player Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateMove</td><td>void AMyCharacter::SpectateMove(float Right, float Forward)</td><td>Spectate Move 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateUpPressed</td><td>void AMyCharacter::SpectateUpPressed()</td><td>Spectate Up Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateUpReleased</td><td>void AMyCharacter::SpectateUpReleased()</td><td>Spectate Up Released 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateDownPressed</td><td>void AMyCharacter::SpectateDownPressed()</td><td>Spectate Down Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateDownReleased</td><td>void AMyCharacter::SpectateDownReleased()</td><td>Spectate Down Released 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateMoveVertical</td><td>void AMyCharacter::SpectateMoveVertical(float Axis, float DeltaTime)</td><td>Spectate Move Vertical 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ResurrectPressed</td><td>void AMyCharacter::ResurrectPressed()</td><td>Resurrect Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CycleRolePressed</td><td>void AMyCharacter::CycleRolePressed()</td><td>Cycle Role Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SpectateConfirmPressed</td><td>void AMyCharacter::SpectateConfirmPressed()</td><td>Spectate Confirm Pressed 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Attack</td><td>void AMyCharacter::Attack()</td><td>Attack 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>PlayAttackMontageFromServer</td><td>void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)</td><td>Play Attack Montage From Server 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetRoleFromNetwork</td><td>void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)</td><td>Role From Network 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>SetHPFromNetwork</td><td>void AMyCharacter::SetHPFromNetwork(int32 InHP)</td><td>HP From Network 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>SetStateFromNetwork</td><td>void AMyCharacter::SetStateFromNetwork(int32 InState)</td><td>State From Network 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>ApplyTransformFromNetwork</td><td>void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw)</td><td>Transform From Network 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>KnockbackTest</td><td>void AMyCharacter::KnockbackTest()</td><td>Knockback Test 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ApplyKnockback</td><td>void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)</td><td>Knockback 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>OnAttackOverlap</td><td>void AMyCharacter::OnAttackOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult&amp; SweepResult)</td><td>On Attack Overlap 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetOverlappingItem</td><td>void AMyCharacter::SetOverlappingItem(ABaseItem* Item)</td><td>Overlapping Item 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>EquipItem</td><td>void AMyCharacter::EquipItem()</td><td>Equip Item 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DropCurrentItem</td><td>void AMyCharacter::DropCurrentItem()</td><td>Drop Current Item 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AnimNotify_AttackHit</td><td>void AMyCharacter::AnimNotify_AttackHit()</td><td>Anim Notify Attack Hit 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>UI\LoginWidget.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\LoginWidget.h`</li><li>파일 목적: 로그인, 로비, 방, HUD 등 사용자 인터페이스 흐름을 담당하는 파일입니다.</li><li>함수 수(추출): 7</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>FocusInitialWidget</td><td>void ULoginWidget::FocusInitialWidget()</td><td>Focus Initial Widget 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ShowPopup</td><td>void ULoginWidget::ShowPopup(const FText&amp; PopupMessage)</td><td>화면 요소 또는 UI를 생성/표시합니다.</td></tr>
+<tr><td>HidePopup</td><td>void ULoginWidget::HidePopup()</td><td>Hide Popup 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>NativeConstruct</td><td>void ULoginWidget::NativeConstruct()</td><td>Native Construct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>NativeOnMouseButtonDown</td><td>FReply ULoginWidget::NativeOnMouseButtonDown(const FGeometry&amp; InGeometry, const FPointerEvent&amp; InMouseEvent)</td><td>Native On Mouse Button Down 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnLoginClicked</td><td>void ULoginWidget::OnLoginClicked()</td><td>On Login Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnRegisterCliecked</td><td>void ULoginWidget::OnRegisterCliecked()</td><td>On Register Cliecked 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>UI\NetworkInstance.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\NetworkInstance.h`</li><li>파일 목적: 로그인, 로비, 방, HUD 등 사용자 인터페이스 흐름을 담당하는 파일입니다.</li><li>함수 수(추출): 29</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>Init</td><td>void UNetworkInstance::Init()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Shutdown</td><td>void UNetworkInstance::Shutdown()</td><td>종료 시점 정리와 리소스 해제를 수행합니다.</td></tr>
+<tr><td>Tick</td><td>void UNetworkInstance::Tick(float DeltaTime)</td><td>매 프레임 또는 주기적으로 호출되어 상태를 갱신합니다.</td></tr>
+<tr><td>SelectCharacterAndReady</td><td>void UNetworkInstance::SelectCharacterAndReady(int32 SelectedRoleType)</td><td>Select Character And Ready 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ShowLoginHUD</td><td>void UNetworkInstance::ShowLoginHUD()</td><td>화면 요소 또는 UI를 생성/표시합니다.</td></tr>
+<tr><td>TryLogin</td><td>void UNetworkInstance::TryLogin(FString ID, FString PW)</td><td>조건을 확인한 뒤 요청 또는 동작을 시도합니다.</td></tr>
+<tr><td>TryRegister</td><td>void UNetworkInstance::TryRegister(FString ID, FString PW)</td><td>조건을 확인한 뒤 요청 또는 동작을 시도합니다.</td></tr>
+<tr><td>CreateRoom</td><td>void UNetworkInstance::CreateRoom()</td><td>Room 객체 또는 리소스를 생성합니다.</td></tr>
+<tr><td>JoinRoom</td><td>void UNetworkInstance::JoinRoom(int32 RoomID)</td><td>Room 흐름에 참가하거나 연결을 수립합니다.</td></tr>
+<tr><td>CharacterSelectRequest</td><td>void UNetworkInstance::CharacterSelectRequest()</td><td>Character Select Request 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>RequestReady</td><td>void UNetworkInstance::RequestReady()</td><td>Ready 요청 패킷 또는 서버 호출을 전송합니다.</td></tr>
+<tr><td>RequestGameStart</td><td>void UNetworkInstance::RequestGameStart()</td><td>Game Start 요청 패킷 또는 서버 호출을 전송합니다.</td></tr>
+<tr><td>SendMoveInputToServer</td><td>void UNetworkInstance::SendMoveInputToServer(const FMovePacket&amp; MoveData)</td><td>Move Input To Server 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>SendGameplayTestPacket</td><td>void UNetworkInstance::SendGameplayTestPacket(PacketID TestPacket)</td><td>Gameplay Test Packet 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>HandleLoginResult</td><td>void UNetworkInstance::HandleLoginResult(bool bSuccess)</td><td>Login Result 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleRegisterResult</td><td>void UNetworkInstance::HandleRegisterResult(bool bSuccess)</td><td>Register Result 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleRoomListUpdate</td><td>void UNetworkInstance::HandleRoomListUpdate(const TArray&lt;FRoomInfoData&gt;&amp; RoomList)</td><td>Room List Update 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleRoomEnterResult</td><td>void UNetworkInstance::HandleRoomEnterResult(bool bSuccess, const TArray&lt;FRoomMemberInfo&gt;&amp; playerList)</td><td>Room Enter Result 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleGameStart</td><td>void UNetworkInstance::HandleGameStart()</td><td>Game Start 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleConnected</td><td>void UNetworkInstance::HandleConnected()</td><td>Connected 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleConnectFailed</td><td>void UNetworkInstance::HandleConnectFailed()</td><td>Connect Failed 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleDisconnected</td><td>void UNetworkInstance::HandleDisconnected()</td><td>Disconnected 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleSnapshotReceived</td><td>void UNetworkInstance::HandleSnapshotReceived(const TArray&lt;GameData&gt;&amp; SnapshotList)</td><td>Snapshot Received 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleAttackActionReceived</td><td>void UNetworkInstance::HandleAttackActionReceived(const FAttackActionPacket&amp; Packet)</td><td>Attack Action Received 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleDamageApplied</td><td>void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket&amp; Packet)</td><td>Damage Applied 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleStatusUpdated</td><td>void UNetworkInstance::HandleStatusUpdated(const FStatusUpdatePacket&amp; Packet)</td><td>Status Updated 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleStateChanged</td><td>void UNetworkInstance::HandleStateChanged(const FStateChangePacket&amp; Packet)</td><td>State Changed 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleRespawned</td><td>void UNetworkInstance::HandleRespawned(const FRespawnPacket&amp; Packet)</td><td>Respawned 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>EnsureRemoteCharacter</td><td>AMyCharacter* UNetworkInstance::EnsureRemoteCharacter(const GameData&amp; Data)</td><td>Remote Character 객체가 없으면 생성하고, 있으면 재사용합니다.</td></tr>
+</tbody></table>
+<h3>UI\RobbyWidget.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\RobbyWidget.h`</li><li>파일 목적: 로그인, 로비, 방, HUD 등 사용자 인터페이스 흐름을 담당하는 파일입니다.</li><li>함수 수(추출): 4</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>NativeConstruct</td><td>void URobbyWidget::NativeConstruct()</td><td>Native Construct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ReloadRoomList</td><td>void URobbyWidget::ReloadRoomList(const TArray&lt;FRoomInfoData&gt;&amp; RoomList)</td><td>Reload Room List 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnCreateButtonClicked</td><td>void URobbyWidget::OnCreateButtonClicked()</td><td>On Create Button Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnStartButtonClicked</td><td>void URobbyWidget::OnStartButtonClicked()</td><td>On Start Button Clicked 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>UI\RoomEnterWidget.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\RoomEnterWidget.h`</li><li>파일 목적: 로그인, 로비, 방, HUD 등 사용자 인터페이스 흐름을 담당하는 파일입니다.</li><li>함수 수(추출): 4</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>NativeConstruct</td><td>void URoomEnterWidget::NativeConstruct()</td><td>Native Construct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitRoomInfo</td><td>void URoomEnterWidget::InitRoomInfo(int32 s_RoomID, const FString&amp; s_RoomName, int32 CurrentPlayers, int32 MaxPlayers)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>UpdatePlayerCount</td><td>void URoomEnterWidget::UpdatePlayerCount(int32 CurrentPlayers, int32 MaxPlayers)</td><td>Player Count 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>OnJoinButtonClicked</td><td>void URoomEnterWidget::OnJoinButtonClicked()</td><td>On Join Button Clicked 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>UI\RoomMemberWidget.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\RoomMemberWidget.h`</li><li>파일 목적: 로그인, 로비, 방, HUD 등 사용자 인터페이스 흐름을 담당하는 파일입니다.</li><li>함수 수(추출): 8</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>NativeConstruct</td><td>void URoomMemberWidget::NativeConstruct()</td><td>Native Construct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>NativeDestruct</td><td>void URoomMemberWidget::NativeDestruct()</td><td>Native Destruct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetEmptyMember</td><td>void URoomMemberWidget::SetEmptyMember()</td><td>Empty Member 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>SetMemberInfo</td><td>void URoomMemberWidget::SetMemberInfo(const FString&amp; playerName, bool bIsReady)</td><td>Member Info 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>OnStrikerClicked</td><td>void URoomMemberWidget::OnStrikerClicked()</td><td>On Striker Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnGuardianClicked</td><td>void URoomMemberWidget::OnGuardianClicked()</td><td>On Guardian Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnManipulatorClicked</td><td>void URoomMemberWidget::OnManipulatorClicked()</td><td>On Manipulator Clicked 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>HandleRoleSelected</td><td>void URoomMemberWidget::HandleRoleSelected(int32 InRoleType)</td><td>Role Selected 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+</tbody></table>
+<h3>UI\RoomWidget.h</h3>
+<ul><li>절대 경로: `D:\Download\Claim_Of_Core_Project-MainClient\Claim_Of_Core_Project-MainClient\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\RoomWidget.h`</li><li>파일 목적: 로그인, 로비, 방, HUD 등 사용자 인터페이스 흐름을 담당하는 파일입니다.</li><li>함수 수(추출): 3</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>NativeConstruct</td><td>void URoomWidget::NativeConstruct()</td><td>Native Construct 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateMemberList</td><td>void URoomWidget::UpdateMemberList(const TArray&lt;FRoomMemberInfo&gt;&amp; PlayerList)</td><td>Member List 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>OnStartButtonClicked</td><td>void URoomWidget::OnStartButtonClicked()</td><td>On Start Button Clicked 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h2>서버</h2>
+<h3>Database.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\Database.h`</li><li>파일 목적: DB 연결, 계정 조회/생성, 영속 데이터 접근을 담당하는 파일입니다.</li><li>함수 수(추출): 8</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>Connect</td><td>bool DBHelper::Connect()</td><td>Connect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Disconnect</td><td>void DBHelper::Disconnect()</td><td>Disconnect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>PrintError</td><td>void DBHelper::PrintError(SQLHANDLE handle, SQLSMALLINT type)</td><td>Print Error 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CheckLogin</td><td>bool DBHelper::CheckLogin(const std::wstring&amp; userID, const std::wstring&amp; userPW, int&amp; playerUID)</td><td>Check Login 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>IsValidAccountString</td><td>bool DBHelper::IsValidAccountString(const std::wstring&amp; inputStr)</td><td>Is Valid Account String 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>IsValidUserID</td><td>bool DBHelper::IsValidUserID(const std::wstring&amp; inputID)</td><td>Is Valid User ID 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>IsValidUserPW</td><td>bool DBHelper::IsValidUserPW(const std::wstring&amp; inputPW)</td><td>Is Valid User PW 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CreateAccount</td><td>bool DBHelper::CreateAccount(const std::wstring&amp; userID, const std::wstring&amp; userPW)</td><td>Account 객체 또는 리소스를 생성합니다.</td></tr>
+</tbody></table>
+<h3>GameLogic.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\GameLogic.h`</li><li>파일 목적: 서버 측 게임 규칙, 라운드 상태, 이동/전투/판정 계산을 담당하는 파일입니다.</li><li>주요 타입: `ObjectData, ItemData, ObjectManager, IcicleData, IceFloorTileData, DebrisSpawnConfig, CollisionBox`</li><li>함수 수(추출): 45</li><li>멤버 변수 수(추출): 19</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>ObjectID</td><td>int</td><td>ObjectID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>ObjectType</td><td>e_ObjectType</td><td>ObjectType 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>z</td><td>float x, y,</td><td>z 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>ObjectID</td><td>int</td><td>ObjectID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>ObjectType</td><td>e_ObjectType</td><td>ObjectType 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>z</td><td>float x, y,</td><td>z 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>Data</td><td>ObjectData</td><td>Data 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>icicleID</td><td>int</td><td>icicleID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>icicleState</td><td>EIcicleState</td><td>icicleState 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>warningTimer</td><td>float</td><td>warningTimer 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>warningDuration</td><td>float</td><td>warningDuration 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>damage</td><td>float</td><td>damage 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>tileID</td><td>int</td><td>tileID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>tileState</td><td>EIceFloorState</td><td>tileState 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>breakTimer</td><td>float</td><td>기능 토글 또는 현재 상태를 나타내는 불리언 플래그입니다.</td></tr>
+<tr><td>breakDelay</td><td>float</td><td>기능 토글 또는 현재 상태를 나타내는 불리언 플래그입니다.</td></tr>
+<tr><td>max_Interval</td><td>float min_Interval,</td><td>max_Interval 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>max_Count</td><td>int min_Count,</td><td>max_Count 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>MinX</td><td>float</td><td>MinX 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>ObjectManager</td><td>ObjectManager()</td><td>Object Manager 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Collision_Check</td><td>void Collision_Check()</td><td>Collision Check 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Damage_Calculation</td><td>void Damage_Calculation()</td><td>Damage Calculation 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>Update</td><td>void GameLogic::Update(float deltaTime)</td><td>state 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>StartGameReady</td><td>void GameLogic::StartGameReady()</td><td>Start Game Ready 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartGameRound</td><td>void GameLogic::StartGameRound()</td><td>Start Game Round 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EndGameRound</td><td>void GameLogic::EndGameRound()</td><td>End Game Round 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CountdownTick</td><td>void GameLogic::CountdownTick()</td><td>Countdown Tick 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>HandlePhaseChanged</td><td>void GameLogic::HandlePhaseChanged(int newPhase)</td><td>Phase Changed 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>BroadcastGameTime</td><td>void GameLogic::BroadcastGameTime(float currentTime)</td><td>Broadcast Game Time 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastDamageApply</td><td>void GameLogic::BroadcastDamageApply(int targetID, int damage, int remainHP)</td><td>Broadcast Damage Apply 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastStatusUpdate</td><td>void GameLogic::BroadcastStatusUpdate(int targetID, int currentHP)</td><td>Broadcast Status Update 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastStateChange</td><td>void GameLogic::BroadcastStateChange(int targetID, int newState)</td><td>Broadcast State Change 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastRespawn</td><td>void GameLogic::BroadcastRespawn(int targetID, float x, float y, float z, int hp)</td><td>Broadcast Respawn 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastRoleChange</td><td>void GameLogic::BroadcastRoleChange(int targetID, int newRoleType)</td><td>Broadcast Role Change 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ApplyDamage</td><td>void GameLogic::ApplyDamage(int sessionID, int damageAmount)</td><td>Damage 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>Heal</td><td>void GameLogic::Heal(int sessionID, int healAmount)</td><td>Heal 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ResetHP</td><td>void GameLogic::ResetHP(int sessionID)</td><td>Reset HP 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetCurrentHP</td><td>void GameLogic::SetCurrentHP(int sessionID, int newHP)</td><td>Current HP 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>SetCharacterState</td><td>void GameLogic::SetCharacterState(int sessionID, int newState)</td><td>Character State 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>HandleDeath</td><td>void GameLogic::HandleDeath(int sessionID)</td><td>Death 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>HandleRespawn</td><td>void GameLogic::HandleRespawn(int sessionID)</td><td>Respawn 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>SetRole</td><td>void GameLogic::SetRole(int sessionID)</td><td>Role 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>ApplyRoleStats</td><td>void GameLogic::ApplyRoleStats(int sessionID)</td><td>Role Stats 계산 결과를 컴포넌트나 현재 객체 상태에 반영합니다.</td></tr>
+<tr><td>GetRoleSpeedMultiplier</td><td>float GameLogic::GetRoleSpeedMultiplier(int roleType)</td><td>Role Speed Multiplier 값을 조회하여 반환합니다.</td></tr>
+<tr><td>HandleAttackInput</td><td>void GameLogic::HandleAttackInput(int sessionID)</td><td>Attack Input 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>BroadcastAttackAction</td><td>void GameLogic::BroadcastAttackAction(int attackerUID, int attackType)</td><td>Broadcast Attack Action 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateBuildingMap</td><td>void GameLogic::UpdateBuildingMap(float deltaTime)</td><td>Building Map 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>UpdateDebrisSpawner</td><td>void GameLogic::UpdateDebrisSpawner(float deltaTime)</td><td>Debris Spawner 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>SpawnDebrisByPhase</td><td>void GameLogic::SpawnDebrisByPhase()</td><td>Spawn Debris By Phase 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerBuildingPhase2</td><td>void GameLogic::TriggerBuildingPhase2()</td><td>Trigger Building Phase 2 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerBuildingPhase3</td><td>void GameLogic::TriggerBuildingPhase3()</td><td>Trigger Building Phase 3 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartIceMap</td><td>void GameLogic::StartIceMap()</td><td>Start Ice Map 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateIceCaveMap</td><td>void GameLogic::UpdateIceCaveMap(float deltaTime)</td><td>Ice Cave Map 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>EnterIcePhase2</td><td>void GameLogic::EnterIcePhase2()</td><td>Enter Ice Phase 2 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>EnterIcePhase3</td><td>void GameLogic::EnterIcePhase3()</td><td>Enter Ice Phase 3 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerRandomIcicle</td><td>void GameLogic::TriggerRandomIcicle()</td><td>Trigger Random Icicle 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartIcicleWarning</td><td>void GameLogic::StartIcicleWarning(int icicleID)</td><td>Start Icicle Warning 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>StartIcicleFalling</td><td>void GameLogic::StartIcicleFalling(int icicleID)</td><td>Start Icicle Falling 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BreakIcicle</td><td>void GameLogic::BreakIcicle(int icicleID)</td><td>Break Icicle 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TriggerRandomFloorTile</td><td>void GameLogic::TriggerRandomFloorTile()</td><td>Trigger Random Floor Tile 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetFloorCracked</td><td>void GameLogic::SetFloorCracked(int tileID)</td><td>Floor Cracked 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>StartFloorBreaking</td><td>void GameLogic::StartFloorBreaking(int tileID)</td><td>Start Floor Breaking 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BreakFloor</td><td>void GameLogic::BreakFloor(int tileID)</td><td>Break Floor 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdatePlayerMovement</td><td>void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)</td><td>Player Movement 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+</tbody></table>
+<h3>Packet.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\Packet.h`</li><li>파일 목적: 패킷 ID, 직렬화 포맷, 송수신 데이터 구조를 정의하는 파일입니다.</li><li>주요 타입: `PacketHeader, GameData, ErrorCodePacket, LoginPacket, RoomPacket, RoomMemberPacket, GameDataPacket, MapEventPacket, SpawnObjectPacket, PhaseChangePacket, DamageApplyPacket, StatusUpdatePacket, StateChangePacket, RespawnPacket, RoleChangePacket, MovePacket, JumpPakcet, AttackPacket, ItemPacket`</li><li>함수 수(추출): 0</li><li>멤버 변수 수(추출): 34</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>packet_size</td><td>unsigned short</td><td>packet_size 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>packet_ID</td><td>unsigned short</td><td>packet_ID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>userUID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>isConnected</td><td>bool</td><td>isConnected 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>maxHP</td><td>int</td><td>체력 관련 현재값/최대값을 저장합니다.</td></tr>
+<tr><td>currentHP</td><td>int</td><td>체력 관련 현재값/최대값을 저장합니다.</td></tr>
+<tr><td>x</td><td>float</td><td>x 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>rotate</td><td>float</td><td>rotate 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>baseWalkSpeed</td><td>float</td><td>기능 토글 또는 현재 상태를 나타내는 불리언 플래그입니다.</td></tr>
+<tr><td>animationNum</td><td>int</td><td>animationNum 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>ErrorCode</td><td>int16_t</td><td>ErrorCode 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>userID[20]</td><td>WCHAR</td><td>userID[20] 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>userPW[20]</td><td>WCHAR</td><td>userPW[20] 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>roomID</td><td>int</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>RoomName[20]</td><td>WCHAR</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>CurrentPlayers</td><td>int</td><td>CurrentPlayers 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>PlayerName[20]</td><td>WCHAR</td><td>PlayerName[20] 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isReady</td><td>bool</td><td>isReady 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isHost</td><td>bool</td><td>isHost 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>Session_ID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>data</td><td>GameData</td><td>data 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>targetID</td><td>int32_t</td><td>targetID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>damage</td><td>int32_t</td><td>damage 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>remainHP</td><td>int32_t</td><td>remainHP 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>targetID</td><td>int32_t</td><td>targetID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>currentHP</td><td>int32_t</td><td>체력 관련 현재값/최대값을 저장합니다.</td></tr>
+<tr><td>targetID</td><td>int32_t</td><td>targetID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>targetID</td><td>int32_t</td><td>targetID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>z</td><td>float x, y,</td><td>z 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>hp</td><td>int32_t</td><td>hp 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>targetID</td><td>int32_t</td><td>targetID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>z</td><td>float x, y,</td><td>z 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>yaw</td><td>float</td><td>yaw 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>velocityY</td><td>float velocityX,</td><td>velocityY 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h3>PacketProcessor.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\PacketProcessor.h`</li><li>파일 목적: 수신 패킷을 해석하고 각 기능 처리기로 분배하는 파일입니다.</li><li>함수 수(추출): 16</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>GameLogicHelper</td><td>GameLogic* PacketProcessor::GameLogicHelper(IOCPServer* server, Session* session)</td><td>Game Logic Helper 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitHandler</td><td>void PacketProcessor::InitHandler()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Process</td><td>void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID, std::vector&lt;char&gt;&amp; data)</td><td>입력 데이터를 해석하고 적절한 처리 흐름으로 연결합니다.</td></tr>
+<tr><td>Handle_LoginReq</td><td>void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Login Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_RegisterReq</td><td>void PacketProcessor::Handle_RegisterReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Register Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Room_CreateReq</td><td>void PacketProcessor::Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader&amp;)</td><td>Room Create Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Room_JoinReq</td><td>void PacketProcessor::Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Room Join Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Room_RemoveReq</td><td>void PacketProcessor::Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Room Remove Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Game_StartReq</td><td>void PacketProcessor::Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Game Start Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Character_SelectReq</td><td>void PacketProcessor::Handle_Character_SelectReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Character Select Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Game_ReadyReq</td><td>void PacketProcessor::Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Game Ready Req 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Move_KeyInput</td><td>bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Move Key Input 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Jump_KeyInput</td><td>void PacketProcessor::Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Jump Key Input 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_Attack_KeyInput</td><td>void PacketProcessor::Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Attack Key Input 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_ItemPickup_KeyInput</td><td>void PacketProcessor::Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Item Pickup Key Input 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+<tr><td>Handle_ItemDrop_KeyInput</td><td>void PacketProcessor::Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader&amp; reader)</td><td>Item Drop Key Input 관련 이벤트나 패킷을 받아 후속 처리를 수행합니다.</td></tr>
+</tbody></table>
+<h3>RoomManager.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\RoomManager.h`</li><li>파일 목적: 방 생성/참가/시작/브로드캐스트와 룸 상태 관리를 담당하는 파일입니다.</li><li>주요 타입: `Room`</li><li>함수 수(추출): 47</li><li>멤버 변수 수(추출): 12</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>m_roomID</td><td>int</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>m_OwnerSessionID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>UsedSlots[MaxMember]</td><td>bool</td><td>UsedSlots[MaxMember] 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_Server</td><td>IOCPServer*</td><td>m_Server 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_GameLogic</td><td>GameLogic*</td><td>m_GameLogic 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_State</td><td>ERoomState</td><td>m_State 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_Members</td><td>std::vector&lt;Session*&gt;</td><td>동일한 종류의 데이터를 순서대로 저장하는 컨테이너입니다.</td></tr>
+<tr><td>m_RoomLock</td><td>std::mutex</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>selectedMapType</td><td>int</td><td>맵, 레벨, 라운드 흐름과 관련된 참조 또는 상태값입니다.</td></tr>
+<tr><td>gameTimer</td><td>float</td><td>gameTimer 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_GameObjects</td><td>std::unordered_map&lt;int, ObjectData&gt;</td><td>m_GameObjects 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_ItemObjects</td><td>std::unordered_map&lt;int, ItemData&gt;</td><td>m_ItemObjects 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>clear</td><td>m_Members.clear()</td><td>clear 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitRoom</td><td>void InitRoom(int id, Session* firstMember, IOCPServer* server)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>InitGameLogic</td><td>void InitGameLogic(GameLogic* logic)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>InitCharacter</td><td>void InitCharacter(Session* member, GameLogic* logic)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>IsAllReady</td><td>bool IsAllReady()</td><td>Is All Ready 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>addMember</td><td>bool addMember(Session* member)</td><td>add Member 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AllocateRoomSlot</td><td>int AllocateRoomSlot()</td><td>Allocate Room Slot 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>RemoveMember</td><td>void RemoveMember(int clientID)</td><td>Remove Member 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TransferOwnership</td><td>void TransferOwnership()</td><td>Transfer Ownership 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TeamCalculateBySlot</td><td>int TeamCalculateBySlot(int roomSlot) const</td><td>Team Calculate By Slot 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SelectStage</td><td>void SelectStage(int stageNum)</td><td>Select Stage 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>LoadStage</td><td>void LoadStage()</td><td>Load Stage 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>GetRespawnLocation</td><td>Vector3 GetRespawnLocation(int slot)</td><td>Respawn Location 값을 조회하여 반환합니다.</td></tr>
+<tr><td>GetSpawnYawBySlot</td><td>float GetSpawnYawBySlot(int slot) const</td><td>Spawn Yaw By Slot 값을 조회하여 반환합니다.</td></tr>
+<tr><td>MatchMaking</td><td>void MatchMaking()</td><td>Match Making 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateGameLogic</td><td>void UpdateGameLogic(float deltaTime)</td><td>Game Logic 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>BroadcastGameDatas</td><td>bool BroadcastGameDatas()</td><td>Broadcast Game Datas 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>GetCurrentMemberCount</td><td>int GetCurrentMemberCount()</td><td>Current Member Count 값을 조회하여 반환합니다.</td></tr>
+<tr><td>GetMemberInfoList</td><td>std::vector&lt;RoomMemberPacket&gt; GetMemberInfoList()</td><td>Member Info List 값을 조회하여 반환합니다.</td></tr>
+<tr><td>BroadcastToMembers</td><td>void BroadcastToMembers(int packetID, const char* data, int len, int excludeSessionID = -1)</td><td>Broadcast To Members 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitRoom</td><td>void Room::InitRoom(int id, Session* firstMember, IOCPServer* server)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>InitGameLogic</td><td>void Room::InitGameLogic(GameLogic* logic)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>InitCharacter</td><td>void Room::InitCharacter(Session* member, GameLogic* logic)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>IsAllReady</td><td>bool Room::IsAllReady()</td><td>Is All Ready 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>addMember</td><td>bool Room::addMember(Session* member)</td><td>add Member 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AllocateRoomSlot</td><td>int Room::AllocateRoomSlot()</td><td>Allocate Room Slot 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>RemoveMember</td><td>void Room::RemoveMember(int clientID)</td><td>Remove Member 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TransferOwnership</td><td>void Room::TransferOwnership()</td><td>Transfer Ownership 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SelectStage</td><td>void Room::SelectStage(int stageNum)</td><td>Select Stage 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>LoadStage</td><td>void Room::LoadStage()</td><td>Load Stage 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>GetRespawnLocation</td><td>Vector3 Room::GetRespawnLocation(int slot)</td><td>Respawn Location 값을 조회하여 반환합니다.</td></tr>
+<tr><td>MatchMaking</td><td>void Room::MatchMaking()</td><td>Match Making 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateGameLogic</td><td>void Room::UpdateGameLogic(float deltaTime)</td><td>Game Logic 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>BroadcastGameDatas</td><td>bool Room::BroadcastGameDatas()</td><td>Broadcast Game Datas 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>GetCurrentMemberCount</td><td>int Room::GetCurrentMemberCount()</td><td>Current Member Count 값을 조회하여 반환합니다.</td></tr>
+<tr><td>GetMemberInfoList</td><td>std::vector&lt;RoomMemberPacket&gt; Room::GetMemberInfoList()</td><td>Member Info List 값을 조회하여 반환합니다.</td></tr>
+<tr><td>BroadcastToMembers</td><td>void Room::BroadcastToMembers(int packetID, const char* data, int len, int excludeSessionID)</td><td>Broadcast To Members 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CreateRoom</td><td>bool RoomManager::CreateRoom(Session* client)</td><td>Room 객체 또는 리소스를 생성합니다.</td></tr>
+<tr><td>DestroyRoom</td><td>void RoomManager::DestroyRoom(int roomID)</td><td>Destroy Room 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>LeaveRoom</td><td>void RoomManager::LeaveRoom(Session* client)</td><td>Leave Room 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>LeaveRoomByDisconnect</td><td>void RoomManager::LeaveRoomByDisconnect(int sessionID, int roomID)</td><td>Leave Room By Disconnect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>JoinRoom</td><td>bool RoomManager::JoinRoom(Session* client, int roomID)</td><td>Room 흐름에 참가하거나 연결을 수립합니다.</td></tr>
+<tr><td>GameStart</td><td>void RoomManager::GameStart(Session* client)</td><td>Game Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>UpdateRooms</td><td>void RoomManager::UpdateRooms(float deltaTime)</td><td>Rooms 상태나 표시값을 최신 값으로 갱신합니다.</td></tr>
+<tr><td>GetRoomList</td><td>std::vector&lt;RoomPacket&gt; RoomManager::GetRoomList()</td><td>Room List 값을 조회하여 반환합니다.</td></tr>
+<tr><td>GetRoom</td><td>Room* RoomManager::GetRoom(int roomID)</td><td>Room 값을 조회하여 반환합니다.</td></tr>
+<tr><td>assignRoomID</td><td>int RoomManager::assignRoomID()</td><td>assign Room ID 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>SessionManager.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\SessionManager.h`</li><li>파일 목적: 세션 컨테이너와 세션 등록/제거 정책을 담당하는 파일입니다.</li><li>함수 수(추출): 5</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>Init</td><td>void SessionManager::Init()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>AcceptNewClient</td><td>Session* SessionManager::AcceptNewClient(SOCKET clientSocket)</td><td>Accept New Client 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DisconnectClient</td><td>void SessionManager::DisconnectClient(int clientID)</td><td>Disconnect Client 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SetState</td><td>void SessionManager::SetState(int sessionID, ESessionState state)</td><td>State 값을 현재 객체에 설정합니다.</td></tr>
+<tr><td>GetSession</td><td>Session* SessionManager::GetSession(int sessionID)</td><td>Session 값을 조회하여 반환합니다.</td></tr>
+</tbody></table>
+<h3>logger.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\logger.h`</li><li>파일 목적: 서버 로그 출력 매크로와 기록 유틸리티를 제공합니다.</li><li>함수 수(추출): 0</li><li>멤버 변수 수(추출): 0</li></ul>
+<h3>logging.hpp</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\logging.hpp`</li><li>파일 목적: 서버 런타임 기능을 보조하는 파일입니다.</li><li>주요 타입: `logger, std_out_logger, file_logger, logger_factory`</li><li>함수 수(추출): 41</li><li>멤버 변수 수(추출): 19</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>lock</td><td>std::mutex</td><td>lock 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>output</td><td>std::string</td><td>output 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>lk{lock}</td><td>//std::lock_guard&lt;std::mutex&gt;</td><td>lk{lock} 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>message</td><td>std::cout &lt;&lt;</td><td>message 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>levels</td><td>const std::unordered_map&lt;log_level, std::string, enum_hasher&gt;</td><td>맵, 레벨, 라운드 흐름과 관련된 참조 또는 상태값입니다.</td></tr>
+<tr><td>output</td><td>std::string</td><td>output 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>message</td><td>file &lt;&lt;</td><td>message 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>e</td><td>throw</td><td>e 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>lt{}</td><td>std::tm</td><td>lt{} 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>buf[16]</td><td>char</td><td>기능 토글 또는 현재 상태를 나타내는 불리언 플래그입니다.</td></tr>
+<tr><td>lt.tm_mday)</td><td>lt.tm_year + 1900, lt.tm_mon + 1,</td><td>lt.tm_mday) 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>&quot;.log&quot;</td><td>return file_name + &quot;_&quot; + date +</td><td>&quot;.log&quot; 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>std::ofstream::app)</td><td>std::ofstream::out \</td><td></td><td>std::ofstream::app) 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>file_name</td><td>std::string</td><td>file_name 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>current_date</td><td>std::string</td><td>current_date 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>file</td><td>std::ofstream</td><td>file 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>reopen_interval</td><td>std::chrono::seconds</td><td>reopen_interval 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>last_reopen</td><td>std::chrono::system_clock::time_point</td><td>last_reopen 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>creators</td><td>std::unordered_map&lt;std::string, logger_creator&gt;</td><td>creators 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>logger</td><td>logger() = delete</td><td>logger 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>logger</td><td>logger(const logging_config_t&amp;) {}</td><td>logger 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>~logger</td><td>virtual ~logger() {}</td><td>logger 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>log</td><td>virtual void log(const std::string&amp;, const log_level) {}</td><td>log 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>log</td><td>virtual void log(const std::string&amp;) {}</td><td>log 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>std_out_logger</td><td>std_out_logger() = delete</td><td>std out logger 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>reserve</td><td>output.reserve(message.length() + 64)</td><td>reserve 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>append</td><td>output.append(timestamp())</td><td>append 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>append</td><td>output.append(levels.find(level)-&gt;second)</td><td>append 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>append</td><td>output.append(message)</td><td>append 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>push_back</td><td>output.push_back(&#x27;\n&#x27;)</td><td>push back 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>log</td><td>log(output)</td><td>log 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>flush</td><td>std::cout.flush()</td><td>flush 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>file_logger</td><td>file_logger() = delete</td><td>file logger 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>find</td><td>auto name = config.find(&quot;file_name&quot;)</td><td>find 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>runtime_error</td><td>throw std::runtime_error(&quot;No output file provided to file logger&quot;)</td><td>runtime error 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>seconds</td><td>reopen_interval = std::chrono::seconds(300)</td><td>seconds 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>find</td><td>auto interval = config.find(&quot;reopen_interval&quot;)</td><td>find 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>seconds</td><td>reopen_interval = std::chrono::seconds(std::stoul(interval-&gt;second))</td><td>seconds 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>runtime_error</td><td>throw std::runtime_error(interval-&gt;second + &quot; is not a valid reopen interval&quot;)</td><td>runtime error 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>reopen</td><td>//reopen()</td><td>reopen 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>today_string</td><td>current_date = today_string()</td><td>today string 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>open_file</td><td>open_file()</td><td>open file 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>append</td><td>output.append(uncolored.find(level)-&gt;second)</td><td>append 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>lock</td><td>lock.lock()</td><td>lock 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>flush</td><td>file.flush()</td><td>flush 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>unlock</td><td>lock.unlock()</td><td>unlock 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>reopen</td><td>reopen()</td><td>reopen 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>now</td><td>auto now = std::chrono::system_clock::now()</td><td>now 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>open</td><td>file.open(file_name, std::ofstream::out \</td><td>std::ofstream::app)</td><td>open 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>now</td><td>last_reopen = std::chrono::system_clock::now()</td><td>now 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>today_string</td><td>std::string today = today_string()</td><td>today string 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>time</td><td>std::time_t tt = std::time(nullptr)</td><td>time 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>localtime_s</td><td>localtime_s(&amp;lt, &amp;tt)</td><td>localtime s 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>emplace</td><td>creators.emplace(&quot;&quot;, [](const logging_config_t&amp; config)-&gt;logger* {return new logger(config); })</td><td>emplace 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>emplace</td><td>creators.emplace(&quot;std_out&quot;, [](const logging_config_t&amp; config)-&gt;logger* {return new std_out_logger(config); })</td><td>emplace 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>emplace</td><td>creators.emplace(&quot;file&quot;, [](const logging_config_t&amp; config)-&gt;logger* {return new file_logger(config); })</td><td>emplace 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>find</td><td>auto type = config.find(&quot;type&quot;)</td><td>find 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>runtime_error</td><td>throw std::runtime_error(&quot;Logging factory configuration requires a type of logger&quot;)</td><td>runtime error 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>find</td><td>auto found = creators.find(type-&gt;second)</td><td>find 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>runtime_error</td><td>throw std::runtime_error(&quot;Couldn&#x27;t produce logger for type: &quot; + type-&gt;second)</td><td>runtime error 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>main.cpp</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\main.cpp`</li><li>파일 목적: 서버 실행 진입점과 부트스트랩을 담당하는 파일입니다.</li><li>함수 수(추출): 2</li><li>멤버 변수 수(추출): 0</li></ul>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>Test</td><td>void Test(IOCPServer* server)</td><td>Test 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>main</td><td>int main()</td><td>main 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>server.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\server.h`</li><li>파일 목적: IOCP 서버 초기화, 소켓 처리, 세션 생명주기를 담당하는 파일입니다.</li><li>주요 타입: `IOCPServer`</li><li>함수 수(추출): 45</li><li>멤버 변수 수(추출): 16</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>m_hIOCP</td><td>HANDLE</td><td>m_hIOCP 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_ListenSocket</td><td>SOCKET</td><td>m_ListenSocket 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_DB</td><td>DBHelper*</td><td>m_DB 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_DBLoginQueue</td><td>std::queue&lt;DBData&gt;</td><td>m_DBLoginQueue 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_DBMutex</td><td>std::mutex</td><td>m_DBMutex 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_DBControler</td><td>std::condition_variable</td><td>역할 타입, 역할 텍스트, 역할 스킬 상태와 관련된 멤버입니다.</td></tr>
+<tr><td>m_PacketProcessor</td><td>PacketProcessor</td><td>m_PacketProcessor 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_SessionManager</td><td>SessionManager*</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>m_RoomManager</td><td>RoomManager*</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>m_WorkerThreads</td><td>std::vector&lt;std::thread&gt;</td><td>동일한 종류의 데이터를 순서대로 저장하는 컨테이너입니다.</td></tr>
+<tr><td>m_AcceptThread</td><td>std::thread</td><td>m_AcceptThread 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_DBConnectThread</td><td>std::thread</td><td>m_DBConnectThread 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>m_Sessions</td><td>//std::vector&lt;Session*&gt;</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>m_SessionLock</td><td>//std::mutex</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>m_MaxSessionCount</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>m_IsRunning</td><td>bool</td><td>m_IsRunning 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>IOCPServer</td><td>IOCPServer()</td><td>IOCP Server 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>~IOCPServer</td><td>~IOCPServer()</td><td>IOCP Server 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitLogger</td><td>static void InitLogger()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Init</td><td>bool Init(int port, int maxSessionCount)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Start</td><td>void Start()</td><td>Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SendPacket</td><td>void SendPacket(int sessionIndex, int packetID, const char* data, int len)</td><td>Packet 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>GameFrameProtocol</td><td>void GameFrameProtocol(float deltaTime)</td><td>Game Frame Protocol 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>PushDBTask</td><td>void PushDBTask(DBData data)</td><td>Push DB Task 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CreateRoomTry</td><td>void CreateRoomTry(Session* Client)</td><td>Room Try 객체 또는 리소스를 생성합니다.</td></tr>
+<tr><td>JoinRoomTry</td><td>void JoinRoomTry(Session* Client, int roomID)</td><td>Room Try 흐름에 참가하거나 연결을 수립합니다.</td></tr>
+<tr><td>GameStartTry</td><td>void GameStartTry(Session* Client)</td><td>Game Start Try 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastRoomList</td><td>void BroadcastRoomList()</td><td>Broadcast Room List 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastRoomInfo</td><td>void BroadcastRoomInfo(Session* client)</td><td>Broadcast Room Info 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TestPacketProcessor</td><td>void TestPacketProcessor()</td><td>Test Packet Processor 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>WorkerThread</td><td>void WorkerThread()</td><td>Worker Thread 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AcceptThread</td><td>void AcceptThread()</td><td>Accept Thread 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnConnect</td><td>void OnConnect(Session* newSession, SOCKADDR_IN clientAddr)</td><td>On Connect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnDisconnect</td><td>void OnDisconnect(int sessionIndex)</td><td>On Disconnect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnRecv</td><td>void OnRecv(int sessionIndex, DWORD transferredBytes)</td><td>On Recv 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnSend</td><td>void OnSend(int sessionIndex, DWORD transferredBytes)</td><td>On Send 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SendProtocol</td><td>void SendProtocol(Session* session)</td><td>Protocol 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>PacketProcess</td><td>void PacketProcess(int sessionIndex, int packetID, std::vector&lt;char&gt;&amp; data)</td><td>Packet Process 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DBWorkerThread</td><td>void DBWorkerThread()</td><td>DB Worker Thread 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>TestPacketProcessor</td><td>void IOCPServer::TestPacketProcessor()</td><td>Test Packet Processor 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>InitLogger</td><td>void IOCPServer::InitLogger()</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Init</td><td>bool IOCPServer::Init(int port, int maxSessionCount)</td><td>초기 상태를 구성하고 필요한 객체나 데이터를 준비합니다.</td></tr>
+<tr><td>Start</td><td>void IOCPServer::Start()</td><td>Start 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>AcceptThread</td><td>void IOCPServer::AcceptThread()</td><td>Accept Thread 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>WorkerThread</td><td>void IOCPServer::WorkerThread()</td><td>Worker Thread 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnConnect</td><td>void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr)</td><td>On Connect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnDisconnect</td><td>void IOCPServer::OnDisconnect(int sessionIndex)</td><td>On Disconnect 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnRecv</td><td>void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes)</td><td>On Recv 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>WSAGetLastError</td><td>SOCKET_ERROR &amp;&amp; WSAGetLastError() != ERROR_IO_PENDING)</td><td>WSA Get Last Error 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>OnSend</td><td>void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes)</td><td>On Send 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>SendPacket</td><td>void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len)</td><td>Packet 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>SendProtocol</td><td>void IOCPServer::SendProtocol(Session* session)</td><td>Protocol 데이터를 네트워크나 다른 시스템으로 전달합니다.</td></tr>
+<tr><td>PacketProcess</td><td>void IOCPServer::PacketProcess(int sessionIndex, int packetID, std::vector&lt;char&gt;&amp; data)</td><td>Packet Process 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>DBWorkerThread</td><td>void IOCPServer::DBWorkerThread()</td><td>DB Worker Thread 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>PushDBTask</td><td>void IOCPServer::PushDBTask(DBData data)</td><td>Push DB Task 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>CreateRoomTry</td><td>void IOCPServer::CreateRoomTry(Session* Client)</td><td>Room Try 객체 또는 리소스를 생성합니다.</td></tr>
+<tr><td>JoinRoomTry</td><td>void IOCPServer::JoinRoomTry(Session* Client, int roomID)</td><td>Room Try 흐름에 참가하거나 연결을 수립합니다.</td></tr>
+<tr><td>GameStartTry</td><td>void IOCPServer::GameStartTry(Session* Client)</td><td>Game Start Try 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastRoomList</td><td>void IOCPServer::BroadcastRoomList()</td><td>Broadcast Room List 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>BroadcastRoomInfo</td><td>void IOCPServer::BroadcastRoomInfo(Session* client)</td><td>Broadcast Room Info 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>GameFrameProtocol</td><td>void IOCPServer::GameFrameProtocol(float deltaTime)</td><td>Game Frame Protocol 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+<h3>session.h</h3>
+<ul><li>절대 경로: `D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\session.h`</li><li>파일 목적: 클라이언트 세션 상태, 이동 의도, 게임 데이터 저장 구조를 정의하는 파일입니다.</li><li>주요 타입: `OverlappedEx, Session`</li><li>함수 수(추출): 4</li><li>멤버 변수 수(추출): 20</li></ul>
+<h4>멤버 변수</h4>
+<table><thead><tr><th>이름</th><th>타입</th><th>설명</th></tr></thead><tbody>
+<tr><td>type</td><td>IO_OPERATION</td><td>type 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>socket</td><td>SOCKET</td><td>socket 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>playerUID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>sessionID</td><td>int</td><td>세션/플레이어 식별자와 관련된 상태입니다.</td></tr>
+<tr><td>roomSlot</td><td>int</td><td>방 상태, 방 UI, 방 참가자와 관련된 멤버입니다.</td></tr>
+<tr><td>teamID</td><td>int</td><td>teamID 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isConnected</td><td>bool</td><td>isConnected 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isReady</td><td>bool</td><td>isReady 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>LastMoveIntent</td><td>MoveIntent</td><td>LastMoveIntent 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>MoveIntentLock</td><td>std::mutex</td><td>MoveIntentLock 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>now_state</td><td>ESessionState</td><td>now_state 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>gameDatas</td><td>GameData</td><td>gameDatas 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>playerName</td><td>std::wstring</td><td>playerName 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>TempBuffer[1024]</td><td>char</td><td>TempBuffer[1024] 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>recvBuffer</td><td>s_ringbuf</td><td>recvBuffer 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>recvOverlapped</td><td>OverlappedEx</td><td>recvOverlapped 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>isSending</td><td>bool</td><td>isSending 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>sendQueue</td><td>std::queue&lt;std::vector&lt;char&gt;&gt;</td><td>동일한 종류의 데이터를 순서대로 저장하는 컨테이너입니다.</td></tr>
+<tr><td>sendLock</td><td>std::mutex</td><td>sendLock 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+<tr><td>sendOverlapped</td><td>OverlappedEx</td><td>sendOverlapped 기능에 필요한 런타임 상태 또는 참조를 저장합니다.</td></tr>
+</tbody></table>
+<h4>함수</h4>
+<table><thead><tr><th>이름</th><th>시그니처</th><th>설명</th></tr></thead><tbody>
+<tr><td>ZeroMemory</td><td>ZeroMemory(TempBuffer, sizeof(TempBuffer))</td><td>Zero Memory 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ZeroMemory</td><td>ZeroMemory(&amp;recvBuffer, sizeof(s_ringbuf))</td><td>Zero Memory 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ZeroMemory</td><td>ZeroMemory(&amp;recvOverlapped, sizeof(OverlappedEx))</td><td>Zero Memory 기능을 수행하는 함수입니다.</td></tr>
+<tr><td>ZeroMemory</td><td>ZeroMemory(&amp;sendOverlapped, sizeof(OverlappedEx))</td><td>Zero Memory 기능을 수행하는 함수입니다.</td></tr>
+</tbody></table>
+</body>
+</html>

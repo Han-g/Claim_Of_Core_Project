@@ -1,0 +1,7 @@
+깃허브로 진입시 
+.vs
+Binaries
+Intermediate
+Saved(필수는 아니지만 꼬였을 때 도움)
+파일 삭제 후 
+프로젝트.uproject 우클릭 → “Generate Visual Studio project files”

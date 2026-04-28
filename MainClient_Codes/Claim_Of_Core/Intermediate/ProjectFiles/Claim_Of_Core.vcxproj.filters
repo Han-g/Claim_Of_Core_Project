@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <None Include="..\..\.vsconfig" />
+    <None Include="..\..\build.log" />
+    <None Include="..\..\Claim_Of_Core.uproject" />
+    <Filter Include="Config">
+      <UniqueIdentifier>{FA535FFB-25E1-3D20-B416-52F9BE21E06E}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Config\DefaultEditor.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEditorPerProjectUserSettings.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultEngine.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultGame.ini">
+      <Filter>Config</Filter>
+    </None>
+    <None Include="..\..\Config\DefaultInput.ini">
+      <Filter>Config</Filter>
+    </None>
+    <Filter Include="Source">
+      <UniqueIdentifier>{F31BBDD1-B3E8-3BCC-9652-680E16935819}</UniqueIdentifier>
+    </Filter>
+    <None Include="..\..\Source\Claim_Of_Core.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <None Include="..\..\Source\Claim_Of_CoreEditor.Target.cs">
+      <Filter>Source</Filter>
+    </None>
+    <Filter Include="Source\Claim_Of_Core">
+      <UniqueIdentifier>{948DAC24-77E2-3738-9E72-E63A7B51D9F8}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\BaseItem.cpp">
+      <Filter>Source\Claim_Of_Core</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\BaseItem.h">
+      <Filter>Source\Claim_Of_Core</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\Base">
+      <UniqueIdentifier>{A3992652-F3D2-3B1A-A1AE-86D4F02A9520}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Base\Claim_Of_Core.cpp">
+      <Filter>Source\Claim_Of_Core\Base</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Base\Claim_Of_Core.h">
+      <Filter>Source\Claim_Of_Core\Base</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Base\Claim_Of_CorePlayerController.cpp">
+      <Filter>Source\Claim_Of_Core\Base</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Base\Claim_Of_CorePlayerController.h">
+      <Filter>Source\Claim_Of_Core\Base</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\CharacterInfoWidget.cpp">
+      <Filter>Source\Claim_Of_Core</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\CharacterInfoWidget.h">
+      <Filter>Source\Claim_Of_Core</Filter>
+    </ClInclude>
+    <None Include="..\..\Source\Claim_Of_Core\Claim_Of_Core.Build.cs">
+      <Filter>Source\Claim_Of_Core</Filter>
+    </None>
+    <Filter Include="Source\Claim_Of_Core\GameState">
+      <UniqueIdentifier>{4D7EB6A6-56BC-3920-B042-DCF3D4675BC3}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\GameState\InGame_GameState.cpp">
+      <Filter>Source\Claim_Of_Core\GameState</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\GameState\InGame_GameState.h">
+      <Filter>Source\Claim_Of_Core\GameState</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\Map">
+      <UniqueIdentifier>{F119BE2A-C071-3119-97DA-2EA9851FD804}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\BreakableActor.cpp">
+      <Filter>Source\Claim_Of_Core\Map</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\BreakableActor.h">
+      <Filter>Source\Claim_Of_Core\Map</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\Map\Building">
+      <UniqueIdentifier>{375B534B-D20D-35A4-B016-5207DA2033E1}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\Building\DebrisSpawner.cpp">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\Building\DebrisSpawner.h">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\Building\LargeDebrisActor.cpp">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\Building\LargeDebrisActor.h">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\Building\LargeDebrisController.cpp">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\Building\LargeDebrisController.h">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\Building\SmallDebrisActor.cpp">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\Building\SmallDebrisActor.h">
+      <Filter>Source\Claim_Of_Core\Map\Building</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\Map\IceCave">
+      <UniqueIdentifier>{973983DB-C934-30AB-99B5-DA93F7C27EF6}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\IceCave\IceFloorTile.cpp">
+      <Filter>Source\Claim_Of_Core\Map\IceCave</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\IceCave\IceFloorTile.h">
+      <Filter>Source\Claim_Of_Core\Map\IceCave</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\IceCave\IceMapController.cpp">
+      <Filter>Source\Claim_Of_Core\Map\IceCave</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\IceCave\IceMapController.h">
+      <Filter>Source\Claim_Of_Core\Map\IceCave</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\IceCave\IcicleActor.cpp">
+      <Filter>Source\Claim_Of_Core\Map\IceCave</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\IceCave\IcicleActor.h">
+      <Filter>Source\Claim_Of_Core\Map\IceCave</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\MapPhaseManager.cpp">
+      <Filter>Source\Claim_Of_Core\Map</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\MapPhaseManager.h">
+      <Filter>Source\Claim_Of_Core\Map</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Map\PreFracturedActor.cpp">
+      <Filter>Source\Claim_Of_Core\Map</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Map\PreFracturedActor.h">
+      <Filter>Source\Claim_Of_Core\Map</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\Networking">
+      <UniqueIdentifier>{E480B819-0E3F-3A05-A508-7F0556505DAE}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Networking\ClientNetworking.cpp">
+      <Filter>Source\Claim_Of_Core\Networking</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Networking\ClientNetworking.h">
+      <Filter>Source\Claim_Of_Core\Networking</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Networking\ClientNetworkTypes.h">
+      <Filter>Source\Claim_Of_Core\Networking</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Networking\ClientNetworkWorker.cpp">
+      <Filter>Source\Claim_Of_Core\Networking</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Networking\ClientNetworkWorker.h">
+      <Filter>Source\Claim_Of_Core\Networking</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\Sub">
+      <UniqueIdentifier>{11A9D8B6-9B29-368E-9B86-11E46AF58983}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Sub\HPComponent.cpp">
+      <Filter>Source\Claim_Of_Core\Sub</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Sub\HPComponent.h">
+      <Filter>Source\Claim_Of_Core\Sub</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\Sub\MyCharacter.cpp">
+      <Filter>Source\Claim_Of_Core\Sub</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\Sub\MyCharacter.h">
+      <Filter>Source\Claim_Of_Core\Sub</Filter>
+    </ClInclude>
+    <Filter Include="Source\Claim_Of_Core\UI">
+      <UniqueIdentifier>{9E5665C2-48E8-3759-9F9B-F95857796FED}</UniqueIdentifier>
+    </Filter>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\UI\LoginWidget.cpp">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\UI\LoginWidget.h">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\UI\NetworkInstance.cpp">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\UI\NetworkInstance.h">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\UI\RobbyWidget.cpp">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\UI\RobbyWidget.h">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\UI\RoomEnterWidget.cpp">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\UI\RoomEnterWidget.h">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\UI\RoomMemberWidget.cpp">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\UI\RoomMemberWidget.h">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClInclude>
+    <ClCompile Include="..\..\Source\Claim_Of_Core\UI\RoomWidget.cpp">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClCompile>
+    <ClInclude Include="..\..\Source\Claim_Of_Core\UI\RoomWidget.h">
+      <Filter>Source\Claim_Of_Core\UI</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

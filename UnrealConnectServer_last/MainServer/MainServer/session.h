@@ -173,6 +173,7 @@ struct Session {
 		roomSlot = -1;
 		teamID = -1;
 
+
 		now_state = ESessionState::LOGIN;
 
 		ZeroMemory(TempBuffer, sizeof(TempBuffer));
