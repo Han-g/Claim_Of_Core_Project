@@ -21,7 +21,7 @@ public:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Locomotion")
-	float GroundSpeed = 0.f;
+	float Speed = 0.f;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Locomotion")
 	bool bShouldMove = false;

@@ -25,7 +25,7 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	AMyCharacter* Character = CachedCharacter.Get();
 	if (!Character)
 	{
-		GroundSpeed = 0.f;
+		Speed = 0.f;
 		bShouldMove = false;
 		bHasAcceleration = false;
 		Direction = 0.f;
@@ -41,8 +41,8 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		const FVector Velocity = Character->GetVelocity();
 		const FVector HorizontalVelocity(Velocity.X, Velocity.Y, 0.f);
 
-		GroundSpeed = HorizontalVelocity.Size();
-		bShouldMove = GroundSpeed > 3.f;
+		Speed = HorizontalVelocity.Size();
+		bShouldMove = Speed > 3.f;
 
 		if (const UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement())
 		{
@@ -54,7 +54,7 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		}
 
 		Direction = CalculateDirection(Velocity, Character->GetActorRotation());
-		bUseRunState = GroundSpeed > 600.f;
+		bUseRunState = Speed > 600.f;
 	}
 	else
 	{
@@ -63,7 +63,7 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		switch (AnimNum)
 		{
 		case 0:
-			GroundSpeed = 0.f;
+			Speed = 0.f;
 			bShouldMove = false;
 			bHasAcceleration = false;
 			Direction = 0.f;
@@ -71,7 +71,7 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			break;
 
 		case 1:
-			GroundSpeed = 300.f;
+			Speed = 300.f;
 			bShouldMove = true;
 			bHasAcceleration = true;
 			Direction = 0.f;
@@ -79,7 +79,7 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			break;
 
 		case 2:
-			GroundSpeed = 800.f;
+			Speed = 800.f;
 			bShouldMove = true;
 			bHasAcceleration = true;
 			Direction = 0.f;
@@ -87,7 +87,7 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 			break;
 
 		default:
-			GroundSpeed = 0.f;
+			Speed = 0.f;
 			bShouldMove = false;
 			bHasAcceleration = false;
 			Direction = 0.f;

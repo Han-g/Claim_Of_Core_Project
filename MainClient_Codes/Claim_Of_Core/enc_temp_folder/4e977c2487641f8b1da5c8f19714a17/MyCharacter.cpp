@@ -764,8 +764,6 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		if (MoveAction)
 		{
 			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
-			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::StopMove);
-			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Canceled, this, &AMyCharacter::StopMove);
 		}
 
 		if (MouseLookAction)
@@ -854,12 +852,6 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	Packet.VelocityY = Forward;
 
 	NetInst->SendMoveInputToServer(Packet);*/
-}
-
-void AMyCharacter::StopMove(const FInputActionValue& Value)
-{
-	CachedMoveRight = 0.f;
-	CachedMoveForward = 0.f;
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
