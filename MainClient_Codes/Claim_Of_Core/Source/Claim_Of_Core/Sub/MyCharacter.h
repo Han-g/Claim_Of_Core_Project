@@ -54,6 +54,9 @@ struct FRoleVisualData
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> DeadMontage = nullptr;
 };
 
 UCLASS(Abstract)

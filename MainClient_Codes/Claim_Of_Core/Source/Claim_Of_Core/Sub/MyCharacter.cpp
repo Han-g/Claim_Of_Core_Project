@@ -1194,10 +1194,30 @@ void AMyCharacter::ApplyDeadState()
 
 	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
-		MeshComp->SetCollisionProfileName(TEXT("Ragdoll"));
-		MeshComp->SetSimulatePhysics(true);
-		MeshComp->WakeAllRigidBodies();
-		MeshComp->bBlendPhysics = true;
+		UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
+		if (!AnimInst) return;
+
+		const FRoleVisualData* VisualData = nullptr;
+
+		switch (GetRoleType()) // 니가 쓰는 역할 enum
+		{
+		case ERecRoleType::Striker:
+			VisualData = &StrikerVisual;
+			break;
+		case ERecRoleType::Guardian:
+			VisualData = &GuardianVisual;
+			break;
+		case ERecRoleType::Manipulator:
+			VisualData = &ManipulatorVisual;
+			break;
+		default:
+			return;
+		}
+
+		if (VisualData && VisualData->DeadMontage)
+		{
+			AnimInst->Montage_Play(VisualData->DeadMontage);
+		}
 	}
 
 	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
