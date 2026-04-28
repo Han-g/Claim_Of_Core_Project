@@ -1,8 +1,6 @@
 #include "LargeDebrisActor.h"
 #include "Components/StaticMeshComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "Containers/Queue.h"
-#include "../Sub/MyCharacter.h"
 #include "TimerManager.h"
 
 ALargeDebrisActor::ALargeDebrisActor()
@@ -14,8 +12,6 @@ ALargeDebrisActor::ALargeDebrisActor()
 void ALargeDebrisActor::BeginPlay()
 {
 	Super::BeginPlay();
-
-	Tags.AddUnique(TEXT("LargeDebris"));
 
 	for (UStaticMeshComponent* MeshComp : ChunkMeshes)
 	{
@@ -142,7 +138,6 @@ void ALargeDebrisActor::LandAndFracture()
 		return;
 	}
 
-	TriggerImpactCameraShake(ImpactSpeed);
 	BreakInitialBottomChunks(ImpactSpeed);
 }
 
@@ -389,47 +384,4 @@ void ALargeDebrisActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFrom
 			false
 		);
 	}
-}
-
-void ALargeDebrisActor::TriggerImpactCameraShake(float ImpactSpeed)
-{
-	if (!CameraShakeClass)
-	{
-		return;
-	}
-
-	const float ShakeScale = FMath::Clamp(ImpactSpeed / MaxFallSpeed, 0.f, 1.f);
-
-	UGameplayStatics::PlayWorldCameraShake(
-		GetWorld(),
-		CameraShakeClass,
-		GetActorLocation(),
-		ShakeInnerRadius,
-		ShakeRadius,
-		ShakeScale
-	);
-}
-
-void ALargeDebrisActor::OnChunkHit(
-	UPrimitiveComponent* HitComponent,
-	AActor* OtherActor,
-	UPrimitiveComponent* OtherComp,
-	FVector NormalImpulse,
-	const FHitResult& Hit)
-{
-	if (!OtherActor) return;
-
-	AMyCharacter* Player = Cast<AMyCharacter>(OtherActor);
-	if (!Player) return;
-
-	// 속도 기반 데미지
-	const FVector Velocity = HitComponent->GetComponentVelocity();
-	const float Speed = Velocity.Size();
-
-	if (Speed < 20.f) return; // 최소 임계값
-
-	float Damage = Speed * 0.2f;
-	Damage = FMath::Clamp(Damage, 1.f, 40.f);
-
-	Player->ApplyDamage(Damage);
 }

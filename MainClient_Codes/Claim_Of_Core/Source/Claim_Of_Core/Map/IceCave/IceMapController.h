@@ -26,4 +26,45 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	EIceMapPhase CurrentPhase = EIceMapPhase::Phase1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	float Phase2StartTime = 20.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	float Phase3StartTime = 40.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	float IcicleSpawnIntervalPhase2 = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	float IcicleSpawnIntervalPhase3 = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	float FloorBreakIntervalPhase3 = 4.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	TArray<TObjectPtr<AIcicleActor>> IcicleActors;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceMap")
+	TArray<TObjectPtr<AIceFloorTile>> FloorTiles;
+
+	FTimerHandle Phase2TimerHandle;
+	FTimerHandle Phase3TimerHandle;
+	FTimerHandle IcicleSpawnTimerHandle;
+	FTimerHandle FloorBreakTimerHandle;
+
+	void EnterPhase2();
+	void EnterPhase3();
+
+	void TriggerRandomIcicle();
+	void TriggerRandomFloorTile();
+
+public:
+	UFUNCTION(BlueprintCallable)
+	void StartIceMap();
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void BP_OnPhaseChanged(EIceMapPhase NewPhase);
 };

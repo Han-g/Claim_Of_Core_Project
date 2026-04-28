@@ -13,18 +13,19 @@ void URoomEnterWidget::NativeConstruct()
 	}
 }
 
-void URoomEnterWidget::InitRoomInfo(int32 s_RoomID, const FString& s_RoomName)
+void URoomEnterWidget::InitRoomInfo(int32 s_RoomID, const FString& s_RoomName, int32 CurrentPlayers, int32 MaxPlayers)
 {
 	RoomID = s_RoomID;
 
 	if (RoomName) { RoomName->SetText(FText::FromString(s_RoomName)); }
-	UpdatePlayerCount(1);
+	UpdatePlayerCount(CurrentPlayers, MaxPlayers);
 }
 
-void URoomEnterWidget::UpdatePlayerCount(int32 CurrentPlayers)
+void URoomEnterWidget::UpdatePlayerCount(int32 CurrentPlayers, int32 MaxPlayers)
 {
 	if (PlayerCounter) {
-		FString CountStr = FString::Printf(TEXT("%d / %d"), CurrentPlayers, MAXPLAYER);
+		const int32 SafeMaxPlayers = FMath::Max(MaxPlayers, 1);
+		FString CountStr = FString::Printf(TEXT("%d / %d"), CurrentPlayers, SafeMaxPlayers);
 		PlayerCounter->SetText(FText::FromString(CountStr));
 	}
 }

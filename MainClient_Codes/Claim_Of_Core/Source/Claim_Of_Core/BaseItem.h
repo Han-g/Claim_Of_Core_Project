@@ -52,6 +52,9 @@ public:
 	float Point;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
+	float AttackHitDuration = 1.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	float Damage = 20.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")

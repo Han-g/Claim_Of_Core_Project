@@ -4,9 +4,6 @@
 #include "GameFramework/GameStateBase.h"
 #include "InGame_GameState.generated.h"
 
-class UCameraShakeBase;
-class USoundBase;
-
 UENUM(BlueprintType)
 enum class ERoundState : uint8
 {
@@ -25,12 +22,6 @@ enum class EMapPhase : uint8
 	End    UMETA(DisplayName = "End")
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
-	FOnPhaseChangedSignature,
-	EMapPhase, OldPhase,
-	EMapPhase, NewPhase
-);
-
 UCLASS()
 class CLAIM_OF_CORE_API AInGame_GameState : public AGameStateBase
 {
@@ -43,7 +34,7 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_RoundState, Category = "Round")
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
 	ERoundState RoundState;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
@@ -52,7 +43,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
 	int32 GameTime;
 
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CurrentPhase, Category = "Phase")
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Phase")
 	EMapPhase CurrentPhase;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Phase")
@@ -70,14 +61,15 @@ public:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Round")
 	int32 CurrentGameTime;
 
-	UPROPERTY(BlueprintAssignable, Category = "Phase")
-	FOnPhaseChangedSignature OnPhaseChanged;
+	DECLARE_MULTICAST_DELEGATE(FOnGameplayActivated);
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Phase|Feedback")
-	TSubclassOf<UCameraShakeBase> PhaseChangeShakeClass;
+	UPROPERTY(BlueprintReadOnly, Category = "Round")
+	bool bGameplayActivated = false;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Phase|Feedback")
-	TObjectPtr<USoundBase> PhaseChangeSound;
+	FOnGameplayActivated OnGameplayActivated;
+
+	void ActivateGameplayFromServerStart();
+	bool IsGameplayActivated() const { return bGameplayActivated; }
 
 	UFUNCTION(BlueprintCallable, Category = "Phase")
 	void UpdatePhase();
@@ -92,21 +84,8 @@ public:
 protected:
 	FTimerHandle TimerHandle_Countdown;
 
+
 	void CountdownTick();
-	void SetPlayersMovementEnabled(bool bEnableMovement);
-	void ApplyMovementByRoundState();
-	void HandlePhaseChanged(EMapPhase OldPhase, EMapPhase NewPhase);
-	FString GetPhaseMessage(EMapPhase NewPhase) const;
 
-	UFUNCTION()
-	void OnRep_RoundState(ERoundState OldRoundState);
-
-	UFUNCTION()
-	void OnRep_CurrentPhase(EMapPhase OldPhase);
-
-	UFUNCTION(BlueprintImplementableEvent, Category = "Phase")
-	void BP_OnPhaseChanged(EMapPhase OldPhase, EMapPhase NewPhase);
-
-	virtual void GetLifetimeReplicatedProps(
-		TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

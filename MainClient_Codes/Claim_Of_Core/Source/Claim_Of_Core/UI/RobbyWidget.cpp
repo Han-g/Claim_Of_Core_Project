@@ -3,7 +3,7 @@
 
 #include "RobbyWidget.h"
 #include "NetworkInstance.h"
-#include "../Networking/ClientNetworking.h"
+#include "ClientNetworking.h"
 #include "RoomEnterWidget.h"
 
 void URobbyWidget::NativeConstruct()
@@ -22,20 +22,15 @@ void URobbyWidget::ReloadRoomList(const TArray<FRoomInfoData>& RoomList)
         return;
     }
 
-    // 1. 기존에 떠 있던 방 목록을 싹 지웁니다.
     RoomScrollBox->ClearChildren();
 
-    // 2. 서버가 준 리스트만큼 새 위젯을 만들어서 붙입니다.
     for (const FRoomInfoData& Room : RoomList)
     {
         URoomEnterWidget* RoomWidget = CreateWidget<URoomEnterWidget>(GetWorld(), RoomEntryClass);
         if (RoomWidget)
         {
-            // 방 정보 초기화 (기존에 만드셨던 함수 활용)
-            RoomWidget->InitRoomInfo(Room.RoomID, Room.RoomName);
-            RoomWidget->UpdatePlayerCount(Room.CurrentPlayers); // 인원수 업데이트
+            RoomWidget->InitRoomInfo(Room.RoomID, Room.RoomName, Room.CurrentPlayers, Room.MaxPlayers);
 
-            // 스크롤 박스에 자식으로 추가
             RoomScrollBox->AddChild(RoomWidget);
         }
     }

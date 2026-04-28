@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "../Networking/ClientNetworking.h"
+#include "ClientNetworking.h"
 
 #include "Blueprint/UserWidget.h"
 #include "Components/ScrollBox.h"
@@ -12,13 +12,13 @@
 #include "RobbyWidget.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class CLAIM_OF_CORE_API URobbyWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
+
 public:
 	void ReloadRoomList(const TArray<FRoomInfoData>& RoomList);
 
@@ -36,8 +36,6 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	UScrollBox* RoomScrollBox;
 
-	/*UPROPERTY(EditAnywhere, Category = "UI")
-	TSubclassOf<UUserWidget> RoomEntryClass;*/
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class URoomEnterWidget> RoomEntryClass;
 

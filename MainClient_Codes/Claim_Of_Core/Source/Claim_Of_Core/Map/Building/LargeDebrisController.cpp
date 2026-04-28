@@ -11,19 +11,49 @@ ALargeDebrisController::ALargeDebrisController()
 	SetRootComponent(Root);
 }
 
+void ALargeDebrisController::HandleGameplayActivated()
+{
+	ActivateGameplayRuntime();
+}
+
+void ALargeDebrisController::ActivateGameplayRuntime()
+{
+	if (bRuntimeActivated) { return; }
+
+	bRuntimeActivated = true;
+
+	PrepareDebrisActors(Phase2DebrisActors);
+	PrepareDebrisActors(Phase3DebrisActors);
+
+	SetActorTickEnabled(true);
+}
+
 void ALargeDebrisController::BeginPlay()
 {
 	Super::BeginPlay();
 
 	InitializeGameState();
+	SetActorTickEnabled(false);
 
-	PrepareDebrisActors(Phase2DebrisActors);
-	PrepareDebrisActors(Phase3DebrisActors);
+	if (CachedGameState)
+	{
+		if (CachedGameState->IsGameplayActivated())
+		{
+			ActivateGameplayRuntime();
+		}
+		else
+		{
+			CachedGameState->OnGameplayActivated.AddUObject(
+				this, &ALargeDebrisController::HandleGameplayActivated);
+		}
+	}
 }
 
 void ALargeDebrisController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (!bRuntimeActivated) { return; }
 
 	InitializeGameState();
 	HandlePhaseLogic();
@@ -44,23 +74,15 @@ void ALargeDebrisController::InitializeGameState()
 
 void ALargeDebrisController::HandlePhaseLogic()
 {
-	if (!CachedGameState)
-	{
-		return;
-	}
+	if (!CachedGameState) { return; }
 
-	if (CachedGameState->RoundState != ERoundState::Playing)
-	{
-		return;
-	}
+	if (CachedGameState->RoundState != ERoundState::Playing) { return; }
 
-	if (CachedGameState->CurrentPhase == EMapPhase::Phase2 && !bPhase2Triggered)
-	{
+	if (CachedGameState->CurrentPhase == EMapPhase::Phase2 && !bPhase2Triggered) {
 		TriggerPhase2Debris();
 	}
 
-	if (CachedGameState->CurrentPhase == EMapPhase::Phase3 && !bPhase3Triggered)
-	{
+	if (CachedGameState->CurrentPhase == EMapPhase::Phase3 && !bPhase3Triggered) {
 		TriggerPhase3Debris();
 	}
 }

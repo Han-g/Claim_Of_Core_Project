@@ -40,7 +40,7 @@ void ABreakableActor::ResetBreakable()
 
 void ABreakableActor::ApplyBreakableDamage(float DamageAmount)
 {
-	if (bBroken)
+	if (!bActivated || bBroken)
 	{
 		return;
 	}

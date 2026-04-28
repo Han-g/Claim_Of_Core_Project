@@ -10,7 +10,7 @@
 #include "LoginWidget.generated.h"
 
 /**
- * 
+ *
  */
 
 DECLARE_MULTICAST_DELEGATE(FOnLoginResult);
@@ -19,8 +19,10 @@ UCLASS()
 class CLAIM_OF_CORE_API ULoginWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
+
 public:
+	void FocusInitialWidget();
+
 	void ShowPopup(const FText& PopupMessage);
 	UFUNCTION()
 	void HidePopup();
@@ -44,8 +46,6 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* FailLoginPopUp;
-
-	//FOnLoginResult OnLoginResult;
 
 	FTimerHandle FailPopupTimerHandle;
 

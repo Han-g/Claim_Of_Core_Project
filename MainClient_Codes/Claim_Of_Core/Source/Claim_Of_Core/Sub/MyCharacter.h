@@ -6,7 +6,6 @@
 #include "MyCharacter.generated.h"
 
 class USpringArmComponent;
-class UBoxComponent;
 class UCameraComponent;
 class UInputAction;
 struct FInputActionValue;
@@ -15,6 +14,7 @@ class UAnimInstance;
 class UAnimMontage;
 class USkeletalMesh;
 class UPrimitiveComponent;
+class UBoxComponent;
 class ABaseItem;
 class FLifetimeProperty;
 
@@ -54,9 +54,6 @@ struct FRoleVisualData
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TObjectPtr<UAnimMontage> DeadMontage = nullptr;
 };
 
 UCLASS(Abstract)
@@ -91,16 +88,22 @@ protected:
 	UInputAction* LookAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* MouseLookAction;
-
-	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* AttackAction;
-
-	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* KnockbackAction;
 
 public:
 	AMyCharacter();
+
+	void SetNetworkPlayerUID(int32 InUID) { NetworkPlayerUID = InUID; };
+	int32 GetNetworkPlayerUID() const { return NetworkPlayerUID; };
+	void PlayAttackMontageFromServer(int32 AttackType);
+
+	void SetRoleFromNetwork(int32 InRoleType);
+	void SetHPFromNetwork(int32 InHP);
+	void SetStateFromNetwork(int32 InState);
+	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
+
+private:
+	int32 NetworkPlayerUID = -1;
 
 protected:
 	virtual void BeginPlay() override;
@@ -118,10 +121,12 @@ protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
+	void TestFunc();
+
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Attack();
-	void KnockbackTest();
+	void EndAttack();
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Input")
@@ -164,6 +169,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
 	void ActivateRoleSkill();
 
+	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
+	float GetSkillCoolTime();
+	
+	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
+	void DecreaseCoolTime();
+
 	UFUNCTION(BlueprintPure, Category = "RoleSkill")
 	bool IsRoleSkillActive() const { return bRoleSkillActive; }
 
@@ -179,6 +190,15 @@ public:
 	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
 	ERecCharacterState CharacterState = ERecCharacterState::Alive;
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Role|Stats")
+	float AttackDamage = 1.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Role|Stats")
+	float KnockbackCoefficient = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Combat")
+	float BaseAttackKnockbackPower = 1200.f;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
 	FRoleVisualData StrikerVisual;
 
@@ -189,7 +209,19 @@ public:
 	FRoleVisualData ManipulatorVisual;
 
 	UFUNCTION()
-	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+	void ApplyHitEvent(AActor* Attacker);
+
+	//Attack
+	FTimerHandle AttackTimer;
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UBoxComponent> HandCollision;
+
+	UPROPERTY()
+	TSet<TObjectPtr<AMyCharacter>> HitActors;
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void StartAttackHitWindow(float Duration = 0.2f);
 
 	UFUNCTION()
 	void OnAttackOverlap(
@@ -201,22 +233,7 @@ public:
 		const FHitResult& SweepResult
 	);
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item|Umbrella")
-	UBoxComponent* UmbrellaGuardBox;
-
-	UFUNCTION(BlueprintCallable, Category = "Item")
-	void SetUmbrellaGuardActive(bool bActive);
-
-	UFUNCTION()
-	void OnUmbrellaGuardBoxBeginOverlap(
-		UPrimitiveComponent* OverlappedComp,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& SweepResult
-	);
-
+	//Item
 	UPROPERTY()
 	ABaseItem* OverlappingItem = nullptr;
 
@@ -231,9 +248,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void DropCurrentItem();
-
-	UFUNCTION(BlueprintCallable, Category = "Item")
-	void ClearCurrentItemReference(ABaseItem* Item);
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
@@ -255,6 +269,12 @@ private:
 	bool bRoleSkillActive = false;
 
 	FTimerHandle RoleSkillTimerHandle;
+	FTimerHandle CoolTimer;
+
+	float CurrentCoolTime = 0.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill")
+	float CoolTime = 15.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
 	float DashDuration = 5.0f;
@@ -407,7 +427,9 @@ private:
 
 	static FString RoleTypeToString(ERecRoleType InType);
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);
-
+	float GetDamageCoefficient() const { return AttackDamage; }
+	float GetKnockbackCoefficient() const { return KnockbackCoefficient; }
+	
 	float GetRoleSkillSpeedMultiplier() const;
 	float GetCurrentRoleSkillDuration() const;
 	float GetOutgoingDamageMultiplier() const;
@@ -451,6 +473,25 @@ private:
 	void RespawnAtPlayerStart();
 
 public:
+	void SetAnimationFromNetwork(int32 InAnimationNum) { 
+		NetworkAnimationNum = InAnimationNum; 
+	}
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
+	UPROPERTY(BlueprintReadOnly, Category = "Network|Animation")
+	int32 NetworkAnimationNum = 0;
+
+	UFUNCTION(BlueprintPure, Category = "Network|Animation")
+	int32 GetNetworkAnimationNum() const { return NetworkAnimationNum; }
+
+private:
+	// Temporary Movement Members
+
+	float CachedMoveRight = 0.f;
+	float CachedMoveForward = 0.f;
+	float MoveSyncAccumulator = 0.f;
+
+	FVector LastSentLocation = FVector::ZeroVector;
+	FRotator LastSentRotation = FRotator::ZeroRotator;
 };

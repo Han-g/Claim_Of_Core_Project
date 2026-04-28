@@ -11,18 +11,21 @@
 #include "RoomMemberWidget.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class CLAIM_OF_CORE_API URoomMemberWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
+
 public:
 	void SetEmptyMember();
 	void SetMemberInfo(const FString& playerName, bool bIsReady);
 
 protected:
+	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
+
 	UPROPERTY(meta = (BindWidget))
 	class UTextBlock* PlayerName;
 
@@ -30,11 +33,26 @@ protected:
 	class UTextBlock* PlayerState;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* Striker;
+	class UButton* StrikerButton;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* Guardian;
+	class UButton* GuardianButton;
 
 	UPROPERTY(meta = (BindWidget))
-	class UButton* Manipulator;
+	class UButton* ManipulatorButton;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Character")
+	int32 SelectedRoleType = -1;
+
+private:
+	UFUNCTION()
+	void OnStrikerClicked();
+
+	UFUNCTION()
+	void OnGuardianClicked();
+
+	UFUNCTION()
+	void OnManipulatorClicked();
+
+	void HandleRoleSelected(int32 InRoleType);
 };

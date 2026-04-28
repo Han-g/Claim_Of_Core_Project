@@ -5,6 +5,7 @@
 #include "PreFracturedActor.generated.h"
 
 class UStaticMeshComponent;
+class AInGame_GameState;
 
 USTRUCT(BlueprintType)
 struct FPreFracturedChunkData
@@ -40,6 +41,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	void InitializeGameState();
+	void HandleGameplayActivated();
+	void ActivateFractureRuntime();
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Fracture")
@@ -86,6 +91,12 @@ public:
 	float AnchorBottomTolerance = 20.f;
 
 protected:
+	UPROPERTY()
+	TObjectPtr<AInGame_GameState> CachedGameState = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Fracture")
+	bool bFractureRuntimeActivated = false;
+
 protected:
 	void CollectChunkMeshes();
 	void InitializeChunkData();

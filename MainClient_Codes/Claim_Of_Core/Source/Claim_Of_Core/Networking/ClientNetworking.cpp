@@ -1,444 +1,324 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-#include "ClientNetworking.h"
-
-#include "Networking.h"
-#include "Sockets.h"
-#include "SocketSubsystem.h"
-#include "Interfaces/IPv4/IPv4Address.h"
-#include "Engine/GameEngine.h"
+ï»¿#include "ClientNetworking.h"
+#include "ClientNetworkWorker.h"
+#include "Serialization/BufferArchive.h"
 
 ClientNetworking::ClientNetworking()
 {
-	Socket = nullptr;
-	IsLogin = false;
 }
 
 ClientNetworking::~ClientNetworking()
 {
-	Disconnect();
+    Shutdown();
 }
 
-
-bool ClientNetworking::IsConnected() const
+void ClientNetworking::TestFuncInput(PacketID testPacket)
 {
-	return Socket != nullptr && Socket->GetConnectionState() == SCS_Connected;
+    switch (testPacket)
+    {
+    case PKT_C2S_ATTACK_KEYINPUT:
+        UE_LOG(LogTemp, Display, TEXT("[ClientTest] Send test packet: %d"), static_cast<uint16>(testPacket));
+        EnqueueSendCommand(static_cast<uint16>(testPacket));
+        break;
+
+    case PKT_C2S_READY_REQ:
+        break;
+
+    case PKT_C2S_GAME_START_REQ:
+        break;
+
+    case PKT_C2S_ITEMPICKUP_KEYINPUT:
+        break;
+
+    case PKT_C2S_ITEMDROP_KEYINPUT:
+        UE_LOG(LogTemp, Display, TEXT("[ClientTest] Send test packet: %d"), static_cast<uint16>(testPacket));
+        EnqueueSendCommand(static_cast<uint16>(testPacket));
+        break;
+
+    default:
+        UE_LOG(LogTemp, Warning,
+            TEXT("[ClientTest] TestFuncInput does not support packet %d. Use a dedicated request function."),
+            static_cast<uint16>(testPacket));
+        break;
+    }
 }
 
-bool ClientNetworking::Connect(FString IP, int32 Port)
+// ============================================================
+// Lifecycle
+// ============================================================
+void ClientNetworking::Start(const FString& IP, int32 Port)
 {
-	// Disconnect If existing Connection exist
-	Disconnect();
+    CachedIP = IP;
+    CachedPort = Port;
+    bDisconnectNotified = false;
 
-	// Create Socket
-	Socket = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateSocket(NAME_Stream, TEXT("DefaultSocket"), false);
-	
-	if (!Socket) { return false; }
-		
-	// IP Address Parsing
-	FIPv4Address IPAddress;
-	
-	if (!FIPv4Address::Parse(IP, IPAddress)) { return false; }
+    if (!Worker.IsValid())
+    {
+        Worker = MakeShared<FClientNetworkWorker>();
+    }
 
-	TSharedRef<FInternetAddr> ServerAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
-	ServerAddr->SetIp(IPAddress.Value);
-	ServerAddr->SetPort(Port);
-	
-	
-	// Try to Connect
-	UE_LOG(LogTemp, Display, TEXT("Connecting to Server %s:%d..."), *IP, Port);
-	
-	bool bConnected = Socket->Connect(*ServerAddr);
-	
-	if (bConnected)
-	{
-		Socket->SetNonBlocking(true);
-		UE_LOG(LogTemp, Display, TEXT("Connect Success!"));
-		
-		// Connection Check
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Connect Successful to..."));
-		
-		// Login Info Set
-		FString TempID = "admin";
-		
-		//LoginAccess(TempID, TempID);
-	}
-
-	else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Fail to Connect..."));
-		UE_LOG(LogTemp, Error, TEXT("Connect Failed!"));
-		Disconnect();
-	}
-
-	return bConnected;
+    RequestConnect(IP, Port);
 }
 
-void ClientNetworking::Disconnect()
+void ClientNetworking::Shutdown()
 {
-	if (Socket)
-	{
-		Socket->Close();
-		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
-		Socket = nullptr;
-	}
-	RecvBuffer.Empty();
+    if (Worker.IsValid())
+    {
+        FNetCommand Cmd;
+        Cmd.Type = ENetCommandType::Shutdown;
+        Worker->InboundCommandQueue.Enqueue(Cmd);
+        Worker->WakeUp();
+
+        Worker.Reset();
+    }
 }
 
-
-bool ClientNetworking::SendPacket(uint16 PacketID, const void* Data, uint16 DataSize)
+// ============================================================
+// PumpEvents â€” game thread only
+// ============================================================
+void ClientNetworking::PumpEvents()
 {
-	if (!Socket || Socket->GetConnectionState() != SCS_Connected) {
-		// Call Delegate if Invalid Socket Connect
-		if (OnDisconnected.IsBound()) { OnDisconnected.Broadcast(); }
-		return false; 
-	}
+    check(IsInGameThread());
 
-	// Create Send Buffer ( Header + Data )
-	TArray<uint8> SendBuffer;
+    if (!Worker.IsValid()) { return; }
 
-	uint16 BufferSize = sizeof(FPacketHeader) + DataSize;
-	SendBuffer.SetNum(BufferSize);
-	
-	FPacketHeader* Header = reinterpret_cast<FPacketHeader*> (SendBuffer.GetData());
-	Header->PacketID = PacketID;
-	Header->PacketSize = BufferSize;
-	
-	
-	if (DataSize > 0 && Data != nullptr) {
-		FMemory::Memcpy(SendBuffer.GetData() + sizeof(FPacketHeader), Data, DataSize);
-	}
+    static int32 SnapshotLogCounter = 0;
+    SnapshotLogCounter++;
 
-	// Send Protocol
-	int32 BytesSent = 0;
-	return Socket->Send(SendBuffer.GetData(), SendBuffer.Num(), BytesSent);
+    FNetEvent Evt;
+    while (Worker->OutboundEventQueue.Dequeue(Evt))
+    {
+        switch (Evt.Type)
+        {
+        case ENetEventType::Connected:
+            UE_LOG(LogTemp, Display, TEXT("Connected to server!"));
+            bDisconnectNotified = false;
+            OnConnected.Broadcast();
+            break;
+
+        case ENetEventType::ConnectFailed:
+            UE_LOG(LogTemp, Error, TEXT("Connect failed!"));
+            OnConnectFailed.Broadcast();
+            break;
+
+        case ENetEventType::Disconnected:
+            if (!bDisconnectNotified)
+            {
+                bDisconnectNotified = true;
+                UE_LOG(LogTemp, Warning, TEXT("Disconnected from server!"));
+                OnDisconnected.Broadcast();
+            }
+            break;
+
+        case ENetEventType::AccessAllow:
+            UE_LOG(LogTemp, Display, TEXT("Server Access Allowed!"));
+            break;
+
+        case ENetEventType::LoginResult:
+            if (Evt.bSuccess)
+            {
+                IsLogin = true;
+                ClientSessionID = Evt.SessionID;
+                ClientPlayerData = Evt.PlayerData;
+                UE_LOG(LogTemp, Display, TEXT("Login OK! SessionID=%d, UID=%d"), ClientSessionID, ClientPlayerData.userUID);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Display, TEXT("Login Denied!"));
+            }
+            OnLoginResult.Broadcast(Evt.bSuccess);
+            break;
+
+        case ENetEventType::RegisterResult:
+            UE_LOG(LogTemp, Display, TEXT("Register %s"), Evt.bSuccess ? TEXT("OK") : TEXT("Denied"));
+            OnRegisterResult.Broadcast(Evt.bSuccess);
+            break;
+
+        case ENetEventType::RoomListUpdated:
+            UE_LOG(LogTemp, Display, TEXT("Room list updated: %d rooms"), Evt.RoomList.Num());
+            OnRoomListUpdated.Broadcast(Evt.RoomList);
+            break;
+
+        case ENetEventType::RoomEntered:
+            UE_LOG(LogTemp, Display, TEXT("Room entered! Members: %d"), Evt.MemberList.Num());
+            OnRoomEnterResult.Broadcast(Evt.bSuccess, Evt.MemberList);
+            break;
+
+        case ENetEventType::RoomInfoUpdated:
+            UE_LOG(LogTemp, Display, TEXT("Room info updated! Members: %d"), Evt.MemberList.Num());
+            OnRoomEnterResult.Broadcast(true, Evt.MemberList);
+            break;
+
+        case ENetEventType::GameStart:
+            UE_LOG(LogTemp, Display, TEXT("Game Start!"));
+            OnGameStart.Broadcast();
+            break;
+
+        case ENetEventType::SnapshotReceived:
+            if (SnapshotLogCounter % 30 == 0)
+            {
+                UE_LOG(LogTemp, Display, TEXT("Snapshot received: Count=%d"), Evt.SnapshotList.Num());
+            }
+            OnSnapshotReceived.Broadcast(Evt.SnapshotList);
+            break;
+
+        case ENetEventType::AttackAction:
+            UE_LOG(LogTemp, Display, TEXT("Attack Action received"));
+            OnAttackAction.Broadcast(Evt.AttackAction);
+            break;
+        case ENetEventType::DamageApply:
+            UE_LOG(LogTemp, Display, TEXT("Damage Apply received"));
+            OnDamageApplied.Broadcast(Evt.DamageApply);
+            break;
+        case ENetEventType::StateChange:
+            UE_LOG(LogTemp, Display, TEXT("State Change received"));
+            OnStateChanged.Broadcast(Evt.StateChange);
+            break;
+        case ENetEventType::StatusUpdate:
+            UE_LOG(LogTemp, Display, TEXT("Status Update received"));
+            OnStatusUpdated.Broadcast(Evt.StatusUpdate);
+            break;
+        case ENetEventType::Respawn:
+            UE_LOG(LogTemp, Display, TEXT("Respawn received"));
+            OnRespawned.Broadcast(Evt.Respawn);
+            break;
+        case ENetEventType::SyncAnimation:
+            UE_LOG(LogTemp, Display, TEXT("Sync Animation received"));
+            OnSyncAnimation.Broadcast(Evt.SyncAnimation);
+            break;
+        }
+    }
 }
 
-void ClientNetworking::RecvPacketProcess()
+// ============================================================
+// Command Enqueue Helpers
+// ============================================================
+void ClientNetworking::EnqueueSendCommand(uint16 PacketID, const TArray<uint8>& Payload)
 {
-	if (!Socket || Socket->GetConnectionState() != SCS_Connected) {
-		// Call Delegate if Invalid Socket Connect
-		if (OnDisconnected.IsBound()) { OnDisconnected.Broadcast(); }
-		return; 
-	}
+    if (!Worker.IsValid()) { return; }
 
+    FNetCommand Cmd;
+    Cmd.Type = ENetCommandType::SendPacket;
+    Cmd.PacketID = PacketID;
+    Cmd.Payload = Payload;
+    Worker->InboundCommandQueue.Enqueue(Cmd);
+    Worker->WakeUp();
+}
 
-	// Check Data Input
-	uint32 PendingDataSize = 0;
-	if (Socket->HasPendingData(PendingDataSize) && PendingDataSize > 0) {
-		TArray<uint8> TempBuffer;
-		
-		int32 SizeToRead = (PendingDataSize > 0) ? PendingDataSize : 1;
-		TempBuffer.SetNumUninitialized(PendingDataSize);
-		
-		int32 ReadBytes = 0;
+void ClientNetworking::EnqueueSendCommand(uint16 PacketID)
+{
+    TArray<uint8> Empty;
+    EnqueueSendCommand(PacketID, Empty);
+}
 
+// ============================================================
+// Request Methods (main thread â€” enqueue only)
+// ============================================================
+void ClientNetworking::RequestConnect(const FString& IP, int32 Port)
+{
+    if (!Worker.IsValid()) { return; }
 
-		// Socket Error: Return is false
-		if (!Socket->Recv(TempBuffer.GetData(), PendingDataSize, ReadBytes)) {
-			if (OnDisconnected.IsBound()) { OnDisconnected.Broadcast(); }
-			return;
-		}
+    CachedIP = IP;
+    CachedPort = Port;
 
-		// General Shutdown: Return is True but Read 0 byte
-		if (ReadBytes == 0) {
-			if (OnDisconnected.IsBound()) { OnDisconnected.Broadcast(); }
-			return;
-		}
+    FNetCommand Cmd;
+    Cmd.Type = ENetCommandType::Connect;
+    Cmd.IP = IP;
+    Cmd.Port = Port;
+    Worker->InboundCommandQueue.Enqueue(Cmd);
+    Worker->WakeUp();
+}
 
-		if (ReadBytes > 0) { RecvBuffer.Append(TempBuffer.GetData(), ReadBytes); }
-	}
+void ClientNetworking::RequestDisconnect()
+{
+    if (!Worker.IsValid()) { return; }
 
+    FNetCommand Cmd;
+    Cmd.Type = ENetCommandType::Disconnect;
+    Worker->InboundCommandQueue.Enqueue(Cmd);
+    Worker->WakeUp();
+}
 
-	//UE_LOG(LogTemp, Log, TEXT("Packet Recv Start!"));
-	// Packet Assemble
-	while (RecvBuffer.Num() >= sizeof(FPacketHeader)) {
-		FPacketHeader* Header = reinterpret_cast<FPacketHeader*> (RecvBuffer.GetData());
+void ClientNetworking::RequestReconnect()
+{
+    if (!Worker.IsValid()) { return; }
 
-		// Wait for next Tick if Data not filled PacketSize
-		if (RecvBuffer.Num() < Header->PacketSize) { break; }
+    bDisconnectNotified = false;
 
-		//UE_LOG(LogTemp, Log, TEXT("[Packet Recv] Pakcet ID : %d / Packet SIZE : %d"), Header->PacketID, Header->PacketSize);
-		
-		/* Need Packet Process Logic */
-
-		uint8* LoadData = RecvBuffer.GetData() + sizeof(FPacketHeader);
-		PacketHandle(Header, LoadData);
-
-		// Remove Processed Packet Size in front of Buffer
-		RecvBuffer.RemoveAt(0, Header->PacketSize);
-	}
+    FNetCommand Cmd;
+    Cmd.Type = ENetCommandType::Reconnect;
+    Cmd.IP = CachedIP;
+    Cmd.Port = CachedPort;
+    Worker->InboundCommandQueue.Enqueue(Cmd);
+    Worker->WakeUp();
 }
 
 void ClientNetworking::LoginAccess(FString& ID, FString& PW)
 {
-	FBufferArchive data;
-	data << ID; data << PW;
+    FBufferArchive Data;
+    Data << ID;
+    Data << PW;
 
-	TArray<uint8> packet = PacketAssemble(PKT_C2S_LOGIN_REQ, data);
+    TArray<uint8> Payload;
+    // Build header + payload in old PacketAssemble format
+    FPacketHeader Header;
+    Header.PacketID = PKT_C2S_LOGIN_REQ;
+    Header.PacketSize = sizeof(FPacketHeader) + Data.Num();
 
-	if (!Socket) { UE_LOG(LogTemp, Log, TEXT("Failed to Login")); return; }
-	
-	int32 SentBytes = 0;
-	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-	UE_LOG(LogTemp, Log, TEXT("Login Accessed"));
+    Payload.Append((uint8*)&Header, sizeof(FPacketHeader));
+    if (Data.Num() > 0) { Payload.Append(Data); }
+
+    // For login, we send the full assembled packet as raw bytes
+    // The worker's SendRawPacket adds its own header, so we send payload only
+    TArray<uint8> PayloadOnly;
+    PayloadOnly.Append(Data.GetData(), Data.Num());
+    EnqueueSendCommand(PKT_C2S_LOGIN_REQ, PayloadOnly);
 }
 
 void ClientNetworking::RegisterRequest(FString& ID, FString& PW)
 {
-	FBufferArchive data;
-	data << ID; data << PW;
+    FBufferArchive Data;
+    Data << ID;
+    Data << PW;
 
-	TArray<uint8> packet = PacketAssemble(PKT_C2S_REGISTER_REQ, data);
-
-	if (!Socket) { UE_LOG(LogTemp, Log, TEXT("Failed to Register")); return; }
-
-	int32 SentBytes = 0;
-	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-	UE_LOG(LogTemp, Log, TEXT("Register Accessed"));
+    TArray<uint8> PayloadOnly;
+    PayloadOnly.Append(Data.GetData(), Data.Num());
+    EnqueueSendCommand(PKT_C2S_REGISTER_REQ, PayloadOnly);
 }
 
 void ClientNetworking::CreateRoomRequest()
 {
-	TArray<uint8> emptyData;
-	TArray<uint8> packet = PacketAssemble(PKT_C2S_ROOM_CREATE_REQ, emptyData);
-	
-	if (!Socket) {
-		UE_LOG(LogTemp, Error, TEXT("Failed to Create Room - Socket is Invalid"));
-		return;
-	}
-
-	int32 SentBytes = 0;
-	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-	UE_LOG(LogTemp, Log, TEXT("Create Room Requested to Server"));
+    EnqueueSendCommand(PKT_C2S_ROOM_CREATE_REQ);
 }
 
+void ClientNetworking::CharacterSelectRequest(int32 RoleType)
+{
+    TArray<uint8> Payload;
+    Payload.SetNumUninitialized(sizeof(int32));
+    FMemory::Memcpy(Payload.GetData(), &RoleType, sizeof(int32));
+
+    EnqueueSendCommand(PKT_C2S_CHARACTER_SELECT_REQ, Payload);
+}
 
 void ClientNetworking::JoinRoomRequest(int32 RoomID)
 {
-	TArray<uint8> Payload;
-	Payload.Append((uint8*)&RoomID, sizeof(int32));
-
-	TArray<uint8> packet = PacketAssemble(PKT_C2S_ROOM_JOIN_REQ, Payload);
-	
-	if (!Socket) {
-		UE_LOG(LogTemp, Error, TEXT("Failed to Join Room - Socket is Invalid"));
-		return;
-	}
-
-	int32 SentBytes = 0;
-	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-	UE_LOG(LogTemp, Log, TEXT("Join Room Requested to Server"));
+    TArray<uint8> Payload;
+    Payload.Append((uint8*)&RoomID, sizeof(int32));
+    EnqueueSendCommand(PKT_C2S_ROOM_JOIN_REQ, Payload);
 }
 
 void ClientNetworking::ReadyToggleRequest()
 {
-	TArray<uint8> emptyData;
-	TArray<uint8> packet = PacketAssemble(PKT_C2S_READY_REQ, emptyData);
-
-	if (!Socket) { return; }
-
-	int32 SentBytes = 0;
-	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-	UE_LOG(LogTemp, Log, TEXT("Ready Toggle Requested"));
+    EnqueueSendCommand(PKT_C2S_READY_REQ);
 }
 
 void ClientNetworking::GameStartRequest()
 {
-	TArray<uint8> emptyData;
-	TArray<uint8> packet = PacketAssemble(PKT_C2S_GAME_START_REQ, emptyData);
-
-	if (!Socket) { return; }
-
-	int32 SentBytes = 0;
-	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-	UE_LOG(LogTemp, Log, TEXT("Game Start Requested"));
+    EnqueueSendCommand(PKT_C2S_GAME_START_REQ);
 }
 
-//void ClientNetworking::RequestRoomList()
-//{
-//	TArray<uint8> emptyData;
-//
-//	TArray<uint8> packet = PacketAssemble(PKT_C2S_ROOM_LIST_REQ, emptyData);
-//
-//	if (!Socket) return;
-//
-//	int32 SentBytes = 0;
-//	Socket->Send(packet.GetData(), packet.Num(), SentBytes);
-//	UE_LOG(LogTemp, Log, TEXT("Requested Room List to Server"));
-//}
-
-TArray<uint8> ClientNetworking::PacketAssemble(PacketID _id, const TArray<uint8> data)
+void ClientNetworking::SendMoveInput(const FMovePacket& MoveData)
 {
-	FBufferArchive ret = NULL;
-
-	// Declare Temp packets
-	FPacketHeader Header;
-	Header.PacketID = _id;
-	Header.PacketSize = sizeof(FPacketHeader) + data.Num();
-
-	ret.Append((uint8*)&Header, sizeof(FPacketHeader));
-	
-	if (data.Num() > 0) { ret.Append(data); }
-	
-	return ret;
-}
-
-void ClientNetworking::PacketHandle(FPacketHeader* Header, uint8* LoadData)
-{
-	uint16 LoadSize = Header->PacketSize - sizeof(FPacketHeader);
-	
-	// Snapshot Temp Variable
-	int32 UserCount = 0;
-	FMemory::Memcpy(&UserCount, LoadData, sizeof(int32));
-	TArray<GameData> SnapshotList;
-	int32 Offset = sizeof(int32);
-	GameData TempData;
-	
-	
-	switch (Header->PacketID)
-	{
-	case PKT_S2C_ACCESS_ALLOW:
-		UE_LOG(LogTemp, Display, TEXT("Sever Access Allow!"));
-		break;
-	case PKT_S2C_LOGIN_OK:
-		PacketDeserialize(LoadData, LoadSize);
-		if (OnLoginResult.IsBound()) { OnLoginResult.Broadcast(true); }
-		UE_LOG(LogTemp, Display, TEXT("Login Successful!"));
-		break;
-	case PKT_S2C_LOGIN_DENY:
-		PacketDeserialize(LoadData, LoadSize);
-		OnLoginResult.Broadcast(false);
-		UE_LOG(LogTemp, Display, TEXT("Login Failed!"));
-		break;
-	case PKT_S2C_REGISTER_OK:
-		if (OnRegisterResult.IsBound()) { OnRegisterResult.Broadcast(true); }
-		UE_LOG(LogTemp, Display, TEXT("Register Successful!"));
-		break;
-	case PKT_S2C_REGISTER_DENY:
-		OnRegisterResult.Broadcast(false);
-		UE_LOG(LogTemp, Display, TEXT("Register Failed!"));
-		break;
-	case PKT_S2C_SNAPSHOT_NOTICE:
-		for (int32 i = 0; i < UserCount; ++i)
-		{
-			FMemory::Memcpy(&TempData, LoadData + Offset, sizeof(GameData));
-			SnapshotList.Add(TempData);
-			Offset += sizeof(GameData);
-		}
-		
-		//UE_LOG(LogTemp, Display, TEXT("Snapshot Recive Completed! Current Num of Member: %d"), UserCount);
-		break;
-	case PKT_S2C_ROOM_UPDATE:
-	{
-		int32 RoomCount = 0;
-		FMemory::Memcpy(&RoomCount, LoadData, sizeof(int32));
-		TArray<FRoomInfoData> RoomList;
-		int32 CurrentOffset = sizeof(int32);
-		
-		for (int32 i = 0; i < RoomCount; ++i)
-		{
-			FRoomPacketData RoomTempData;
-			FMemory::Memcpy(&RoomTempData, LoadData + CurrentOffset, sizeof(FRoomPacketData));
-			
-			FRoomInfoData Info;
-			Info.RoomID = RoomTempData.RoomID;
-			Info.RoomName = FString(RoomTempData.RoomName);
-			Info.CurrentPlayers = RoomTempData.CurrentPlayers;
-			
-			RoomList.Add(Info);
-
-			CurrentOffset += sizeof(FRoomPacketData);
-		}
-		
-		UE_LOG(LogTemp, Display, TEXT("Received Room List. Total: %d"), RoomCount);
-		if (OnRoomListUpdated.IsBound()) {
-			OnRoomListUpdated.Broadcast(RoomList);
-		}
-		break;
-	}
-	case PKT_S2C_ROOM_ENTER:
-	{
-		int32 CurrentOffset = 0;
-
-		int32 EnteredRoomID = 0;
-		FMemory::Memcpy(&EnteredRoomID, LoadData, sizeof(int32));
-		CurrentOffset += sizeof(int32);
-
-		int32 MemberCount = 0;
-		FMemory::Memcpy(&MemberCount, LoadData + CurrentOffset, sizeof(int32));
-		CurrentOffset += sizeof(int32);
-
-		TArray<FRoomMemberInfo> PlayerList;
-		for (int32 i = 0; i < MemberCount; ++i)
-		{
-			FRoomMemberPacketData MemberData;
-			FMemory::Memcpy(&MemberData, LoadData + CurrentOffset, sizeof(FRoomMemberPacketData));
-			CurrentOffset += sizeof(FRoomMemberPacketData);
-
-			FRoomMemberInfo Info;
-			Info.PlayerName = FString(MemberData.PlayerName);
-			Info.bIsReady = MemberData.isReady;
-			PlayerList.Add(Info);
-		}
-
-		UE_LOG(LogTemp, Display, TEXT("Room Enter Success! RoomID: %d"), EnteredRoomID);
-		
-		if (OnRoomEnterResult.IsBound()) {
-			OnRoomEnterResult.Broadcast(true, PlayerList);
-		}
-		break;
-	}
-	case PKT_S2C_ROOM_INFO_BRD:
-	{
-		int32 CurrentOffset = 0;
-
-		// [1] MemberCount ÀÐ±â
-		int32 MemberCount = 0;
-		FMemory::Memcpy(&MemberCount, LoadData + CurrentOffset, sizeof(int32));
-		CurrentOffset += sizeof(int32);
-
-		// [2] ¸â¹ö ¸®½ºÆ® ÀÐ±â
-		TArray<FRoomMemberInfo> PlayerList;
-		for (int32 i = 0; i < MemberCount; ++i)
-		{
-			FRoomMemberPacketData MemberData;
-			FMemory::Memcpy(&MemberData, LoadData + CurrentOffset, sizeof(FRoomMemberPacketData));
-			CurrentOffset += sizeof(FRoomMemberPacketData);
-
-			FRoomMemberInfo Info;
-			Info.PlayerName = FString(MemberData.PlayerName);
-			Info.bIsReady = MemberData.isReady;
-			PlayerList.Add(Info);
-		}
-
-		UE_LOG(LogTemp, Display, TEXT("Room Info Updated! Members: %d"), MemberCount);
-
-		// ±âÁ¸ µ¨¸®°ÔÀÌÆ® ÀçÈ°¿ë (bSuccess=true, °»½ÅµÈ ¸â¹ö ¸®½ºÆ®)
-		if (OnRoomEnterResult.IsBound()) {
-			OnRoomEnterResult.Broadcast(true, PlayerList);
-		}
-		break;
-	}
-	default:
-		UE_LOG(LogTemp, Warning, TEXT("Wrong Packet Type! [ID: %d ]"), Header->PacketID);
-		break;
-	}
-}
-
-
-void ClientNetworking::PacketDeserialize(uint8* Data, uint16 DataSize)
-{
-	if (DataSize < sizeof(FGamedataPacket)) {
-		UE_LOG(LogTemp, Error, TEXT("Pakcet Size mismatch! [Expected: %d | Received: %d]"),
-			sizeof(FGamedataPacket), DataSize);
-		return;
-	}
-
-	FGamedataPacket packet;
-	FMemory::Memcpy(&packet, Data, sizeof(FGamedataPacket));
-	
-	int32 sessionID = packet.sessionID;
-	int32 userID = packet.data.userUID;
-
-	float X = packet.data.x; float Y = packet.data.y; float Z = packet.data.z;
+    TArray<uint8> Payload;
+    Payload.Append((const uint8*)&MoveData, sizeof(FMovePacket));
+    EnqueueSendCommand(PKT_C2S_MOVE_KEYINPUT, Payload);
 }

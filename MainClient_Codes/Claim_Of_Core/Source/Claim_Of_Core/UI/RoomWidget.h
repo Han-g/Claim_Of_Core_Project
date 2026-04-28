@@ -10,19 +10,19 @@
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
 
-#include "../Networking/ClientNetworking.h"
+#include "ClientNetworking.h"
 
 #include "RoomWidget.generated.h"
 
 /**
- * 
+ *
  */
 
 UCLASS()
 class CLAIM_OF_CORE_API URoomWidget : public UUserWidget
 {
 	GENERATED_BODY()
-	
+
 public:
 	void UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList);
 

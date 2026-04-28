@@ -4,6 +4,21 @@
 #include "LoginWidget.h"
 #include "NetworkInstance.h"
 
+void ULoginWidget::FocusInitialWidget()
+{
+	if (!ID_BOX)
+	{
+		return;
+	}
+
+	if (APlayerController* PC = GetOwningPlayer())
+	{
+		ID_BOX->SetUserFocus(PC);
+	}
+
+	ID_BOX->SetKeyboardFocus();
+}
+
 void ULoginWidget::ShowPopup(const FText& PopupMessage)
 {
 	if (FailLoginPopUp) {

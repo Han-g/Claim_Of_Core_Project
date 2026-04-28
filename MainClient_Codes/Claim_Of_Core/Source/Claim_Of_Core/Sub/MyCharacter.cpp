@@ -1,10 +1,11 @@
 ﻿#include "MyCharacter.h"
 
+#include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Components/BoxComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -23,8 +24,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 
-#include "../Map/Building/UmbrellaItem.h"
-
+#include "ClientNetworking.h"
 #include "BaseItem.h"
 
 AMyCharacter::AMyCharacter()
@@ -58,8 +58,18 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
+	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
+	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
+	HandCollision->SetGenerateOverlapEvents(true);
+	HandCollision->OnComponentBeginOverlap.AddDynamic(
+		this,
+		&AMyCharacter::OnAttackOverlap
+	);
+
 	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
 	HPTextComponent->SetupAttachment(GetMesh());
+	HPTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 220.f));
+	HPTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
 	HPTextComponent->SetHorizontalAlignment(EHTA_Center);
 	HPTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
 	HPTextComponent->SetWorldSize(20.f);
@@ -68,6 +78,8 @@ AMyCharacter::AMyCharacter()
 
 	RoleTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("RoleText"));
 	RoleTextComponent->SetupAttachment(GetMesh());
+	RoleTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 255.f));
+	RoleTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
 	RoleTextComponent->SetHorizontalAlignment(EHTA_Center);
 	RoleTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
 	RoleTextComponent->SetWorldSize(18.f);
@@ -87,13 +99,6 @@ AMyCharacter::AMyCharacter()
 	DeathUITextComponent->SetOnlyOwnerSee(true);
 	DeathUITextComponent->SetCastShadow(false);
 
-	UmbrellaGuardBox = CreateDefaultSubobject<UBoxComponent>(TEXT("UmbrellaGuardBox"));
-	UmbrellaGuardBox->SetupAttachment(RootComponent);
-	UmbrellaGuardBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	UmbrellaGuardBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	UmbrellaGuardBox->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
-	UmbrellaGuardBox->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnUmbrellaGuardBoxBeginOverlap);
-
 	MaxHP = 100;
 	CurrentHP = MaxHP;
 	CharacterState = ERecCharacterState::Alive;
@@ -103,6 +108,10 @@ AMyCharacter::AMyCharacter()
 void AMyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>();
+	NetworkPlayerUID = NetworkInstance->GetPlayerUID();
+	SetNetworkPlayerUID(NetworkPlayerUID);
 
 	if (GetMesh())
 	{
@@ -132,6 +141,33 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// Temporary Movement Threat 20fps transform send
+	if (IsLocallyControlled() && !IsDead())
+	{
+		MoveSyncAccumulator += DeltaTime;
+
+		if (MoveSyncAccumulator >= 0.05f)
+		{
+			MoveSyncAccumulator = 0.f;
+
+			if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+			{
+				FMovePacket Packet{};
+				const FVector Pos = GetActorLocation();
+				const FRotator Rot = GetActorRotation();
+
+				Packet.X = Pos.X;
+				Packet.Y = Pos.Y;
+				Packet.Z = Pos.Z;
+				Packet.Yaw = Rot.Yaw;
+				Packet.VelocityX = CachedMoveRight;
+				Packet.VelocityY = CachedMoveForward;
+
+				NetInst->SendMoveInputToServer(Packet);
+			}
+		}
+	}
 
 	UpdateLowHPPulseEffect(DeltaTime);
 	UpdateDeathCameraShake(DeltaTime);
@@ -204,6 +240,11 @@ void AMyCharacter::UpdateRoleText()
 	}
 
 	RoleTextComponent->SetText(FText::FromString(Str));
+}
+
+float AMyCharacter::GetSkillCoolTime()
+{
+	return CurrentCoolTime;
 }
 
 float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
@@ -314,6 +355,30 @@ void AMyCharacter::ApplyRoleStats()
 		const float BaseRoleMult = GetRoleSpeedMultiplier(RoleType);
 		const float SkillMult = GetRoleSkillSpeedMultiplier();
 		MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
+	}
+
+
+	switch (RoleType)
+	{
+	case ERecRoleType::Striker:
+		AttackDamage = 30;
+		KnockbackCoefficient = 1.10f;
+		break;
+
+	case ERecRoleType::Guardian:
+		AttackDamage = 15;
+		KnockbackCoefficient = 0.80f;
+		break;
+
+	case ERecRoleType::Manipulator:
+		AttackDamage = 20;
+		KnockbackCoefficient = 1.30f;
+		break;
+
+	default:
+		AttackDamage = 20;
+		KnockbackCoefficient = 1.0f;
+		break;
 	}
 }
 
@@ -511,6 +576,11 @@ void AMyCharacter::ActivateRoleSkill()
 		return;
 	}
 
+	if (CurrentCoolTime > 0.f)
+	{
+		return;
+	}
+
 	bRoleSkillActive = true;
 
 	ApplyRoleStats();
@@ -528,6 +598,26 @@ void AMyCharacter::ActivateRoleSkill()
 			GetCurrentRoleSkillDuration(),
 			false
 		);
+
+		CurrentCoolTime = CoolTime;
+		GetWorldTimerManager().SetTimer(
+			CoolTimer,
+			this,
+			&AMyCharacter::DecreaseCoolTime,
+			1.0f,
+			true
+		);
+	}
+}
+
+void AMyCharacter::DecreaseCoolTime()
+{
+	CurrentCoolTime -= 1.f;
+
+	if (CoolTime <= 0.f)
+	{
+		CoolTime = 0.f;
+		GetWorldTimerManager().ClearTimer(CoolTimer);
 	}
 }
 
@@ -650,8 +740,20 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+	{
+		const int32 LocalUID = NetworkInstance->GetPlayerUID();
+		SetNetworkPlayerUID(LocalUID);
+
+		UE_LOG(LogTemp, Display,
+			TEXT("[AttackUID] Local character UID set. Character=%s UID=%d"),
+			*GetName(),
+			LocalUID);
+	}
+
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
+		UE_LOG(LogTemp, Display, TEXT("[InputTrace] Character SetupPlayerInputComponent"));
 		if (JumpAction)
 		{
 			EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &AMyCharacter::DoJumpStart);
@@ -663,11 +765,6 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
 		}
 
-		if (MouseLookAction)
-		{
-			EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
-		}
-
 		if (LookAction)
 		{
 			EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
@@ -675,19 +772,20 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		if (AttackAction)
 		{
+			UE_LOG(LogTemp, Display, TEXT("[InputTrace] AttackAction is %s"), *GetNameSafe(AttackAction));
 			EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMyCharacter::Attack);
 		}
 
-		if (KnockbackAction)
-		{
-			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::KnockbackTest);
-		}
 	}
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("'%s' Failed to find an Enhanced Input component!"), *GetNameSafe(this));
 	}
 
+	// Test Key Bind
+	PlayerInputComponent->BindKey(EKeys::Subtract, IE_Pressed, this, &AMyCharacter::TestFunc);
+
+	// Key Binding
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMyCharacter::EquipItem);
 	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AMyCharacter::DropCurrentItem);
 
@@ -705,10 +803,45 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindKey(EKeys::T, IE_Pressed, this, &AMyCharacter::SelfDamagePressed);
 }
 
+void AMyCharacter::TestFunc()
+{
+	// Prevent Duplicate tansfers Not local player to Other client
+	// Prevent Send Test Packet while Dead state or Locked Input
+	if (!IsLocallyControlled() || bDeathSequenceLocked) { return; }
+
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>()) {
+		UE_LOG(LogTemp, Display, TEXT("[ClientTest] TestFunc called. Sending attack test packet."));
+		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+	}
+
+	else { UE_LOG(LogTemp, Warning, TEXT("[ClientTest] NetworkInstance is null.")); }
+}
+
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
 	const FVector2D MovementVector = Value.Get<FVector2D>();
-	DoMove(MovementVector.X, MovementVector.Y);
+	const float Right = MovementVector.X;
+	const float Forward = MovementVector.Y;
+	CachedMoveRight = Right;
+	CachedMoveForward = Forward;
+
+	DoMove(Right, Forward);
+
+	/*UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>();
+	if (!NetInst) return;
+
+	FMovePacket Packet;
+	const FVector Pos = GetActorLocation();
+
+	Packet.X = Pos.X;
+	Packet.Y = Pos.Y;
+	Packet.Z = Pos.Z;
+	Packet.Yaw = GetControlRotation().Yaw;
+
+	Packet.VelocityX = Right;
+	Packet.VelocityY = Forward;
+
+	NetInst->SendMoveInputToServer(Packet);*/
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
@@ -1180,8 +1313,6 @@ void AMyCharacter::ApplyDeadState()
 		return;
 	}
 
-	SetUmbrellaGuardActive(false);
-
 	ShowCorpse();
 
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -1194,30 +1325,10 @@ void AMyCharacter::ApplyDeadState()
 
 	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
-		UAnimInstance* AnimInst = MeshComp->GetAnimInstance();
-		if (!AnimInst) return;
-
-		const FRoleVisualData* VisualData = nullptr;
-
-		switch (GetRoleType()) // 니가 쓰는 역할 enum
-		{
-		case ERecRoleType::Striker:
-			VisualData = &StrikerVisual;
-			break;
-		case ERecRoleType::Guardian:
-			VisualData = &GuardianVisual;
-			break;
-		case ERecRoleType::Manipulator:
-			VisualData = &ManipulatorVisual;
-			break;
-		default:
-			return;
-		}
-
-		if (VisualData && VisualData->DeadMontage)
-		{
-			AnimInst->Montage_Play(VisualData->DeadMontage);
-		}
+		MeshComp->SetCollisionProfileName(TEXT("Ragdoll"));
+		MeshComp->SetSimulatePhysics(true);
+		MeshComp->WakeAllRigidBodies();
+		MeshComp->bBlendPhysics = true;
 	}
 
 	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
@@ -1471,10 +1582,46 @@ void AMyCharacter::Attack()
 		return;
 	}
 
-	if (!IsValid(Controller))
+	if (!IsLocallyControlled())
 	{
 		return;
 	}
+
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+	{
+		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+	}
+
+}
+
+void AMyCharacter::StartAttackHitWindow(float Duration)
+{
+	HitActors.Empty();
+
+	if (HandCollision)
+	{
+		HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+
+	GetWorldTimerManager().ClearTimer(AttackTimer);
+
+	GetWorldTimerManager().SetTimer(
+		AttackTimer,
+		this,
+		&AMyCharacter::EndAttack,
+		Duration,
+		false
+	);
+}
+
+void AMyCharacter::EndAttack()
+{
+	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
+{
+	if (IsDead() || bDeathSequenceLocked) { return; }
 
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 	const FRoleVisualData& Data = GetVisualData(RoleType);
@@ -1488,18 +1635,78 @@ void AMyCharacter::Attack()
 	{
 		return;
 	}
-
+	
 	AnimInstance->Montage_Play(Data.AttackMontage);
+
+	StartAttackHitWindow(2.f);
 }
 
-void AMyCharacter::KnockbackTest()
+void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)
 {
-	ApplyKnockback(this, 1200.f);
+	if (InRoleType < 0 || InRoleType > 2) { return; }
+
+	const ERecRoleType NewRoleType = static_cast<ERecRoleType>(InRoleType);
+	if (RoleType == NewRoleType) { return; }
+
+	RoleType = static_cast<ERecRoleType>(InRoleType);
+	ApplyRoleStats();
+	ApplyRoleVisual();
+	ApplyRoleSkillState();
+	UpdateRoleText();
 }
 
-void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
+void AMyCharacter::SetHPFromNetwork(int32 InHP)
 {
-	if (!Attacker || IsDead())
+	SetCurrentHP(InHP);
+}
+
+void AMyCharacter::SetStateFromNetwork(int32 InState)
+{
+	if (InState < 0 || InState > 1) { return; }
+
+	const ERecCharacterState NewState = static_cast<ERecCharacterState>(InState);
+	if (CharacterState == NewState) {
+		return;
+	}
+
+	if (NewState == ERecCharacterState::Dead && bRoleSkillActive) {
+		EndRoleSkill();
+	}
+
+	CharacterState = NewState;
+	ApplyCharacterState();
+}
+
+void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw)
+{
+	const FVector NewLocation(X, Y, Z);
+	const FRotator NewRotation(0.f, Yaw, 0.f);
+	const bool bIsLocal = IsLocallyControlled();
+
+	SetActorLocationAndRotation(NewLocation, NewRotation, false, nullptr, 
+		ETeleportType::TeleportPhysics);
+
+	if (!bIsLocal) {
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement()) {
+			MoveComp->StopMovementImmediately();
+			MoveComp->Velocity = FVector::ZeroVector;
+		}
+	}
+
+	// Temporary Movement Threat Only Other Character Movement Syncronize
+	/*if (IsLocallyControlled()) {
+		if (AController* C = GetController()) {
+			C->SetControlRotation(NewRotation);
+		}
+	}*/
+}
+
+void AMyCharacter::ApplyHitEvent(AActor* Attacker)
+{
+	AMyCharacter* Player = Cast<AMyCharacter>(Attacker);
+	if (!Player) return;
+
+	if (!Player || IsDead())
 	{
 		return;
 	}
@@ -1513,9 +1720,20 @@ void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
 	Dir.Z = 0.f;
 	Dir = Dir.GetSafeNormal();
 
-	FVector LaunchVel = Dir * KnockbackStrength;
-	LaunchVel.Z = 0.f;
+	FVector LaunchVel;
 
+	if(!Player->CurrentItem)
+	{
+		LaunchVel = Dir * Player->KnockbackCoefficient * Player->BaseAttackKnockbackPower;
+		ApplyDamage(Player->AttackDamage);
+	}
+	else
+	{
+		LaunchVel = Dir * Player->KnockbackCoefficient* Player->CurrentItem->KnockbackPower;
+		ApplyDamage(Player->CurrentItem->Damage);
+	}
+	
+	LaunchVel.Z = 0.f;
 	LaunchCharacter(LaunchVel, true, true);
 }
 
@@ -1527,10 +1745,16 @@ void AMyCharacter::OnAttackOverlap(
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
-	if (AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor))
-	{
-		Victim->ApplyKnockback(this, 1200.f);
-	}
+	if (!OtherActor || OtherActor == this) return;
+
+	AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor);
+	if (!Victim) return;
+
+	if (HitActors.Contains(Victim)) return;
+
+	HitActors.Add(Victim);
+
+	Victim->ApplyHitEvent(this);
 }
 
 void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
@@ -1571,7 +1795,6 @@ void AMyCharacter::DropCurrentItem()
 	{
 		return;
 	}
-	SetUmbrellaGuardActive(false);
 
 	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	CurrentItem->SetOwnerCharacter(nullptr);
@@ -1584,61 +1807,6 @@ void AMyCharacter::DropCurrentItem()
 	}
 
 	CurrentItem = nullptr;
-}
-
-void AMyCharacter::ClearCurrentItemReference(ABaseItem* Item)
-{
-	if (CurrentItem == Item)
-	{
-		CurrentItem = nullptr;
-	}
-}
-
-void AMyCharacter::SetUmbrellaGuardActive(bool bActive)
-{
-	if (!UmbrellaGuardBox) return;
-
-	UmbrellaGuardBox->SetCollisionEnabled(
-		bActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision
-	);
-}
-
-void AMyCharacter::OnUmbrellaGuardBoxBeginOverlap(
-	UPrimitiveComponent* OverlappedComp,
-	AActor* OtherActor,
-	UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex,
-	bool bFromSweep,
-	const FHitResult& SweepResult)
-{
-	if (!OtherActor || !CurrentItem)
-	{
-		return;
-	}
-
-	AUmbrellaItem* Umbrella = Cast<AUmbrellaItem>(CurrentItem);
-	if (!Umbrella)
-	{
-		return;
-	}
-
-	if (!Umbrella->IsOpened())
-	{
-		return;
-	}
-
-	if (OtherActor->ActorHasTag(TEXT("LargeDebris")))
-	{
-		Umbrella->BreakUmbrella();
-		return;
-	}
-
-	if (OtherActor->ActorHasTag(TEXT("FallingDebris")))
-	{
-		Umbrella->HandleGuardHit(OtherActor, 30.f);
-		return;
-	}
-
 }
 
 void AMyCharacter::AnimNotify_AttackHit()

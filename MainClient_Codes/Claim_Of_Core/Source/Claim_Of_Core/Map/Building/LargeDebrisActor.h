@@ -20,13 +20,6 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
-	void OnChunkHit(
-		UPrimitiveComponent* HitComponent,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		FVector NormalImpulse,
-		const FHitResult& Hit);
-
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|VFX")
 	TObjectPtr<UNiagaraSystem> ChunkBreakEffect;
@@ -83,16 +76,6 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
 	TArray<int32> PendingBreakChunks;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|CameraShake")
-	TSubclassOf<UCameraShakeBase> CameraShakeClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|CameraShake")
-	float ShakeRadius = 3000.f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|CameraShake")
-	float ShakeInnerRadius = 0.f;
-
-
 	FTimerHandle SequentialBreakTimerHandle;
 
 protected:
@@ -100,7 +83,6 @@ protected:
 	void LandAndFracture();
 	void GetBottomChunks(TArray<int32>& OutChunkIndices) const;
 	void BreakInitialBottomChunks(float ImpactSpeed);
-	void TriggerImpactCameraShake(float ImpactSpeed);
 
 	void StartSequentialUnsupportedBreak();
 	void ProcessNextChunkBreak();
@@ -126,7 +108,6 @@ protected:
 	virtual void OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact) override;
 
 public:
-
 	UFUNCTION(BlueprintImplementableEvent, Category = "Debris")
 	void BP_OnDebrisActivated();
 

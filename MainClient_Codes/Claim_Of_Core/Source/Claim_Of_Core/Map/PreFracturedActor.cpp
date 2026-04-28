@@ -1,4 +1,5 @@
 #include "PreFracturedActor.h"
+#include "GameState/InGame_GameState.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Containers/Queue.h"
@@ -18,6 +19,62 @@ void APreFracturedActor::BeginPlay()
 
 	CollectChunkMeshes();
 	InitializeChunkData();
+	InitializeGameState();
+
+	if (CachedGameState)
+	{
+		if (CachedGameState->IsGameplayActivated())
+		{
+			ActivateFractureRuntime();
+		}
+		else
+		{
+			CachedGameState->OnGameplayActivated.AddUObject(
+				this,
+				&APreFracturedActor::HandleGameplayActivated
+			);
+		}
+	}
+
+	/*if (bAutoBuildGraph)
+	{
+		AutoBuildNeighborGraph();
+	}
+
+	if (bAutoSetAnchored)
+	{
+		AutoSetAnchoredChunks();
+	}
+
+	PrepareFracture();*/
+}
+
+void APreFracturedActor::InitializeGameState()
+{
+	if (CachedGameState)
+	{
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		CachedGameState = World->GetGameState<AInGame_GameState>();
+	}
+}
+
+void APreFracturedActor::HandleGameplayActivated()
+{
+	ActivateFractureRuntime();
+}
+
+void APreFracturedActor::ActivateFractureRuntime()
+{
+	if (bFractureRuntimeActivated)
+	{
+		return;
+	}
+
+	bFractureRuntimeActivated = true;
 
 	if (bAutoBuildGraph)
 	{
@@ -30,6 +87,7 @@ void APreFracturedActor::BeginPlay()
 	}
 
 	PrepareFracture();
+	ActivateBreakable();
 }
 
 void APreFracturedActor::CollectChunkMeshes()
@@ -113,8 +171,9 @@ void APreFracturedActor::PrepareFracture()
 
 void APreFracturedActor::ApplyDamageToChunk(int32 ChunkIndex, float DamageAmount)
 {
-	if (!IsValidChunkIndex(ChunkIndex)) return;
-	if (ChunkData[ChunkIndex].bBroken) return;
+	if (!IsValidChunkIndex(ChunkIndex) || ChunkData[ChunkIndex].bBroken || !bFractureRuntimeActivated) {
+		return; 
+	}
 
 	// 1. 流立 嘎篮 没农 单固瘤
 	ChunkData[ChunkIndex].CurrentDamage += DamageAmount;
@@ -149,8 +208,9 @@ void APreFracturedActor::ApplyDamageToChunk(int32 ChunkIndex, float DamageAmount
 }
 void APreFracturedActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)
 {
-	if (!IsValidChunkIndex(ChunkIndex)) return;
-	if (ChunkData[ChunkIndex].bBroken) return;
+	if (!IsValidChunkIndex(ChunkIndex) || ChunkData[ChunkIndex].bBroken || !bFractureRuntimeActivated) {
+		return; 
+	}
 
 	ChunkData[ChunkIndex].bBroken = true;
 

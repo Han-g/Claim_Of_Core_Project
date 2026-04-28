@@ -13,7 +13,10 @@ class CLAIM_OF_CORE_API ALargeDebrisController : public AActor
 	GENERATED_BODY()
 
 public:
+	bool bRuntimeActivated = false;
 	ALargeDebrisController();
+	void ActivateGameplayRuntime();
+	void HandleGameplayActivated();
 
 protected:
 	virtual void BeginPlay() override;
