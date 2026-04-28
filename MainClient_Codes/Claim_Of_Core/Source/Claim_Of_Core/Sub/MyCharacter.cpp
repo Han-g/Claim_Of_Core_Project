@@ -160,6 +160,31 @@ void AMyCharacter::Tick(float DeltaTime)
 		}
 	}
 
+	if (!IsLocallyControlled() && bHasNetworkTransform && CharacterState == ERecCharacterState::Alive)
+	{
+		const FVector NewLocation = FMath::VInterpTo(
+			GetActorLocation(),
+			TargetNetworkLocation,
+			DeltaTime,
+			RemoteInterpSpeed
+		);
+
+		const FRotator NewRotation = FMath::RInterpTo(
+			GetActorRotation(),
+			TargetNetworkRotation,
+			DeltaTime,
+			RemoteInterpSpeed
+		);
+
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::None
+		);
+	}
+
 	UpdateLowHPPulseEffect(DeltaTime);
 	UpdateDeathCameraShake(DeltaTime);
 	UpdateDeathCameraPullback(DeltaTime);
@@ -1627,7 +1652,68 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 	const FVector NewLocation(X, Y, Z);
 	const FRotator NewRotation(0.f, Yaw, 0.f);
 	const bool bIsLocal = IsLocallyControlled();
+	
+	if (IsLocallyControlled())
+	{
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
 
+		if (AController* C = GetController())
+		{
+			C->SetControlRotation(NewRotation);
+		}
+		return;
+	}
+
+	// 죽은 상태는 보간보다 스냅이 더 안전함
+	if (CharacterState == ERecCharacterState::Dead)
+	{
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+		return;
+	}
+
+	TargetNetworkLocation = NewLocation;
+	TargetNetworkRotation = NewRotation;
+
+	if (!bHasNetworkTransform)
+	{
+		bHasNetworkTransform = true;
+
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+		return;
+	}
+
+	const float Distance = FVector::Dist(GetActorLocation(), NewLocation);
+	if (Distance >= RemoteSnapDistance)
+	{
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+	}
+
+	// Temporary Movement Threat Only Other Character Movement Syncronize
+	/*
 	SetActorLocationAndRotation(NewLocation, NewRotation, false, nullptr, 
 		ETeleportType::TeleportPhysics);
 
@@ -1638,8 +1724,7 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 		}
 	}
 
-	// Temporary Movement Threat Only Other Character Movement Syncronize
-	/*if (IsLocallyControlled()) {
+	if (IsLocallyControlled()) {
 		if (AController* C = GetController()) {
 			C->SetControlRotation(NewRotation);
 		}

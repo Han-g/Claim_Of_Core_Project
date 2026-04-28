@@ -419,6 +419,7 @@ void UNetworkInstance::HandleGameStart()
 		PendingSnapshotList.Empty();
 
 		bLocalInitialTransformApplied = false;
+		MarkPendingGameplayActivation();
 		UGameplayStatics::OpenLevel(this, LevelName);
 		// 레벨 전환 후 입력 모드는 새 PlayerController의 BeginPlay에서 설정하는 게 자연스러움
 	}
@@ -497,6 +498,11 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			RemoteCharacter->SetHPFromNetwork(Data.currentHP);
 			RemoteCharacter->SetStateFromNetwork(Data.characterState);
 			RemoteCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
+			UE_LOG(LogTemp, Display,
+				TEXT("[RemoteAnim] UID=%d Anim=%d Pos=(%.1f, %.1f, %.1f)"),
+				Data.userUID,
+				Data.animationNum,
+				Data.x, Data.y, Data.z);
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
 		}
 	}
@@ -572,6 +578,22 @@ void UNetworkInstance::HandleRespawned(const FRespawnPacket& Packet)
 		Character->SetStateFromNetwork(0);
 		Character->ApplyTransformFromNetwork(Packet.X, Packet.Y, Packet.Z, Character->GetActorRotation().Yaw);
 	}
+}
+
+void UNetworkInstance::MarkPendingGameplayActivation()
+{
+	bPendingGameplayActivation = true;
+}
+
+bool UNetworkInstance::ConsumePendingGameplayActivation()
+{
+	if (!bPendingGameplayActivation)
+	{
+		return false;
+	}
+
+	bPendingGameplayActivation = false;
+	return true;
 }
 
 AMyCharacter* UNetworkInstance::FindCharacterByUID(int32 UID) const

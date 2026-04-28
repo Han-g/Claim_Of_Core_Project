@@ -455,6 +455,17 @@ public:
 	int32 GetNetworkAnimationNum() const { return NetworkAnimationNum; }
 
 private:
+	// Remote Player Data
+	FVector TargetNetworkLocation = FVector::ZeroVector;
+	FRotator TargetNetworkRotation = FRotator::ZeroRotator;
+	bool bHasNetworkTransform = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
+	float RemoteInterpSpeed = 12.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
+	float RemoteSnapDistance = 250.f;
+
 	// Temporary Movement Members
 
 	float CachedMoveRight = 0.f;
