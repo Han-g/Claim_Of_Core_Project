@@ -203,7 +203,15 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount)
     GameData& gd = it->second->gameDatas;
     if (damageAmount <= 0 || gd.characterState == 1) { return; } // non-positive damage or already dead
 
+    const int prevHP = gd.currentHP;
     SetCurrentHP(sessionID, gd.currentHP - damageAmount);
+
+    LOG_INFO("[ATK_TRACE][4_ServerDamage] targetSession=%d targetUID=%d damage=%d hpBefore=%d hpAfter=%d",
+        sessionID,
+        it->second->playerUID,
+        damageAmount,
+        prevHP,
+        gd.currentHP);
 
     // Broadcast the damage result to all clients in the room.
     // PKT_S2C_DAMAGE_APPLY_BRD: target session, damage, remaining HP
@@ -388,6 +396,54 @@ void GameLogic::HandleAttackInput(int sessionID)
 
     // 2차에서 여기에 PendingAttack 등록
     // pendingAttacks.push_back({ sessionID, attackType, AttackWindupSec });
+    Session* bestTarget = nullptr;
+    float bestDist = Range;
+
+    const float yawRad = GameMath::DegreesToRadians(gd.rotate);
+    const float forwardX = std::cos(yawRad);
+    const float forwardY = std::sin(yawRad);
+    const float minDot = std::cos(GameMath::DegreesToRadians(50.0f));
+
+    for (const auto& pair : players)
+    {
+        Session* targetSession = pair.second;
+        if (!targetSession || targetSession == attackerSession) { continue; }
+
+        GameData& targetData = targetSession->gameDatas;
+        if (!targetData.isConnected) { continue; }
+        if (targetData.characterState != 0) { continue; }
+
+        float toX = targetData.x - gd.x;
+        float toY = targetData.y - gd.y;
+        float dist = GameMath::Length2D(toX, toY);
+        if (dist > Range) { continue; }
+
+        GameMath::Normalize2D(toX, toY);
+        const float dot = forwardX * toX + forwardY * toY;
+        if (dot < minDot) { continue; }
+
+        if (dist < bestDist)
+        {
+            bestDist = dist;
+            bestTarget = targetSession;
+        }
+    }
+
+    if (!bestTarget) { 
+        LOG_INFO("Attack Miss to target");
+        return; 
+    }
+
+    int damageAmount = 20;
+    switch (gd.roleType)
+    {
+    case Striker: damageAmount = 30; break;
+    case Guardian: damageAmount = 15; break;
+    case Manipulator: damageAmount = 20; break;
+    default: break;
+    }
+
+    ApplyDamage(bestTarget->sessionID, damageAmount);
 }
 
 void GameLogic::BroadcastAttackAction(int attackerUID, int attackType)

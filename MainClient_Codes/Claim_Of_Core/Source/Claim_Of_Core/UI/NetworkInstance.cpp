@@ -462,10 +462,10 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 		PendingSnapshotList = SnapshotList;
 		bHasPendingSnapshot = true;
 
-		UE_LOG(LogTemp, Warning, TEXT("[Snapshot] Local character not ready. Snapshot cached."));
+		//UE_LOG(LogTemp, Warning, TEXT("[Snapshot] Local character not ready. Snapshot cached."));
 		return;
 	}
-	UE_LOG(LogTemp, Display, TEXT("[SnapshotUID] LocalUID=%d Count=%d"), LocalUID, SnapshotList.Num());
+	//UE_LOG(LogTemp, Display, TEXT("[SnapshotUID] LocalUID=%d Count=%d"), LocalUID, SnapshotList.Num());
 
 	for (const GameData& Data : SnapshotList)
 	{
@@ -559,6 +559,12 @@ void UNetworkInstance::HandleStatusUpdated(const FStatusUpdatePacket& Packet)
 	if (AMyCharacter* Character = FindCharacterByUID(Packet.TargetID))
 	{
 		Character->SetHPFromNetwork(Packet.CurrentHP);
+
+		UE_LOG(LogTemp, Display,
+			TEXT("[ATK_TRACE][6_ClientHPApply] Target=%d CurrentHP=%d Character=%s"),
+			Packet.TargetID,
+			Packet.CurrentHP,
+			*GetNameSafe(Character));
 	}
 }
 

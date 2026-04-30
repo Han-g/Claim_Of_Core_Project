@@ -228,12 +228,12 @@ bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session,
 	session->gameDatas.animationNum =
 		(std::abs(packet.velocityX) > 0.01f || std::abs(packet.velocityY) > 0.01f) ? 1 : 0;
 
-	LOG_INFO("[MoveRecv] session=%d uid=%d pos=(%.1f, %.1f, %.1f) vel=(%.2f, %.2f) yaw=%.2f",
+	/*LOG_INFO("[MoveRecv] session=%d uid=%d pos=(%.1f, %.1f, %.1f) vel=(%.2f, %.2f) yaw=%.2f",
 		session->sessionID,
 		session->playerUID,
 		packet.x, packet.y, packet.z,
 		packet.velocityX, packet.velocityY,
-		packet.yaw);
+		packet.yaw);*/
 
 	return true;
 }

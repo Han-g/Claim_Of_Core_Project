@@ -8,6 +8,7 @@ void Room::InitRoom(int id, Session* firstMember, IOCPServer* server) {
     m_Server = server;
     m_State = ERoomState::WAITING;
     gameTimer = 0.f;
+    //selectedMapType = 1;
 	
     //addMember(firstMember);
 }

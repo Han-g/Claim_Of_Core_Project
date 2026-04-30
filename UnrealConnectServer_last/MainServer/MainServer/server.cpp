@@ -288,8 +288,8 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 
 		RingBufpop(&recvSession->recvBuffer, header.packet_size);
 
-		LOG_INFO("[SESSION ID: %d] [PACKET ID: %d - SIZE: %d] Pakcet Received!",
-			sessionIndex, header.packet_ID, header.packet_size);
+		/*LOG_INFO("[SESSION ID: %d] [PACKET ID: %d - SIZE: %d] Pakcet Received!",
+			sessionIndex, header.packet_ID, header.packet_size);*/
 
 		// Hand the decoded packet to the packet processor.
 		PacketProcess(sessionIndex, header.packet_ID, packetData);

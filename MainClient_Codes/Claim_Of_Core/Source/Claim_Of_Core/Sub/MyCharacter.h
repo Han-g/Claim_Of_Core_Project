@@ -254,6 +254,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
 
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void StartAttackHitWindow(float Duration = 0.2f);
+
 private:
 	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")
 	int32 MaxHP = 100;

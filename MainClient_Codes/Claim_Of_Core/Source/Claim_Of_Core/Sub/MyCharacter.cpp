@@ -59,7 +59,7 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->bUsePawnControlRotation = false;
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
-	HandCollision->SetupAttachment(GetMesh(), TEXT("RightHandSocket"));
+	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
 	HandCollision->SetBoxExtent(FVector(18.f, 12.f, 12.f));
 	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
@@ -1665,15 +1665,20 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
 		return;
 	}
 
-	HitActors.Empty();
-	HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	//HitActors.Empty();
+	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	AnimInstance->Montage_Play(Data.AttackMontage);
+
+	if (IsLocallyControlled())
+	{
+		StartAttackHitWindow(2.f);
+	}
 
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
 		this,
 		&AMyCharacter::EndAttack,
-		0.2f,
+		2.f,
 		false
 	);
 }
@@ -1853,13 +1858,64 @@ void AMyCharacter::ApplyHitEvent(AActor* Attacker)
 	}
 	else
 	{
-		LaunchVel = Dir * KnockbackCoefficient * Player->CurrentItem->KnockbackPower;
+		LaunchVel = Dir * Player->KnockbackCoefficient * Player->CurrentItem->KnockbackPower;
 		ApplyDamage(Player->CurrentItem->Damage);
 	}
 
 	LaunchVel.Z = 0.f;
-
 	LaunchCharacter(LaunchVel, true, true);
+	//AMyCharacter* Player = Cast<AMyCharacter>(Attacker);
+	//if (!Player) return;
+
+	//if (!Player || IsDead())
+	//{
+	//	return;
+	//}
+
+	//if (!CanReceiveStatusEffect(ERecStatusEffectType::Knockback))
+	//{
+	//	return;
+	//}
+
+	//FVector Dir = GetActorLocation() - Player->GetActorLocation(); //-GetActorForwardVector();
+	//Dir.Z = 0.f;
+	//Dir = Dir.GetSafeNormal();
+
+	//if (Dir.IsNearlyZero())
+	//{
+	//	Dir = Player->GetActorForwardVector();
+	//	Dir.Z = 0.f;
+	//	Dir = Dir.GetSafeNormal();
+	//}
+
+	//FVector LaunchVel;
+	//int32 DamageAmount = 0;
+
+	//if (!Player->CurrentItem)
+	//{
+	//	LaunchVel = Dir * Player->KnockbackCoefficient * Player->BaseAttackKnockbackPower;
+	//	DamageAmount = FMath::RoundToInt(Player->AttackDamage);
+	//}
+	//else
+	//{
+	//	LaunchVel = Dir * KnockbackCoefficient * Player->CurrentItem->KnockbackPower;
+	//	DamageAmount = FMath::RoundToInt(Player->CurrentItem->Damage);
+	//}
+
+	//UE_LOG(LogTemp, Display,
+	//	TEXT("[ATK_TRACE][3_HitEvent] Victim=%s UID=%d Attacker=%s UID=%d Damage=%d VictimHPBefore=%d Launch=(%.1f, %.1f, %.1f)"),
+	//	*GetName(),
+	//	GetNetworkPlayerUID(),
+	//	*Player->GetName(),
+	//	Player->GetNetworkPlayerUID(),
+	//	DamageAmount,
+	//	CurrentHP,
+	//	LaunchVel.X, LaunchVel.Y, LaunchVel.Z);
+
+	//ApplyDamage(DamageAmount);
+	//LaunchVel.Z = 0.f;
+
+	//LaunchCharacter(LaunchVel, true, true);
 }
 
 void AMyCharacter::OnAttackOverlap(
@@ -1873,14 +1929,23 @@ void AMyCharacter::OnAttackOverlap(
 	AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor);
 	if (!Victim)
 	{
-		Victim->ApplyKnockback(this, 1200.f);
+		//Victim->ApplyKnockback(this, 1200.f);
+		UE_LOG(LogTemp, Error, TEXT("[Attack Trace] Check"));
+		return;
 	}
 
 	if (HitActors.Contains(Victim))
 	{
+		UE_LOG(LogTemp, Error, TEXT("[Attack Trace] Check"));
 		return;
 	}
 
+	UE_LOG(LogTemp, Display,
+		TEXT("[ATK_TRACE][2_Overlap] Attacker=%s UID=%d Victim=%s UID=%d"),
+		*GetName(),
+		GetNetworkPlayerUID(),
+		*Victim->GetName(),
+		Victim->GetNetworkPlayerUID());
 	HitActors.Add(Victim);
 	Victim->ApplyHitEvent(this);
 }
@@ -1912,7 +1977,7 @@ void AMyCharacter::EquipItem()
 		CurrentItem->AttachToComponent(
 			MeshComp,
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("LeftHandSocket")
 		);
 	}
 }
@@ -1943,4 +2008,23 @@ void AMyCharacter::AnimNotify_AttackHit()
 	{
 		CurrentItem->DoHit();
 	}
+}
+
+void AMyCharacter::StartAttackHitWindow(float Duration)
+{
+	HitActors.Empty();
+
+	if (HandCollision)
+	{
+		HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+
+	GetWorldTimerManager().ClearTimer(AttackTimer);
+	GetWorldTimerManager().SetTimer(
+		AttackTimer,
+		this,
+		&AMyCharacter::EndAttack,
+		Duration,
+		false
+	);
 }

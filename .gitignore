@@ -16,6 +16,13 @@ UnrealConnectServer_last/ShareData/
 *.o
 *.obj
 
+# .gitignore 파일에 아래 내용 추가
+MainClient_Codes/Claim_Of_Core/Packaging/
+*.zip
+*.ucas
+*.utoc
+*.pak
+
 # Precompiled Headers
 *.gch
 *.pch
