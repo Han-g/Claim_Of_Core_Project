@@ -45,7 +45,7 @@ void UNetworkInstance::Init()
 	if (GConfig) {
 		GConfig->GetString(
 			TEXT("ServerSettings"),
-			TEXT("ServerIP"),
+			TEXT("LocalServerIP"),
 			ServerIPAddress,
 			GGameIni
 		);
@@ -419,6 +419,7 @@ void UNetworkInstance::HandleGameStart()
 		PendingSnapshotList.Empty();
 
 		bLocalInitialTransformApplied = false;
+		MarkPendingGameplayActivation();
 		UGameplayStatics::OpenLevel(this, LevelName);
 		// 레벨 전환 후 입력 모드는 새 PlayerController의 BeginPlay에서 설정하는 게 자연스러움
 	}
@@ -461,10 +462,10 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 		PendingSnapshotList = SnapshotList;
 		bHasPendingSnapshot = true;
 
-		UE_LOG(LogTemp, Warning, TEXT("[Snapshot] Local character not ready. Snapshot cached."));
+		//UE_LOG(LogTemp, Warning, TEXT("[Snapshot] Local character not ready. Snapshot cached."));
 		return;
 	}
-	UE_LOG(LogTemp, Display, TEXT("[SnapshotUID] LocalUID=%d Count=%d"), LocalUID, SnapshotList.Num());
+	//UE_LOG(LogTemp, Display, TEXT("[SnapshotUID] LocalUID=%d Count=%d"), LocalUID, SnapshotList.Num());
 
 	for (const GameData& Data : SnapshotList)
 	{
@@ -497,6 +498,11 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			RemoteCharacter->SetHPFromNetwork(Data.currentHP);
 			RemoteCharacter->SetStateFromNetwork(Data.characterState);
 			RemoteCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
+			UE_LOG(LogTemp, Display,
+				TEXT("[RemoteAnim] UID=%d Anim=%d Pos=(%.1f, %.1f, %.1f)"),
+				Data.userUID,
+				Data.animationNum,
+				Data.x, Data.y, Data.z);
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
 		}
 	}
@@ -553,6 +559,12 @@ void UNetworkInstance::HandleStatusUpdated(const FStatusUpdatePacket& Packet)
 	if (AMyCharacter* Character = FindCharacterByUID(Packet.TargetID))
 	{
 		Character->SetHPFromNetwork(Packet.CurrentHP);
+
+		UE_LOG(LogTemp, Display,
+			TEXT("[ATK_TRACE][6_ClientHPApply] Target=%d CurrentHP=%d Character=%s"),
+			Packet.TargetID,
+			Packet.CurrentHP,
+			*GetNameSafe(Character));
 	}
 }
 
@@ -572,6 +584,22 @@ void UNetworkInstance::HandleRespawned(const FRespawnPacket& Packet)
 		Character->SetStateFromNetwork(0);
 		Character->ApplyTransformFromNetwork(Packet.X, Packet.Y, Packet.Z, Character->GetActorRotation().Yaw);
 	}
+}
+
+void UNetworkInstance::MarkPendingGameplayActivation()
+{
+	bPendingGameplayActivation = true;
+}
+
+bool UNetworkInstance::ConsumePendingGameplayActivation()
+{
+	if (!bPendingGameplayActivation)
+	{
+		return false;
+	}
+
+	bPendingGameplayActivation = false;
+	return true;
 }
 
 AMyCharacter* UNetworkInstance::FindCharacterByUID(int32 UID) const

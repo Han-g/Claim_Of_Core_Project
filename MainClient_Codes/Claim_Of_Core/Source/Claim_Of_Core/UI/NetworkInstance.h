@@ -110,10 +110,18 @@ private:
 	TSoftObjectPtr<UWorld> InGameLevel;
 
 public:
+	// In Game Play Setting Function
+	void MarkPendingGameplayActivation();
+	bool ConsumePendingGameplayActivation();
+
+	// Character Setting Function
 	AMyCharacter* FindCharacterByUID(int32 UID) const;
 	AMyCharacter* EnsureRemoteCharacter(const GameData& Data);
 
 private:
+	// Checker Game Play Setting
+	bool bPendingGameplayActivation = false;
+
 	// One-time initial transform sync for the local player.
 	bool bLocalInitialTransformApplied = false;
 

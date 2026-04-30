@@ -193,7 +193,6 @@ void ABaseItem::OnStartUse()
 
 	AnimInstance->Montage_Play(AttackMontage);
 
-	OwnerCharacter->StartAttackHitWindow(AttackHitDuration);
 }
 
 void ABaseItem::OnHitTarget(AActor* Target)

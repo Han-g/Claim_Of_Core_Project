@@ -3,9 +3,9 @@
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/BoxComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/BoxComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -60,11 +60,13 @@ AMyCharacter::AMyCharacter()
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
 	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
+	HandCollision->SetBoxExtent(FVector(18.f, 12.f, 12.f));
+	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
+	HandCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HandCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HandCollision->SetGenerateOverlapEvents(true);
-	HandCollision->OnComponentBeginOverlap.AddDynamic(
-		this,
-		&AMyCharacter::OnAttackOverlap
-	);
+	HandCollision->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnAttackOverlap);
 
 	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
 	HPTextComponent->SetupAttachment(GetMesh());
@@ -169,6 +171,31 @@ void AMyCharacter::Tick(float DeltaTime)
 		}
 	}
 
+	if (!IsLocallyControlled() && bHasNetworkTransform && CharacterState == ERecCharacterState::Alive)
+	{
+		const FVector NewLocation = FMath::VInterpTo(
+			GetActorLocation(),
+			TargetNetworkLocation,
+			DeltaTime,
+			RemoteInterpSpeed
+		);
+
+		const FRotator NewRotation = FMath::RInterpTo(
+			GetActorRotation(),
+			TargetNetworkRotation,
+			DeltaTime,
+			RemoteInterpSpeed
+		);
+
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::None
+		);
+	}
+
 	UpdateLowHPPulseEffect(DeltaTime);
 	UpdateDeathCameraShake(DeltaTime);
 	UpdateDeathCameraPullback(DeltaTime);
@@ -214,6 +241,11 @@ void AMyCharacter::OnRep_RoleSkillActive()
 	UpdateRoleText();
 }
 
+float AMyCharacter::GetSkillCoolTime() const
+{
+	return CurrentCoolTime;
+}
+
 void AMyCharacter::UpdateHPText()
 {
 	if (!HPTextComponent)
@@ -240,11 +272,6 @@ void AMyCharacter::UpdateRoleText()
 	}
 
 	RoleTextComponent->SetText(FText::FromString(Str));
-}
-
-float AMyCharacter::GetSkillCoolTime()
-{
-	return CurrentCoolTime;
 }
 
 float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
@@ -356,7 +383,6 @@ void AMyCharacter::ApplyRoleStats()
 		const float SkillMult = GetRoleSkillSpeedMultiplier();
 		MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
 	}
-
 
 	switch (RoleType)
 	{
@@ -576,11 +602,6 @@ void AMyCharacter::ActivateRoleSkill()
 		return;
 	}
 
-	if (CurrentCoolTime > 0.f)
-	{
-		return;
-	}
-
 	bRoleSkillActive = true;
 
 	ApplyRoleStats();
@@ -598,26 +619,6 @@ void AMyCharacter::ActivateRoleSkill()
 			GetCurrentRoleSkillDuration(),
 			false
 		);
-
-		CurrentCoolTime = CoolTime;
-		GetWorldTimerManager().SetTimer(
-			CoolTimer,
-			this,
-			&AMyCharacter::DecreaseCoolTime,
-			1.0f,
-			true
-		);
-	}
-}
-
-void AMyCharacter::DecreaseCoolTime()
-{
-	CurrentCoolTime -= 1.f;
-
-	if (CoolTime <= 0.f)
-	{
-		CoolTime = 0.f;
-		GetWorldTimerManager().ClearTimer(CoolTimer);
 	}
 }
 
@@ -763,6 +764,13 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 		if (MoveAction)
 		{
 			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AMyCharacter::Move);
+			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Completed, this, &AMyCharacter::StopMove);
+			EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Canceled, this, &AMyCharacter::StopMove);
+		}
+
+		if (MouseLookAction)
+		{
+			EnhancedInputComponent->BindAction(MouseLookAction, ETriggerEvent::Triggered, this, &AMyCharacter::Look);
 		}
 
 		if (LookAction)
@@ -776,6 +784,10 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 			EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMyCharacter::Attack);
 		}
 
+		if (KnockbackAction)
+		{
+			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::KnockbackTest);
+		}
 	}
 	else
 	{
@@ -842,6 +854,12 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 	Packet.VelocityY = Forward;
 
 	NetInst->SendMoveInputToServer(Packet);*/
+}
+
+void AMyCharacter::StopMove(const FInputActionValue& Value)
+{
+	CachedMoveRight = 0.f;
+	CachedMoveForward = 0.f;
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
@@ -1591,32 +1609,43 @@ void AMyCharacter::Attack()
 	{
 		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
 	}
-
-}
-
-void AMyCharacter::StartAttackHitWindow(float Duration)
-{
-	HitActors.Empty();
-
-	if (HandCollision)
+	/*if (!IsValid(Controller))
 	{
-		HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		return;
 	}
 
-	GetWorldTimerManager().ClearTimer(AttackTimer);
+	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
+	const FRoleVisualData& Data = GetVisualData(RoleType);
 
-	GetWorldTimerManager().SetTimer(
-		AttackTimer,
-		this,
-		&AMyCharacter::EndAttack,
-		Duration,
-		false
-	);
+	if (!AnimInstance || !Data.AttackMontage)
+	{
+		return;
+	}
+
+	if (AnimInstance->Montage_IsPlaying(Data.AttackMontage))
+	{
+		return;
+	}
+
+	if (IsLocallyControlled())
+	{
+		if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+		{
+			NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		}
+	}
+
+	AnimInstance->Montage_Play(Data.AttackMontage);*/
 }
 
 void AMyCharacter::EndAttack()
 {
-	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (HandCollision)
+	{
+		HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	HitActors.Empty();
 }
 
 void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
@@ -1635,10 +1664,23 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
 	{
 		return;
 	}
-	
+
+	//HitActors.Empty();
+	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	AnimInstance->Montage_Play(Data.AttackMontage);
 
-	StartAttackHitWindow(2.f);
+	if (IsLocallyControlled())
+	{
+		StartAttackHitWindow(2.f);
+	}
+
+	GetWorldTimerManager().SetTimer(
+		AttackTimer,
+		this,
+		&AMyCharacter::EndAttack,
+		2.f,
+		false
+	);
 }
 
 void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)
@@ -1682,7 +1724,68 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 	const FVector NewLocation(X, Y, Z);
 	const FRotator NewRotation(0.f, Yaw, 0.f);
 	const bool bIsLocal = IsLocallyControlled();
+	
+	if (IsLocallyControlled())
+	{
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
 
+		if (AController* C = GetController())
+		{
+			C->SetControlRotation(NewRotation);
+		}
+		return;
+	}
+
+	// 죽은 상태는 보간보다 스냅이 더 안전함
+	if (CharacterState == ERecCharacterState::Dead)
+	{
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+		return;
+	}
+
+	TargetNetworkLocation = NewLocation;
+	TargetNetworkRotation = NewRotation;
+
+	if (!bHasNetworkTransform)
+	{
+		bHasNetworkTransform = true;
+
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+		return;
+	}
+
+	const float Distance = FVector::Dist(GetActorLocation(), NewLocation);
+	if (Distance >= RemoteSnapDistance)
+	{
+		SetActorLocationAndRotation(
+			NewLocation,
+			NewRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics
+		);
+	}
+
+	// Temporary Movement Threat Only Other Character Movement Syncronize
+	/*
 	SetActorLocationAndRotation(NewLocation, NewRotation, false, nullptr, 
 		ETeleportType::TeleportPhysics);
 
@@ -1693,12 +1796,38 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 		}
 	}
 
-	// Temporary Movement Threat Only Other Character Movement Syncronize
-	/*if (IsLocallyControlled()) {
+	if (IsLocallyControlled()) {
 		if (AController* C = GetController()) {
 			C->SetControlRotation(NewRotation);
 		}
 	}*/
+}
+
+void AMyCharacter::KnockbackTest()
+{
+	ApplyKnockback(this, 1200.f);
+}
+
+void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
+{
+	if (!Attacker || IsDead())
+	{
+		return;
+	}
+
+	if (!CanReceiveStatusEffect(ERecStatusEffectType::Knockback))
+	{
+		return;
+	}
+
+	FVector Dir = -GetActorForwardVector();
+	Dir.Z = 0.f;
+	Dir = Dir.GetSafeNormal();
+
+	FVector LaunchVel = Dir * KnockbackStrength;
+	LaunchVel.Z = 0.f;
+
+	LaunchCharacter(LaunchVel, true, true);
 }
 
 void AMyCharacter::ApplyHitEvent(AActor* Attacker)
@@ -1722,19 +1851,71 @@ void AMyCharacter::ApplyHitEvent(AActor* Attacker)
 
 	FVector LaunchVel;
 
-	if(!Player->CurrentItem)
+	if (!Player->CurrentItem)
 	{
 		LaunchVel = Dir * Player->KnockbackCoefficient * Player->BaseAttackKnockbackPower;
 		ApplyDamage(Player->AttackDamage);
 	}
 	else
 	{
-		LaunchVel = Dir * Player->KnockbackCoefficient* Player->CurrentItem->KnockbackPower;
+		LaunchVel = Dir * Player->KnockbackCoefficient * Player->CurrentItem->KnockbackPower;
 		ApplyDamage(Player->CurrentItem->Damage);
 	}
-	
+
 	LaunchVel.Z = 0.f;
 	LaunchCharacter(LaunchVel, true, true);
+	//AMyCharacter* Player = Cast<AMyCharacter>(Attacker);
+	//if (!Player) return;
+
+	//if (!Player || IsDead())
+	//{
+	//	return;
+	//}
+
+	//if (!CanReceiveStatusEffect(ERecStatusEffectType::Knockback))
+	//{
+	//	return;
+	//}
+
+	//FVector Dir = GetActorLocation() - Player->GetActorLocation(); //-GetActorForwardVector();
+	//Dir.Z = 0.f;
+	//Dir = Dir.GetSafeNormal();
+
+	//if (Dir.IsNearlyZero())
+	//{
+	//	Dir = Player->GetActorForwardVector();
+	//	Dir.Z = 0.f;
+	//	Dir = Dir.GetSafeNormal();
+	//}
+
+	//FVector LaunchVel;
+	//int32 DamageAmount = 0;
+
+	//if (!Player->CurrentItem)
+	//{
+	//	LaunchVel = Dir * Player->KnockbackCoefficient * Player->BaseAttackKnockbackPower;
+	//	DamageAmount = FMath::RoundToInt(Player->AttackDamage);
+	//}
+	//else
+	//{
+	//	LaunchVel = Dir * KnockbackCoefficient * Player->CurrentItem->KnockbackPower;
+	//	DamageAmount = FMath::RoundToInt(Player->CurrentItem->Damage);
+	//}
+
+	//UE_LOG(LogTemp, Display,
+	//	TEXT("[ATK_TRACE][3_HitEvent] Victim=%s UID=%d Attacker=%s UID=%d Damage=%d VictimHPBefore=%d Launch=(%.1f, %.1f, %.1f)"),
+	//	*GetName(),
+	//	GetNetworkPlayerUID(),
+	//	*Player->GetName(),
+	//	Player->GetNetworkPlayerUID(),
+	//	DamageAmount,
+	//	CurrentHP,
+	//	LaunchVel.X, LaunchVel.Y, LaunchVel.Z);
+
+	//ApplyDamage(DamageAmount);
+	//LaunchVel.Z = 0.f;
+
+	//LaunchCharacter(LaunchVel, true, true);
 }
 
 void AMyCharacter::OnAttackOverlap(
@@ -1745,15 +1926,27 @@ void AMyCharacter::OnAttackOverlap(
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
-	if (!OtherActor || OtherActor == this) return;
-
 	AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor);
-	if (!Victim) return;
+	if (!Victim)
+	{
+		//Victim->ApplyKnockback(this, 1200.f);
+		UE_LOG(LogTemp, Error, TEXT("[Attack Trace] Check"));
+		return;
+	}
 
-	if (HitActors.Contains(Victim)) return;
+	if (HitActors.Contains(Victim))
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Attack Trace] Check"));
+		return;
+	}
 
+	UE_LOG(LogTemp, Display,
+		TEXT("[ATK_TRACE][2_Overlap] Attacker=%s UID=%d Victim=%s UID=%d"),
+		*GetName(),
+		GetNetworkPlayerUID(),
+		*Victim->GetName(),
+		Victim->GetNetworkPlayerUID());
 	HitActors.Add(Victim);
-
 	Victim->ApplyHitEvent(this);
 }
 
@@ -1784,7 +1977,7 @@ void AMyCharacter::EquipItem()
 		CurrentItem->AttachToComponent(
 			MeshComp,
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("LeftHandSocket")
 		);
 	}
 }
@@ -1815,4 +2008,23 @@ void AMyCharacter::AnimNotify_AttackHit()
 	{
 		CurrentItem->DoHit();
 	}
+}
+
+void AMyCharacter::StartAttackHitWindow(float Duration)
+{
+	HitActors.Empty();
+
+	if (HandCollision)
+	{
+		HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+
+	GetWorldTimerManager().ClearTimer(AttackTimer);
+	GetWorldTimerManager().SetTimer(
+		AttackTimer,
+		this,
+		&AMyCharacter::EndAttack,
+		Duration,
+		false
+	);
 }

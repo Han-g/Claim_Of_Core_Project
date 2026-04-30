@@ -1,4 +1,6 @@
 #include "InGame_GameState.h"
+
+#include "UI/NetworkInstance.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 
@@ -25,6 +27,14 @@ void AInGame_GameState::BeginPlay()
 	CurrentPhase = EMapPhase::None;
 	CurrentReadyTime = ReadyTime;
 	CurrentGameTime = GameTime;
+
+	if (UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance()))
+	{
+		if (GI->ConsumePendingGameplayActivation())
+		{
+			ActivateGameplayFromServerStart();
+		}
+	}
 }
 
 void AInGame_GameState::StartReady()

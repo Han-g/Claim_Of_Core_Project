@@ -88,7 +88,13 @@ protected:
 	UInputAction* LookAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* MouseLookAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
 	UInputAction* AttackAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* KnockbackAction;
 
 public:
 	AMyCharacter();
@@ -124,9 +130,13 @@ protected:
 	void TestFunc();
 
 	void Move(const FInputActionValue& Value);
+	void StopMove(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Attack();
 	void EndAttack();
+
+
+	void KnockbackTest();
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Input")
@@ -169,12 +179,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
 	void ActivateRoleSkill();
 
-	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
-	float GetSkillCoolTime();
-	
-	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
-	void DecreaseCoolTime();
-
 	UFUNCTION(BlueprintPure, Category = "RoleSkill")
 	bool IsRoleSkillActive() const { return bRoleSkillActive; }
 
@@ -209,19 +213,18 @@ public:
 	FRoleVisualData ManipulatorVisual;
 
 	UFUNCTION()
+	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+
+	UFUNCTION()
 	void ApplyHitEvent(AActor* Attacker);
 
-	//Attack
 	FTimerHandle AttackTimer;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBoxComponent> HandCollision;
 
 	UPROPERTY()
 	TSet<TObjectPtr<AMyCharacter>> HitActors;
-
-	UFUNCTION(BlueprintCallable, Category = "Combat")
-	void StartAttackHitWindow(float Duration = 0.2f);
 
 	UFUNCTION()
 	void OnAttackOverlap(
@@ -233,7 +236,6 @@ public:
 		const FHitResult& SweepResult
 	);
 
-	//Item
 	UPROPERTY()
 	ABaseItem* OverlappingItem = nullptr;
 
@@ -252,6 +254,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
 
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void StartAttackHitWindow(float Duration = 0.2f);
+
 private:
 	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")
 	int32 MaxHP = 100;
@@ -269,12 +274,6 @@ private:
 	bool bRoleSkillActive = false;
 
 	FTimerHandle RoleSkillTimerHandle;
-	FTimerHandle CoolTimer;
-
-	float CurrentCoolTime = 0.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill")
-	float CoolTime = 15.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
 	float DashDuration = 5.0f;
@@ -421,6 +420,11 @@ private:
 	UFUNCTION()
 	void OnRep_RoleSkillActive();
 
+	float CurrentCoolTime = 0.0f;
+
+	UFUNCTION(BlueprintPure, Category = "Skill")
+	float GetSkillCoolTime() const;
+
 	void SetCurrentHP(int32 NewHP);
 	void UpdateHPText();
 	void UpdateRoleText();
@@ -429,7 +433,7 @@ private:
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);
 	float GetDamageCoefficient() const { return AttackDamage; }
 	float GetKnockbackCoefficient() const { return KnockbackCoefficient; }
-	
+
 	float GetRoleSkillSpeedMultiplier() const;
 	float GetCurrentRoleSkillDuration() const;
 	float GetOutgoingDamageMultiplier() const;
@@ -486,6 +490,17 @@ public:
 	int32 GetNetworkAnimationNum() const { return NetworkAnimationNum; }
 
 private:
+	// Remote Player Data
+	FVector TargetNetworkLocation = FVector::ZeroVector;
+	FRotator TargetNetworkRotation = FRotator::ZeroRotator;
+	bool bHasNetworkTransform = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
+	float RemoteInterpSpeed = 12.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
+	float RemoteSnapDistance = 250.f;
+
 	// Temporary Movement Members
 
 	float CachedMoveRight = 0.f;
