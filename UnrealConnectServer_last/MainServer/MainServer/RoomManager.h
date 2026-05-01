@@ -56,7 +56,7 @@ public:
 
 	int TeamCalculateBySlot(int roomSlot) const;
 	void SelectStage(int stageNum);
-	void LoadStage();
+	void LoadStage(int stageNum);
 	// Returns the spawn location used when players enter or respawn.
 	Vector3 GetRespawnLocation(int slot);
 	float GetSpawnYawBySlot(int slot) const;

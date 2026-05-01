@@ -17,7 +17,17 @@ UnrealConnectServer_last/ShareData/
 *.obj
 
 # .gitignore 파일에 아래 내용 추가
-MainClient_Codes/Claim_Of_Core/Packaging/
+# Packaging 폴더 내부의 모든 것을 무시
+MainClient_Codes/Claim_Of_Core/Packaging/*
+
+# Windows 폴더 자체는 추적 허용
+!MainClient_Codes/Claim_Of_Core/Packaging/Windows/
+
+# Windows 폴더 내부의 모든 것을 무시
+MainClient_Codes/Claim_Of_Core/Packaging/Windows/*
+
+# 특정 .exe 파일만 추적 허용 (위의 무시 규칙들보다 아래에 위치해야 함)
+!MainClient_Codes/Claim_Of_Core/Packaging/Windows/Claim_Of_Core.exe
 *.zip
 *.ucas
 *.utoc

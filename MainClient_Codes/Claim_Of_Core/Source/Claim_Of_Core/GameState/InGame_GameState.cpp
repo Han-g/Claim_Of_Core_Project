@@ -3,6 +3,7 @@
 #include "UI/NetworkInstance.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
+#include "ClientNetworkTypes.h"
 
 AInGame_GameState::AInGame_GameState()
 {
@@ -91,6 +92,27 @@ void AInGame_GameState::EndRound()
 	ForceNetUpdate();
 }
 
+void AInGame_GameState::ApplyNetworkPhaseState(const FPhaseChangePacket& Packet)
+{
+	RoundState = static_cast<ERoundState>(Packet.roundState);
+	CurrentPhase = static_cast<EMapPhase>(Packet.mapPhase);
+	CurrentGameTime = FMath::RoundToInt(Packet.gameTime);
+
+	if (!bGameplayActivated)
+	{
+		bGameplayActivated = true;
+		OnGameplayActivated.Broadcast();
+	}
+
+	ForceNetUpdate();
+}
+
+void AInGame_GameState::ApplyNetworkGameTime(float SyncedGameTime)
+{
+	CurrentGameTime = FMath::RoundToInt(SyncedGameTime);
+	ForceNetUpdate();
+}
+
 void AInGame_GameState::CountdownTick()
 {
 	if (!HasAuthority())
@@ -152,8 +174,8 @@ void AInGame_GameState::ActivateGameplayFromServerStart()
 	bGameplayActivated = true;
 	OnGameplayActivated.Broadcast();
 
-	// 현재 구조를 유지하려면 여기서부터 시작
-	StartReady();
+	// Local Game Timer Setting
+	//StartReady();
 }
 
 void AInGame_GameState::UpdatePhase()

@@ -75,6 +75,10 @@ public:
 	void HandleStatusUpdated(const FStatusUpdatePacket& Packet);
 	void HandleStateChanged(const FStateChangePacket& Packet);
 	void HandleRespawned(const FRespawnPacket& Packet);
+	void HandleGameTimeSynced(float SyncedGameTime);
+	void HandlePhaseChanged(const FPhaseChangePacket& Packet);
+	void HandleMapEventTriggered(const FMapEventPacket& Packet);
+	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
 
 protected:
 
@@ -124,6 +128,8 @@ private:
 
 	// One-time initial transform sync for the local player.
 	bool bLocalInitialTransformApplied = false;
+	bool bPendingInitialSpawnLock = false;
+	bool bLocalSpawnLockApplied = false;
 
 	// Cached snapshot received before the local player was ready.
 	TArray<GameData> PendingSnapshotList;

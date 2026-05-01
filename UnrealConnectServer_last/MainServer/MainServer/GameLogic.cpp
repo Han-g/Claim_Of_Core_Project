@@ -45,7 +45,7 @@ void GameLogic::StartGameRound()
 {
     roundState = ERoundState::Playing;
     gameTime = phase1Time + phase2Time + phase3Time + 50;
-    currentGameTime = 0;
+    currentGameTime = gameTime;
     currentMapPhase = 0;
 
     // Initialize map gimmicks

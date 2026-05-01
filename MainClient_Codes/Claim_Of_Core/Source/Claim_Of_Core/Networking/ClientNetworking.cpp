@@ -148,6 +148,11 @@ void ClientNetworking::PumpEvents()
             OnRoomEnterResult.Broadcast(true, Evt.MemberList);
             break;
 
+        case ENetEventType::MapSelected:
+            UE_LOG(LogTemp, Display, TEXT("Map selected from server: %d"), Evt.SelectedMapType);
+            OnMapSelected.Broadcast(Evt.SelectedMapType);
+            break;
+
         case ENetEventType::GameStart:
             UE_LOG(LogTemp, Display, TEXT("Game Start!"));
             OnGameStart.Broadcast();
@@ -165,25 +170,50 @@ void ClientNetworking::PumpEvents()
             UE_LOG(LogTemp, Display, TEXT("Attack Action received"));
             OnAttackAction.Broadcast(Evt.AttackAction);
             break;
+
         case ENetEventType::DamageApply:
             UE_LOG(LogTemp, Display, TEXT("Damage Apply received"));
             OnDamageApplied.Broadcast(Evt.DamageApply);
             break;
+
         case ENetEventType::StateChange:
             UE_LOG(LogTemp, Display, TEXT("State Change received"));
             OnStateChanged.Broadcast(Evt.StateChange);
             break;
+
         case ENetEventType::StatusUpdate:
             UE_LOG(LogTemp, Display, TEXT("Status Update received"));
             OnStatusUpdated.Broadcast(Evt.StatusUpdate);
             break;
+
         case ENetEventType::Respawn:
             UE_LOG(LogTemp, Display, TEXT("Respawn received"));
             OnRespawned.Broadcast(Evt.Respawn);
             break;
+
         case ENetEventType::SyncAnimation:
             UE_LOG(LogTemp, Display, TEXT("Sync Animation received"));
             OnSyncAnimation.Broadcast(Evt.SyncAnimation);
+            break;
+
+        case ENetEventType::RoleChanged:
+            OnRoleChanged.Broadcast(Evt.RoleChange);
+            break;
+
+        case ENetEventType::GameTimeSynced:
+            OnGameTimeSynced.Broadcast(Evt.SyncedGameTime);
+            break;
+
+        case ENetEventType::PhaseChanged:
+            OnPhaseChanged.Broadcast(Evt.PhaseChange);
+            break;
+
+        case ENetEventType::MapEventTriggered:
+            OnMapEventTriggered.Broadcast(Evt.MapEvent);
+            break;
+
+        case ENetEventType::ObjectSpawned:
+            OnObjectSpawned.Broadcast(Evt.SpawnObject);
             break;
         }
     }

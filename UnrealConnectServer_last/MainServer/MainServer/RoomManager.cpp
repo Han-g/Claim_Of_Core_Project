@@ -2,6 +2,8 @@
 #include "session.h"
 #include "server.h"
 
+#include <random>
+
 void Room::InitRoom(int id, Session* firstMember, IOCPServer* server) {
 	//std::lock_guard<std::mutex> lock(m_RoomLock);
 	m_roomID = id;
@@ -15,29 +17,31 @@ void Room::InitRoom(int id, Session* firstMember, IOCPServer* server) {
 
 void Room::InitGameLogic(GameLogic* logic)
 {
-    std::lock_guard<std::mutex> lock(m_RoomLock);
-    m_GameLogic = logic;
-    LOG_INFO("[InitGameLogic] memberCount=%d", static_cast<int>(m_Members.size()));
+    {
+        std::lock_guard<std::mutex> lock(m_RoomLock);
+        m_GameLogic = logic;
+        LOG_INFO("[InitGameLogic] memberCount=%d", static_cast<int>(m_Members.size()));
 
-    for (Session* member : m_Members) {
-        logic->players[member->sessionID] = member;
-        LOG_INFO("[InitLoop] session=%d uid=%d slot=%d team=%d",
-            member->sessionID,
-            member->playerUID,
-            member->roomSlot,
-            member->teamID);
+        for (Session* member : m_Members) {
+            logic->players[member->sessionID] = member;
+            LOG_INFO("[InitLoop] session=%d uid=%d slot=%d team=%d",
+                member->sessionID,
+                member->playerUID,
+                member->roomSlot,
+                member->teamID);
 
-        GameData& pd = member->gameDatas;
-        pd.userUID = member->playerUID;
-        /*pd.maxHP = 100;
-        //pd.currentHP = 100;
-        //pd.characterState = 0;
-        //pd.roleType = 0;
-        //pd.baseWalkSpeed = 500.f;
-        //// Reset spawn-related player data to default values until map-specific spawn points are wired in.
-        pd.x = 0; pd.y = 0; pd.z = 0;*/
+            GameData& pd = member->gameDatas;
+            pd.userUID = member->playerUID;
+            /*pd.maxHP = 100;
+            //pd.currentHP = 100;
+            //pd.characterState = 0;
+            //pd.roleType = 0;
+            //pd.baseWalkSpeed = 500.f;
+            //// Reset spawn-related player data to default values until map-specific spawn points are wired in.
+            pd.x = 0; pd.y = 0; pd.z = 0;*/
 
-        InitCharacter(member, logic);
+            InitCharacter(member, logic);
+        }
     }
 
     logic->SetMapType(selectedMapType);
@@ -177,10 +181,15 @@ int Room::TeamCalculateBySlot(int roomSlot) const
 
 void Room::SelectStage(int stageNum)
 {
+    if (stageNum < 1 || stageNum > 5) {
+        LOG_ERROR("Select %d is Invalid Stage", stageNum);
+        return;
+    }
 
+    selectedMapType = stageNum;
 }
 
-void Room::LoadStage()
+void Room::LoadStage(int stageNum)
 {
 
 }
@@ -593,6 +602,20 @@ void RoomManager::GameStart(Session* client)
 
     // Switch the room into PLAYING state.
     room->SetState(ERoomState::PLAYING);
+    // 1: Building, 2: IceCave, 3: Jungle, 4: SkyIsland, 5: Space
+    std::vector<int> AvailableMaps = { 1 }; 
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<int> dist(0, static_cast<int>(AvailableMaps.size()) - 1);
+
+    const int selected = AvailableMaps[dist(gen)];
+    room->SelectStage(selected);
+    room->BroadcastToMembers(
+        PKT_S2C_MAP_SELECT_NOTICE,
+        reinterpret_cast<const char*>(&selected),
+        sizeof(int)
+    );
 
     GameLogic* logic = new GameLogic();
     logic->ownerRoom = room;

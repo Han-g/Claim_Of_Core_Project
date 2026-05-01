@@ -426,6 +426,20 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+    case PKT_S2C_MAP_SELECT_NOTICE:
+    {
+        if (PayloadSize < sizeof(int32)) { break; }
+
+        int32 MapType = 0;
+        FMemory::Memcpy(&MapType, PayloadData, sizeof(int32));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::MapSelected;
+        Evt.SelectedMapType = MapType;
+
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
     case PKT_S2C_GAME_START_BRD:
     {
         FNetEvent Evt;

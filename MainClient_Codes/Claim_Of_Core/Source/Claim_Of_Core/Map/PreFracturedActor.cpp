@@ -380,14 +380,14 @@ void APreFracturedActor::AutoBuildNeighborGraph()
 			NeighborsStr += FString::Printf(TEXT("%d "), N);
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("Chunk %d -> [%s]"), i, *NeighborsStr);
+		//UE_LOG(LogTemp, Warning, TEXT("Chunk %d -> [%s]"), i, *NeighborsStr);
 	}
 
 #if WITH_EDITOR
 	UE_LOG(LogTemp, Warning, TEXT("AutoBuildNeighborGraph Done"));
 	for (int32 i = 0; i < ChunkData.Num(); ++i)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Chunk %d Neighbor Count = %d"), i, ChunkData[i].Neighbors.Num());
+		//UE_LOG(LogTemp, Warning, TEXT("Chunk %d Neighbor Count = %d"), i, ChunkData[i].Neighbors.Num());
 	}
 #endif
 }
@@ -407,8 +407,7 @@ void APreFracturedActor::AutoSetAnchoredChunks()
 		if (!MeshComp) continue;
 
 		const FVector Loc = ChunkMeshes[i]->Bounds.Origin;
-		UE_LOG(LogTemp, Warning, TEXT("Chunk %d Loc = X:%f Y:%f Z:%f"),
-			i, Loc.X, Loc.Y, Loc.Z);
+		//UE_LOG(LogTemp, Warning, TEXT("Chunk %d Loc = X:%f Y:%f Z:%f"), i, Loc.X, Loc.Y, Loc.Z);
 	}
 
 	for (int32 i = 0; i < ChunkData.Num(); ++i)
@@ -422,7 +421,7 @@ void APreFracturedActor::AutoSetAnchoredChunks()
 	UE_LOG(LogTemp, Warning, TEXT("AutoSetAnchoredChunks Done"));
 	for (int32 i = 0; i < ChunkData.Num(); ++i)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Chunk %d Anchored = %s"), i, ChunkData[i].bAnchored ? TEXT("true") : TEXT("false"));
+		//UE_LOG(LogTemp, Warning, TEXT("Chunk %d Anchored = %s"), i, ChunkData[i].bAnchored ? TEXT("true") : TEXT("false"));
 	}
 #endif
 }

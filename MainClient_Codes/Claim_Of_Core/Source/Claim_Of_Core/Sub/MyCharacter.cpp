@@ -1803,6 +1803,44 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 	}*/
 }
 
+void AMyCharacter::LockUntilInitialSnapshot()
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+		MoveComp->GravityScale = 0.f;
+	}
+
+	if (AController* C = GetController())
+	{
+		if (APlayerController* PC = Cast<APlayerController>(C))
+		{
+			PC->SetIgnoreMoveInput(true);
+			PC->SetIgnoreLookInput(true);
+		}
+	}
+}
+
+void AMyCharacter::UnlockAfterInitialSnapshot()
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->GravityScale = 1.f;
+		MoveComp->SetMovementMode(EMovementMode::MOVE_Walking);
+		MoveComp->StopMovementImmediately();
+	}
+
+	if (AController* C = GetController())
+	{
+		if (APlayerController* PC = Cast<APlayerController>(C))
+		{
+			PC->SetIgnoreMoveInput(false);
+			PC->SetIgnoreLookInput(false);
+		}
+	}
+}
+
 void AMyCharacter::KnockbackTest()
 {
 	ApplyKnockback(this, 1200.f);

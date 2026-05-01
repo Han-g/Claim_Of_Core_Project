@@ -67,6 +67,10 @@ void UNetworkInstance::Init()
 	Client->OnStatusUpdated.AddUObject(this, &UNetworkInstance::HandleStatusUpdated);
 	Client->OnStateChanged.AddUObject(this, &UNetworkInstance::HandleStateChanged);
 	Client->OnRespawned.AddUObject(this, &UNetworkInstance::HandleRespawned);
+	Client->OnGameTimeSynced.AddUObject(this, &UNetworkInstance::HandleGameTimeSynced);
+	Client->OnPhaseChanged.AddUObject(this, &UNetworkInstance::HandlePhaseChanged);
+	Client->OnMapEventTriggered.AddUObject(this, &UNetworkInstance::HandleMapEventTriggered);
+	Client->OnObjectSpawned.AddUObject(this, &UNetworkInstance::HandleObjectSpawned);
 
 	// Start worker thread + connect
 	Client->Start(ServerIPAddress, 9000);
@@ -90,8 +94,31 @@ void UNetworkInstance::Tick(float DeltaTime)
 	if (Client.IsValid())
 	{
 		Client->PumpEvents();
-		if (bHasPendingSnapshot && PendingSnapshotList.Num() > 0 && 
+
+		/*if (bHasPendingSnapshot && PendingSnapshotList.Num() > 0 && 
 			UGameplayStatics::GetPlayerCharacter(this, 0)) {
+			HandleSnapshotReceived(PendingSnapshotList);
+			bHasPendingSnapshot = false;
+			PendingSnapshotList.Empty();
+		}*/
+		if (bPendingInitialSpawnLock && !bLocalInitialTransformApplied)
+		{
+			AMyCharacter* LocalCharacter =
+				Cast<AMyCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0));
+
+			if (LocalCharacter && !bLocalSpawnLockApplied)
+			{
+				LocalCharacter->LockUntilInitialSnapshot();
+				bLocalSpawnLockApplied = true;
+
+				UE_LOG(LogTemp, Display,
+					TEXT("[SpawnLock] Local character locked until first snapshot"));
+			}
+		}
+
+		if (bHasPendingSnapshot && PendingSnapshotList.Num() > 0 &&
+			UGameplayStatics::GetPlayerCharacter(this, 0))
+		{
 			HandleSnapshotReceived(PendingSnapshotList);
 			bHasPendingSnapshot = false;
 			PendingSnapshotList.Empty();
@@ -419,6 +446,9 @@ void UNetworkInstance::HandleGameStart()
 		PendingSnapshotList.Empty();
 
 		bLocalInitialTransformApplied = false;
+		bPendingInitialSpawnLock = true;
+		bLocalSpawnLockApplied = false;
+
 		MarkPendingGameplayActivation();
 		UGameplayStatics::OpenLevel(this, LevelName);
 		// 레벨 전환 후 입력 모드는 새 PlayerController의 BeginPlay에서 설정하는 게 자연스러움
@@ -457,7 +487,9 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 	if (SnapshotList.Num() <= 0) { return; }
 
 	const int32 LocalUID = Client->ClientPlayerData.userUID;
-	AMyCharacter* LocalCharacter = Cast<AMyCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0));
+	AMyCharacter* LocalCharacter = 
+		Cast<AMyCharacter>(UGameplayStatics::GetPlayerCharacter(this, 0));
+	
 	if (!LocalCharacter) {
 		PendingSnapshotList = SnapshotList;
 		bHasPendingSnapshot = true;
@@ -486,6 +518,23 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			{
 				LocalCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
 				bLocalInitialTransformApplied = true;
+
+				if (!bLocalInitialTransformApplied)
+				{
+					LocalCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
+					bLocalInitialTransformApplied = true;
+
+					if (bPendingInitialSpawnLock || bLocalSpawnLockApplied)
+					{
+						LocalCharacter->UnlockAfterInitialSnapshot();
+						bPendingInitialSpawnLock = false;
+						bLocalSpawnLockApplied = false;
+
+						UE_LOG(LogTemp, Display,
+							TEXT("[SpawnLock] Released after first snapshot. Pos=(%.1f, %.1f, %.1f)"),
+							Data.x, Data.y, Data.z);
+					}
+				}
 			}
 		}
 		else
@@ -498,11 +547,13 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			RemoteCharacter->SetHPFromNetwork(Data.currentHP);
 			RemoteCharacter->SetStateFromNetwork(Data.characterState);
 			RemoteCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
+			
 			UE_LOG(LogTemp, Display,
 				TEXT("[RemoteAnim] UID=%d Anim=%d Pos=(%.1f, %.1f, %.1f)"),
 				Data.userUID,
 				Data.animationNum,
 				Data.x, Data.y, Data.z);
+
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
 		}
 	}
@@ -584,6 +635,44 @@ void UNetworkInstance::HandleRespawned(const FRespawnPacket& Packet)
 		Character->SetStateFromNetwork(0);
 		Character->ApplyTransformFromNetwork(Packet.X, Packet.Y, Packet.Z, Character->GetActorRotation().Yaw);
 	}
+}
+
+void UNetworkInstance::HandleGameTimeSynced(float SyncedGameTime)
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (AInGame_GameState* GS = World->GetGameState<AInGame_GameState>())
+		{
+			GS->ApplyNetworkGameTime(SyncedGameTime);
+		}
+	}
+}
+
+void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
+{
+	if (UWorld* World = GetWorld())
+    {
+        if (AInGame_GameState* GS = World->GetGameState<AInGame_GameState>())
+        {
+            GS->ApplyNetworkPhaseState(Packet);
+        }
+    }
+
+    UE_LOG(LogTemp, Display,
+        TEXT("[NetworkPhase] RoundState=%d Phase=%d GameTime=%.2f"),
+        Packet.roundState,
+        Packet.mapPhase,
+        Packet.gameTime);
+}
+
+void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
+{
+
+}
+
+void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
+{
+
 }
 
 void UNetworkInstance::MarkPendingGameplayActivation()

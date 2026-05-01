@@ -108,6 +108,9 @@ public:
 	void SetStateFromNetwork(int32 InState);
 	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
 
+	void LockUntilInitialSnapshot();
+	void UnlockAfterInitialSnapshot();
+
 private:
 	int32 NetworkPlayerUID = -1;
 

@@ -4,6 +4,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "InGame_GameState.generated.h"
 
+struct FPhaseChangePacket;
+
 UENUM(BlueprintType)
 enum class ERoundState : uint8
 {
@@ -80,6 +82,9 @@ public:
 	void StartReady();
 	void StartRound();
 	void EndRound();
+
+	void ApplyNetworkPhaseState(const FPhaseChangePacket& Packet);
+	void ApplyNetworkGameTime(float SyncedGameTime);
 
 protected:
 	FTimerHandle TimerHandle_Countdown;
