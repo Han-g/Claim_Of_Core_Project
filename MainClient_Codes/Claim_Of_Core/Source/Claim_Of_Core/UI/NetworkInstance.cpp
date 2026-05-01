@@ -88,6 +88,49 @@ void UNetworkInstance::Shutdown()
 	Super::Shutdown();
 }
 
+void UNetworkInstance::StartClientOnlyTestFlow()
+{
+	bClientOnlyTestMode = true;
+
+	if (!Client.IsValid())
+	{
+		Client = MakeShared<ClientNetworking>();
+	}
+
+	Client->ClientSessionID = 1;
+	Client->ClientPlayerData.userUID = 1001;
+	Client->ClientPlayerData.roleType = 1;
+	Client->ClientPlayerData.currentHP = 100;
+	Client->IsLogin = true;
+
+	TArray<FRoomMemberInfo> FakeList;
+	FRoomMemberInfo MyInfo;
+	MyInfo.PlayerName = TEXT("LocalTestPlayer");
+	MyInfo.bIsReady = false;
+	FakeList.Add(MyInfo);
+
+	ShowLoginHUD();
+	HandleLoginResult(true);
+	HandleRoomEnterResult(true, FakeList);
+	SelectCharacterAndReady(1);
+	HandleGameStart();
+
+	TArray<GameData> FakeSnapshot;
+	GameData LocalData;
+	LocalData.userUID = Client->ClientPlayerData.userUID;
+	LocalData.isConnected = true;
+	LocalData.roleType = 1;
+	LocalData.currentHP = 100;
+	LocalData.characterState = 0;
+	LocalData.x = 0.f;
+	LocalData.y = 0.f;
+	LocalData.z = 100.f;
+	LocalData.rotate = 0.f;
+	FakeSnapshot.Add(LocalData);
+
+	HandleSnapshotReceived(FakeSnapshot);
+}
+
 void UNetworkInstance::Tick(float DeltaTime)
 {
 	// Drain worker events ¡æ fire delegates on game thread

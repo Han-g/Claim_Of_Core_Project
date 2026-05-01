@@ -13,7 +13,6 @@ void AClaim_Of_CorePlayerController::StartClientOnlyTestPressed()
 {
 	if (UNetworkInstance* GI = GetGameInstance<UNetworkInstance>())
 	{
-		UE_LOG(LogTemp, Display, TEXT("Test key Pressed!!!"));
 		GI->StartClientOnlyTestFlow();
 	}
 }

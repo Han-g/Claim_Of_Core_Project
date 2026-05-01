@@ -31,6 +31,9 @@ public:
 	virtual void Init() override;
 	virtual void Shutdown() override;
 
+	// Test Func
+	void StartClientOnlyTestFlow();
+
 	// Timer Func
 	virtual void Tick(float DeltaTime) override;
 	virtual bool IsTickable() const override { return true; }
@@ -140,4 +143,7 @@ private:
 
 	// Remote player instances indexed by userUID.
 	TMap<int32, TWeakObjectPtr<AMyCharacter>> RemoteCharacters;
+
+	// Test Checker
+	bool bClientOnlyTestMode = false;
 };

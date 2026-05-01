@@ -795,7 +795,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 
 	// Test Key Bind
-	PlayerInputComponent->BindKey(EKeys::Subtract, IE_Pressed, this, &AMyCharacter::TestFunc);
+	//PlayerInputComponent->BindKey(EKeys::Subtract, IE_Pressed, this, &AMyCharacter::TestFunc);
 
 	// Key Binding
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMyCharacter::EquipItem);
@@ -823,7 +823,7 @@ void AMyCharacter::TestFunc()
 
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>()) {
 		UE_LOG(LogTemp, Display, TEXT("[ClientTest] TestFunc called. Sending attack test packet."));
-		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		NetworkInstance->StartClientOnlyTestFlow();
 	}
 
 	else { UE_LOG(LogTemp, Warning, TEXT("[ClientTest] NetworkInstance is null.")); }
