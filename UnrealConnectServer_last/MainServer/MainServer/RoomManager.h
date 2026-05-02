@@ -57,6 +57,7 @@ public:
 	int TeamCalculateBySlot(int roomSlot) const;
 	void SelectStage(int stageNum);
 	void LoadStage(int stageNum);
+
 	// Returns the spawn location used when players enter or respawn.
 	Vector3 GetRespawnLocation(int slot);
 	float GetSpawnYawBySlot(int slot) const;
@@ -64,6 +65,7 @@ public:
 	void MatchMaking();
 
 	// Ticks room-owned game logic when the room is in PLAYING state.
+	void BeginDeferredRoundStart(float DelaySec);
 	void UpdateGameLogic(float deltaTime);
 
 	// Broadcasts a gameplay snapshot to every connected member.
@@ -90,6 +92,10 @@ private:
 
 	int selectedMapType = 0;
 	float gameTimer = 0.f;
+
+	bool bPendingRoundStart = false;
+	float PendingRoundStartDelay = 0.f;
+
 	std::unordered_map<int, ObjectData> m_GameObjects;
 	std::unordered_map<int, ItemData> m_ItemObjects;
 };

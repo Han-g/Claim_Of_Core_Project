@@ -44,9 +44,9 @@ void GameLogic::StartGameReady()
 void GameLogic::StartGameRound()
 {
     roundState = ERoundState::Playing;
-    gameTime = phase1Time + phase2Time + phase3Time + 50;
+    gameTime = phase1Time + phase2Time + phase3Time;
     currentGameTime = gameTime;
-    currentMapPhase = 0;
+    currentMapPhase = 1;
 
     // Initialize map gimmicks
     if (mapType == 1) {
@@ -68,7 +68,7 @@ void GameLogic::StartGameRound()
 
     PhaseChangePacket pkt;
     pkt.roundState = 1;
-    pkt.mapPhase = 0;
+    pkt.mapPhase = 1;
     pkt.gameTime = (float)currentGameTime;
 
     ownerRoom->BroadcastToMembers(PKT_S2C_GAME_PHASE_CHANGE_BRD, (char*)&pkt, sizeof(pkt));
@@ -89,24 +89,23 @@ void GameLogic::EndGameRound()
 void GameLogic::CountdownTick()
 {
     if (roundState != ERoundState::Playing) { return; }
+
     else {
         currentGameTime--;
 
         BroadcastGameTime((float)currentGameTime);
 
-        int elapsed = gameTime - currentGameTime;
+        const int elapsed = gameTime - currentGameTime;
 
-        if (elapsed >= phase1Time && currentMapPhase == 0) {
-            currentMapPhase = 1;
-            HandlePhaseChanged(1);
-        }
-        else if (elapsed >= phase1Time + phase2Time && currentMapPhase == 1) {
-            currentMapPhase = 2;
-            HandlePhaseChanged(2);
-        }
-        else if (elapsed >= phase1Time + phase2Time + phase3Time && currentMapPhase == 2) {
+        if (currentGameTime <= phase3Time && currentMapPhase == 2)
+        {
             currentMapPhase = 3;
             HandlePhaseChanged(3);
+        }
+        else if (currentGameTime <= phase2Time + phase3Time && currentMapPhase == 1)
+        {
+            currentMapPhase = 2;
+            HandlePhaseChanged(2);
         }
 
         if (currentGameTime <= 0) { EndGameRound(); }

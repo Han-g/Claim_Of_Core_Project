@@ -64,11 +64,16 @@ public:
 	int32 CurrentGameTime;
 
 	DECLARE_MULTICAST_DELEGATE(FOnGameplayActivated);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNativePhaseChanged, EMapPhase, EMapPhase);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNativeRoundStateChanged, ERoundState, ERoundState);
+
+	FOnGameplayActivated OnGameplayActivated;
+	FOnNativePhaseChanged OnNativePhaseChanged;
+	FOnNativeRoundStateChanged OnNativeRoundStateChanged;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Round")
 	bool bGameplayActivated = false;
 
-	FOnGameplayActivated OnGameplayActivated;
 
 	void ActivateGameplayFromServerStart();
 	bool IsGameplayActivated() const { return bGameplayActivated; }

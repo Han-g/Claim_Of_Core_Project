@@ -45,7 +45,7 @@ void Room::InitGameLogic(GameLogic* logic)
     }
 
     logic->SetMapType(selectedMapType);
-    logic->StartGameRound();
+    //logic->StartGameRound();
 }
 
 void Room::InitCharacter(Session* member, GameLogic* logic)
@@ -239,10 +239,27 @@ void Room::MatchMaking()
 
 }
 
+void Room::BeginDeferredRoundStart(float DelaySec)
+{
+    bPendingRoundStart = true;
+    PendingRoundStartDelay = DelaySec;
+}
+
 void Room::UpdateGameLogic(float deltaTime)
 {
     if (m_State != ERoomState::PLAYING) { return; }
     if (!m_GameLogic) { return; }
+
+    if (bPendingRoundStart)
+    {
+        PendingRoundStartDelay -= deltaTime;
+        if (PendingRoundStartDelay <= 0.f)
+        {
+            bPendingRoundStart = false;
+            m_GameLogic->StartGameRound();
+        }
+        return;
+    }
 
     m_GameLogic->Update(deltaTime);
 }
@@ -626,6 +643,7 @@ void RoomManager::GameStart(Session* client)
 
     // Broadcast the game-start event to every room member.
     room->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
+    room->BeginDeferredRoundStart(3.0f);
 
     LOG_INFO("Game Started! Room [%d]", client->roomID);
 }

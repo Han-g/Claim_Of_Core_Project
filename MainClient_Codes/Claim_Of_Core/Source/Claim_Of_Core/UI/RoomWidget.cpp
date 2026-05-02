@@ -57,9 +57,5 @@ void URoomWidget::OnStartButtonClicked()
 	if (GI) { 
 		// Start Condition Check
 		GI->RequestGameStart(); 
-
-		// Immediate Start For Test
-		
-		//GI->HandleGameStart();
 	}
 }

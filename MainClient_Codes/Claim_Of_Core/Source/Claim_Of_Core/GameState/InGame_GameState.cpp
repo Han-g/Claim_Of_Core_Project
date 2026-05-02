@@ -12,8 +12,8 @@ AInGame_GameState::AInGame_GameState()
 
 	CurrentPhase = EMapPhase::None;
 	Phase1Time = 40;
-	Phase2Time = 60;
-	Phase3Time = 20;
+	Phase2Time = 80;
+	Phase3Time = 30;
 	GameTime = Phase1Time + Phase2Time + Phase3Time;
 
 	CurrentReadyTime = ReadyTime;
@@ -94,9 +94,22 @@ void AInGame_GameState::EndRound()
 
 void AInGame_GameState::ApplyNetworkPhaseState(const FPhaseChangePacket& Packet)
 {
+	const ERoundState OldRoundState = RoundState;
+	const EMapPhase OldPhase = CurrentPhase;
+
 	RoundState = static_cast<ERoundState>(Packet.roundState);
 	CurrentPhase = static_cast<EMapPhase>(Packet.mapPhase);
 	CurrentGameTime = FMath::RoundToInt(Packet.gameTime);
+
+	if (OldRoundState != RoundState)
+	{
+		OnNativeRoundStateChanged.Broadcast(OldRoundState, RoundState);
+	}
+
+	if (OldPhase != CurrentPhase)
+	{
+		OnNativePhaseChanged.Broadcast(OldPhase, CurrentPhase);
+	}
 
 	if (!bGameplayActivated)
 	{
@@ -175,7 +188,14 @@ void AInGame_GameState::ActivateGameplayFromServerStart()
 	OnGameplayActivated.Broadcast();
 
 	// Local Game Timer Setting
-	//StartReady();
+	if (UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance()))
+	{
+		if (GI->IsClientOnlyTestMode())
+		{
+			// If Test mode On, Set Local Timer
+			StartReady();
+		}
+	}
 }
 
 void AInGame_GameState::UpdatePhase()

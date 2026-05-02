@@ -58,6 +58,9 @@ protected:
 	void HandlePhaseChanged(EMapPhase NewPhase);
 	void HandleRoundStateChanged(ERoundState NewRoundState);
 
+	void HandleRoundStateChangedFromGameState(ERoundState OldState, ERoundState NewState);
+	void HandlePhaseChangedFromGameState(EMapPhase OldPhase, EMapPhase NewPhase);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "Phase")
 	void BP_OnMapPhaseChanged(EMapPhase NewPhase);
 

@@ -35,6 +35,7 @@ int main()
 		static auto lastTime = std::chrono::steady_clock::now();
 		auto now = std::chrono::steady_clock::now();
 		float deltaTime = std::chrono::duration<float>(now - lastTime).count();
+		lastTime = now;
 
 		server.GameFrameProtocol(deltaTime);
 

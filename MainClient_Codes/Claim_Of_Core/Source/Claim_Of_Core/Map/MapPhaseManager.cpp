@@ -11,7 +11,20 @@ void AMapPhaseManager::BeginPlay()
 	Super::BeginPlay();
 
 	InitializeFromGameState();
-	UpdateFromGameState();
+
+	if (!CachedGameState) { return; }
+
+	CachedGameState->OnNativeRoundStateChanged.AddUObject(
+		this, &AMapPhaseManager::HandleRoundStateChangedFromGameState);
+
+	CachedGameState->OnNativePhaseChanged.AddUObject(
+		this, &AMapPhaseManager::HandlePhaseChangedFromGameState);
+
+	HandleRoundStateChanged(CachedGameState->RoundState);
+	HandlePhaseChanged(CachedGameState->CurrentPhase);
+
+	SetActorTickEnabled(false);
+	//UpdateFromGameState();
 }
 
 void AMapPhaseManager::Tick(float DeltaTime)
@@ -77,4 +90,14 @@ void AMapPhaseManager::HandleRoundStateChanged(ERoundState NewRoundState)
 
 	OnRoundStateChanged.Broadcast(CachedRoundState);
 	BP_OnRoundStateChanged(CachedRoundState);
+}
+
+void AMapPhaseManager::HandleRoundStateChangedFromGameState(ERoundState OldState, ERoundState NewState)
+{
+	HandleRoundStateChanged(NewState);
+}
+
+void AMapPhaseManager::HandlePhaseChangedFromGameState(EMapPhase OldPhase, EMapPhase NewPhase)
+{
+	HandlePhaseChanged(NewPhase);
 }

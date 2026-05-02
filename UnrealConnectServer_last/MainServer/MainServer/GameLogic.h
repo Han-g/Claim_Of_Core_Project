@@ -124,7 +124,12 @@ public:
 	Room* ownerRoom;
 	std::map<int, Session*> players;
 
-	void SetMapType(int type) {mapType = type;}
+
+public:
+	// ------------------------------------
+	// ---------   Round State   ----------
+	// ------------------------------------
+	void SetMapType(int type) { mapType = type; }
 
 	// Advances the current round timer and updates map-specific hazards.
 	void Update(float deltaTime);
@@ -146,7 +151,16 @@ public:
 	// Broadcasts respawn position and HP for the target.
 	void BroadcastRespawn(int targetID, float x, float y, float z, int hp);
 	// Broadcasts a role change to every room member.
-	void BroadcastRoleChange(int targetID, int newRoleType);
+	void BroadcastRoleChange(int targetID, int newRoleType); void CountdownTick();                                  // Advances the server-side one-second round timer.
+	void HandlePhaseChanged(int newPhase);                 // Triggers and broadcasts a map phase transition.
+
+private:
+	int roundState = 0;            // 0=Waiting, 1=Playing, 2=Finished
+	int readyTime = 10;
+	int gameTime = 180;
+	int currentReadyTime = 0;
+	int currentGameTime = 0;
+	
 
 private:
 	float elapsedTime = 0.f;
@@ -237,22 +251,6 @@ private:
 	float Radius = 80.f;
 	int ownerSessionID = -1;
 
-public:
-	// ------------------------------------
-	// ---------   Round State   ----------
-	// ------------------------------------
-	void StartReady();                                     // Starts the ready phase and broadcasts the new round state.
-	void StartRound();                                     // Starts live gameplay and broadcasts the new round state.
-	void CountdownTick();                                  // Advances the server-side one-second round timer.
-	void HandlePhaseChanged(int newPhase);                 // Triggers and broadcasts a map phase transition.
-
-private:
-	int roundState = 0;            // 0=Waiting, 1=Playing, 2=Finished
-	int readyTime = 10;
-	int gameTime = 180;
-	int currentReadyTime = 0;
-	int currentGameTime = 0;
-
 
 public:
 	// ------------------------------------
@@ -315,9 +313,9 @@ public:
 private:
 	int mapType = 0;	// 1 = Building, 2 = Ice Cave
 
-	int phase1Time = 120;
-	int phase2Time = 60;
-	int phase3Time = 20;
+	int phase1Time = 40;
+	int phase2Time = 80;
+	int phase3Time = 30;
 
 	// ------------ Building Map Statement ------------
 	DebrisSpawnConfig debrisPhaseConfigs[3] = {

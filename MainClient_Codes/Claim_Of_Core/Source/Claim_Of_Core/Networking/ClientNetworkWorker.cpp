@@ -436,6 +436,7 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         FNetEvent Evt;
         Evt.Type = ENetEventType::MapSelected;
         Evt.SelectedMapType = MapType;
+        UE_LOG(LogTemp, Display, TEXT("[Select Map Trace] <%d> Map is choosen"), MapType);
 
         PushEvent(MoveTemp(Evt));
         break;

@@ -33,6 +33,7 @@ public:
 
 	// Test Func
 	void StartClientOnlyTestFlow();
+	bool IsClientOnlyTestMode() const { return bClientOnlyTestMode; }
 
 	// Timer Func
 	virtual void Tick(float DeltaTime) override;
