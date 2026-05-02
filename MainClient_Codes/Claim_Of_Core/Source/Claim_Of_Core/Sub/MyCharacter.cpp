@@ -1607,7 +1607,8 @@ void AMyCharacter::Attack()
 
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
 	{
-		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		//NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		NetworkInstance->RequestAttackInput(0);
 	}
 	/*if (!IsValid(Controller))
 	{

@@ -50,13 +50,15 @@ public:
 	void TryRegister(FString ID, FString PW);
 	void CreateRoom();
 	void JoinRoom(int32 RoomID);
-	void CharacterSelectRequest();
+	void RequestCharacterSelect();
 	void RequestReady();
 	void RequestGameStart();
+	void RequestAttackInput(int32 AttackType = 0);
 	void SendMoveInputToServer(const FMovePacket& MoveData);
 
 	// Send Packet for Test
-	void SendGameplayTestPacket(PacketID TestPacket);
+	void SendGameplayAttackPacket(PacketID TestPacket);
+	void DispatchTestAttackAction(int32 AttackType);
 
 	// Send Prepare Game Packet
 	void HandleLoginResult(bool bSuccess);

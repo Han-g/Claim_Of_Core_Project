@@ -20,7 +20,8 @@ class AClaim_Of_CorePlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
-	void StartClientOnlyTestPressed();
+	// TEST ENTRY FUNC
+	void StartClientOnlyTestPressed(); // Function that to Enter test mode by pressing "-" key
 	
 protected:
 

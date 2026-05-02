@@ -109,6 +109,7 @@ void UNetworkInstance::StartClientOnlyTestFlow()
 	MyInfo.bIsReady = false;
 	FakeList.Add(MyInfo);
 
+	// TEST FLOW
 	ShowLoginHUD();
 	HandleLoginResult(true);
 	HandleRoomEnterResult(true, FakeList);
@@ -297,7 +298,7 @@ void UNetworkInstance::JoinRoom(int32 RoomID)
 	}
 }
 
-void UNetworkInstance::CharacterSelectRequest()
+void UNetworkInstance::RequestCharacterSelect()
 {
 	if (!Client.IsValid()) {
 		UE_LOG(LogTemp, Warning, TEXT("[CharacterSelect] Client invalid"));
@@ -327,6 +328,23 @@ void UNetworkInstance::RequestGameStart()
 	}
 }
 
+void UNetworkInstance::RequestAttackInput(int32 AttackType)
+{
+	if (!Client.IsValid())
+	{
+		return;
+	}
+
+	if (!bClientOnlyTestMode)
+	{
+		SendGameplayAttackPacket(PKT_C2S_ATTACK_KEYINPUT);
+		return;
+	}
+
+	UE_LOG(LogTemp, Display, TEXT("[ClientTest] Send test packet: %d"), PKT_C2S_ATTACK_KEYINPUT);
+	DispatchTestAttackAction(AttackType);
+}
+
 void UNetworkInstance::SendMoveInputToServer(const FMovePacket& MoveData)
 {
 	if (!Client.IsValid()) { return; }
@@ -334,7 +352,7 @@ void UNetworkInstance::SendMoveInputToServer(const FMovePacket& MoveData)
 	Client->SendMoveInput(MoveData);
 }
 
-void UNetworkInstance::SendGameplayTestPacket(PacketID TestPacket)
+void UNetworkInstance::SendGameplayAttackPacket(PacketID TestPacket)
 {
 	if (!Client.IsValid())
 	{
@@ -343,6 +361,21 @@ void UNetworkInstance::SendGameplayTestPacket(PacketID TestPacket)
 	}
 
 	Client->TestFuncInput(TestPacket);
+}
+
+void UNetworkInstance::DispatchTestAttackAction(int32 AttackType)
+{
+	const int32 LocalUID = Client->ClientPlayerData.userUID;
+	if (LocalUID <= 0)
+	{
+		return;
+	}
+
+	FAttackActionPacket Packet{};
+	Packet.AttackerID = LocalUID;
+	Packet.AttackType = AttackType;
+
+	HandleAttackActionReceived(Packet);
 }
 
 void UNetworkInstance::HandleLoginResult(bool bSuccess)
