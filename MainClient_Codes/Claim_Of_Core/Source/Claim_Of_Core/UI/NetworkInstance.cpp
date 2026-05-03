@@ -31,7 +31,7 @@ UNetworkInstance::UNetworkInstance()
 
 	// Initial map Setting
 	InGameLevel = TSoftObjectPtr<UWorld>(
-		FSoftObjectPath(TEXT("/Game/Game/Map/Stage/BuildingStage.BuildingStage"))
+		FSoftObjectPath(TEXT("/Game/Game/Map/Stage/IceCaveStage.IceCaveStage"))
 	);
 }
 
@@ -45,7 +45,7 @@ void UNetworkInstance::Init()
 	if (GConfig) {
 		GConfig->GetString(
 			TEXT("ServerSettings"),
-			TEXT("LocalServerIP"),
+			TEXT("ServerIP"),
 			ServerIPAddress,
 			GGameIni
 		);

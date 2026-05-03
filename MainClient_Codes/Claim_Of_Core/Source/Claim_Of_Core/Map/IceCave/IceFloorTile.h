@@ -1,23 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "../BreakableActor.h"
 #include "IceFloorTile.generated.h"
 
-class UStaticMeshComponent;
-class UBoxComponent;
-
-UENUM(BlueprintType)
-enum class EIceFloorState : uint8
-{
-	Normal,
-	Cracked,
-	Breaking,
-	Broken
-};
-
 UCLASS()
-class CLAIM_OF_CORE_API AIceFloorTile : public AActor
+class CLAIM_OF_CORE_API AIceFloorTile : public ABreakableActor
 {
 	GENERATED_BODY()
 
@@ -26,49 +14,62 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<USceneComponent> Root;
+protected:
+	// 이 액터 안에 붙어있는 StaticMeshComponent들을 자동 수집해서 사용
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	TArray<TObjectPtr<UStaticMeshComponent>> IcePieces;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UStaticMeshComponent> FloorMesh;
+	// 바깥부터 깨질 순서
+	UPROPERTY()
+	TArray<int32> SortedPieceIndices;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UBoxComponent> TriggerBox;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	bool bAutoStart = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Floor")
-	EIceFloorState CurrentState = EIceFloorState::Normal;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	float BreakInterval = 0.4f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Floor")
-	float BreakDelay = 1.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	float CrackDelay = 0.2f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Floor")
-	bool bFallWhenBroken = true;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	float DownImpulse = 300.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Floor")
-	float FallenLifeSpan = 5.0f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	float BrokenLifeSpan = 3.f;
 
-	FTimerHandle BreakTimerHandle;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IceFloor")
+	TObjectPtr<UMaterialInterface> CrackedMaterial = nullptr;
+
+	int32 CurrentPieceIndex = 0;
+
+	float Timer = 0.f;
+
+	bool bStartedBreaking = false;
+	bool bCurrentPieceCracked = false;
+
+	FTimerHandle TimerHandle;
+protected:
+	virtual void OnActivatedInternal() override;
+	virtual void OnBrokenInternal() override;
+
+	void CollectIcePieces();
+	void BuildBreakOrder();
+
+	void ProcessBreaking(float DeltaTime);
+
+	void CrackPiece(int32 PieceIndex);
+	void BreakPiece(int32 PieceIndex);
 
 public:
-	UFUNCTION(BlueprintCallable)
-	void SetCracked();
+	UFUNCTION(BlueprintCallable, Category = "IceFloor")
+	void StartIceBreaking();
 
-	UFUNCTION(BlueprintCallable)
-	void StartBreaking();
+	UFUNCTION(BlueprintCallable, Category = "IceFloor")
+	void StopIceBreaking();
 
-	UFUNCTION(BlueprintCallable)
-	void BreakFloor();
-
-	UFUNCTION(BlueprintPure)
-	bool IsBroken() const { return CurrentState == EIceFloorState::Broken; }
-
-	UFUNCTION(BlueprintImplementableEvent)
-	void BP_OnCracked();
-
-	UFUNCTION(BlueprintImplementableEvent)
-	void BP_OnBreaking();
-
-	UFUNCTION(BlueprintImplementableEvent)
-	void BP_OnBroken();
+	UFUNCTION(BlueprintCallable, Category = "IceFloor")
+	void SetBreakInterval(float NewInterval);
 };
