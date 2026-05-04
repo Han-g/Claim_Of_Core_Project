@@ -18,6 +18,9 @@ public:
 	void ActivateGameplayRuntime();
 	void HandleGameplayActivated();
 
+	void TriggerPhase2Debris();
+	void TriggerPhase3Debris();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -48,9 +51,6 @@ protected:
 protected:
 	void InitializeGameState();
 	void HandlePhaseLogic();
-
-	void TriggerPhase2Debris();
-	void TriggerPhase3Debris();
 
 	void PrepareDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors);
 	void ActivateDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors);

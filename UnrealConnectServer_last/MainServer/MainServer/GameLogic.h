@@ -66,6 +66,9 @@ struct ItemData {
 	int ObjectID;
 	e_ObjectType ObjectType;
 	float x, y, z;
+
+	int ownerUID = -1;
+	bool bEquipped = false;
 };
 
 class ObjectManager {
@@ -151,7 +154,9 @@ public:
 	// Broadcasts respawn position and HP for the target.
 	void BroadcastRespawn(int targetID, float x, float y, float z, int hp);
 	// Broadcasts a role change to every room member.
-	void BroadcastRoleChange(int targetID, int newRoleType); void CountdownTick();                                  // Advances the server-side one-second round timer.
+	void BroadcastRoleChange(int targetID, int newRoleType); 
+
+	void CountdownTick();                                  // Advances the server-side one-second round timer.
 	void HandlePhaseChanged(int newPhase);                 // Triggers and broadcasts a map phase transition.
 
 private:
@@ -193,7 +198,7 @@ public:
 	// Equips the currently held item on the server side.
 	void EquipItem();
 	// Drops the currently equipped item back into the world.
-	void DropCurrentItem();
+	void DropCurrentItem(int sessionID, int itemID);
 
 	// Combat System
 	// Applies server-authoritative knockback between two players.
@@ -221,11 +226,11 @@ private:
 	// =============	Need  Modify	============
 	// =============	Set Map Size	============
 	// =============================================
-	float MapMinX = -5000.0f;
-	float MapMaxX = 5000.0f;
-	float MapMinY = -5000.0f;
-	float MapMaxY = 5000.0f;
-	float FixedGroundZ = 1200.0f;
+	float MapMinX = -10000.0f;
+	float MapMaxX = 10000.0f;
+	float MapMinY = -10000.0f;
+	float MapMaxY = 10000.0f;
+	float FixedGroundZ = 500.0f;
 
 public:
 	// ------------------------------------

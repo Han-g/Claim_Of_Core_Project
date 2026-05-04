@@ -4,6 +4,9 @@
 #include "LoginWidget.h"
 #include "RobbyWidget.h"
 #include "RoomWidget.h"
+#include "BaseItem.h"
+#include "Map/Building/SmallDebrisActor.h"
+#include "Map/Building/LargeDebrisController.h"
 #include "Sub/MyCharacter.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -71,6 +74,7 @@ void UNetworkInstance::Init()
 	Client->OnPhaseChanged.AddUObject(this, &UNetworkInstance::HandlePhaseChanged);
 	Client->OnMapEventTriggered.AddUObject(this, &UNetworkInstance::HandleMapEventTriggered);
 	Client->OnObjectSpawned.AddUObject(this, &UNetworkInstance::HandleObjectSpawned);
+	Client->OnItemOwnershipChanged.AddUObject(this, &UNetworkInstance::HandleItemOwnershipChanged);
 
 	// Start worker thread + connect
 	Client->Start(ServerIPAddress, 9000);
@@ -345,6 +349,24 @@ void UNetworkInstance::RequestAttackInput(int32 AttackType)
 	DispatchTestAttackAction(AttackType);
 }
 
+void UNetworkInstance::RequestItemPickup(int32 ItemID)
+{
+	if (!Client.IsValid()) { return; }
+
+	if (ItemID < 0) { return; }
+
+	Client->ItemPickupRequest(ItemID);
+}
+
+void UNetworkInstance::RequestItemDrop(int32 ItemID)
+{ 
+	if (!Client.IsValid()) { return; }
+
+	if (ItemID < 0) { return; }
+
+	Client->ItemDropRequest(ItemID);
+}
+
 void UNetworkInstance::SendMoveInputToServer(const FMovePacket& MoveData)
 {
 	if (!Client.IsValid()) { return; }
@@ -595,21 +617,15 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 				LocalCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
 				bLocalInitialTransformApplied = true;
 
-				if (!bLocalInitialTransformApplied)
+				if (bPendingInitialSpawnLock || bLocalSpawnLockApplied)
 				{
-					LocalCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
-					bLocalInitialTransformApplied = true;
+					LocalCharacter->UnlockAfterInitialSnapshot();
+					bPendingInitialSpawnLock = false;
+					bLocalSpawnLockApplied = false;
 
-					if (bPendingInitialSpawnLock || bLocalSpawnLockApplied)
-					{
-						LocalCharacter->UnlockAfterInitialSnapshot();
-						bPendingInitialSpawnLock = false;
-						bLocalSpawnLockApplied = false;
-
-						UE_LOG(LogTemp, Display,
-							TEXT("[SpawnLock] Released after first snapshot. Pos=(%.1f, %.1f, %.1f)"),
-							Data.x, Data.y, Data.z);
-					}
+					UE_LOG(LogTemp, Display,
+						TEXT("[SpawnLock] Released after first snapshot. Pos=(%.1f, %.1f, %.1f)"),
+						Data.x, Data.y, Data.z);
 				}
 			}
 		}
@@ -617,6 +633,7 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 		{
 			AMyCharacter* RemoteCharacter = EnsureRemoteCharacter(Data);
 			if (!RemoteCharacter) { continue; }
+			const FVector Before = RemoteCharacter->GetActorLocation();
 
 			RemoteCharacter->SetNetworkPlayerUID(Data.userUID);
 			RemoteCharacter->SetRoleFromNetwork(Data.roleType);
@@ -624,11 +641,15 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			RemoteCharacter->SetStateFromNetwork(Data.characterState);
 			RemoteCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
 			
+			const FVector After = RemoteCharacter->GetActorLocation();
+
 			UE_LOG(LogTemp, Display,
-				TEXT("[RemoteAnim] UID=%d Anim=%d Pos=(%.1f, %.1f, %.1f)"),
+				TEXT("[RemoteSnapshotIn] UID=%d Snapshot=(%.1f, %.1f, %.1f) Before=(%.1f, %.1f, %.1f) After=(%.1f, %.1f, %.1f) Anim=%d"),
 				Data.userUID,
-				Data.animationNum,
-				Data.x, Data.y, Data.z);
+				Data.x, Data.y, Data.z,
+				Before.X, Before.Y, Before.Z,
+				After.X, After.Y, After.Z,
+				Data.animationNum);
 
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
 		}
@@ -679,6 +700,42 @@ void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket& Packet)
 		Packet.Damage,
 		Packet.RemainHP,
 		bIsLocalTarget ? TEXT("true") : TEXT("false"));
+}
+
+void UNetworkInstance::HandleItemOwnershipChanged(const FItemPacket& Packet)
+{
+	ABaseItem* Item = FindItemByID(Packet.ItemID);
+	if (!Item) { return; }
+
+	if (Packet.bEquipped)
+	{
+		AMyCharacter* OwnerCharacter = FindCharacterByUID(Packet.OwnerUID);
+		if (!OwnerCharacter) { return; }
+
+		OwnerCharacter->ApplyEquipItemVisual(Item);
+	}
+	else
+	{
+		FVector DropLocation(Packet.X, Packet.Y, Packet.Z);
+
+		if (AMyCharacter* OwnerCharacter = Item->GetOwnerCharacter())
+		{
+			OwnerCharacter->ApplyDropItemVisual(Item, DropLocation);
+		}
+		else
+		{
+			Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+			Item->SetOwnerCharacter(nullptr);
+			Item->SetActorLocation(DropLocation);
+			Item->SetActorEnableCollision(true);
+
+			if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Item->GetRootComponent()))
+			{
+				Prim->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+				Prim->SetSimulatePhysics(true);
+			}
+		}
+	}
 }
 
 void UNetworkInstance::HandleStatusUpdated(const FStatusUpdatePacket& Packet)
@@ -743,12 +800,109 @@ void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
 
 void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 {
+	// EMapEventType::LargeDebris == 3
+	if (Packet.eventType != 3)
+	{
+		return;
+	}
 
+	// 서버 GameLogic.cpp 기준:
+	// eventState == 1  -> Activate
+	if (Packet.eventState != 1)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ALargeDebrisController> It(World); It; ++It)
+	{
+		ALargeDebrisController* Controller = *It;
+		if (!Controller)
+		{
+			continue;
+		}
+
+		Controller->ActivateGameplayRuntime();
+
+		if (Packet.objectIndex == 2)
+		{
+			Controller->TriggerPhase2Debris();
+
+			UE_LOG(LogTemp, Display,
+				TEXT("[LargeDebrisEvent] TriggerPhase2Debris"));
+		}
+		else if (Packet.objectIndex == 3)
+		{
+			Controller->TriggerPhase3Debris();
+
+			UE_LOG(LogTemp, Display,
+				TEXT("[LargeDebrisEvent] TriggerPhase3Debris"));
+		}
+	}
 }
 
 void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 {
+	// EMapEventType::SmallDebris == 2
+	if (Packet.objectType != 2)
+	{
+		return;
+	}
 
+	if (Packet.objectID < 0)
+	{
+		return;
+	}
+
+	if (!SmallDebrisClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[DebrisSpawn] SmallDebrisClass is not set."));
+		return;
+	}
+
+	if (TWeakObjectPtr<ASmallDebrisActor>* Found = SpawnedSmallDebris.Find(Packet.objectID))
+	{
+		if (Found->IsValid())
+		{
+			return;
+		}
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	ASmallDebrisActor* NewDebris = World->SpawnActor<ASmallDebrisActor>(
+		SmallDebrisClass,
+		FVector(Packet.x, Packet.y, Packet.z),
+		FRotator::ZeroRotator,
+		Params
+	);
+
+	if (!NewDebris)
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[DebrisSpawn] Failed to spawn small debris. objectID=%d"),
+			Packet.objectID);
+		return;
+	}
+
+	SpawnedSmallDebris.Add(Packet.objectID, NewDebris);
+
+	UE_LOG(LogTemp, Display,
+		TEXT("[DebrisSpawn] Spawned small debris. objectID=%d pos=(%.1f, %.1f, %.1f)"),
+		Packet.objectID,
+		Packet.x, Packet.y, Packet.z);
 }
 
 void UNetworkInstance::MarkPendingGameplayActivation()
@@ -819,4 +973,34 @@ AMyCharacter* UNetworkInstance::EnsureRemoteCharacter(const GameData& Data)
 	RemoteCharacters.Add(Data.userUID, NewCharacter);
 
 	return NewCharacter;
+}
+
+ABaseItem* UNetworkInstance::FindItemByID(int32 ItemID) const
+{
+	if (ItemID < 0)
+	{
+		return nullptr;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	for (TActorIterator<ABaseItem> It(World); It; ++It)
+	{
+		ABaseItem* Item = *It;
+		if (!Item)
+		{
+			continue;
+		}
+
+		if (Item->GetItemID() == ItemID)
+		{
+			return Item;
+		}
+	}
+
+	return nullptr;
 }

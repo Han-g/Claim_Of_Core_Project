@@ -79,6 +79,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Role")
 	ERecRoleType GetRoleType() const { return OwnerCharacter->GetRoleType(); }
 
+	int32 GetItemID() const { return ItemID; }
+	void SetItemID(int32 InItemID) { ItemID = InItemID; }
+
+	AMyCharacter* GetOwnerCharacter() const { return OwnerCharacter; }
 	void SetOwnerCharacter(AMyCharacter* NewOwner);
 
 	/* ===== »ç¿ë ===== */
@@ -93,4 +97,8 @@ protected:
 
 	void ApplyDamage(AActor* Target);
 	void ApplyKnockback(ACharacter* Target);
+
+private:
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Item", meta = (AllowPrivateAccess = "true"))
+	int32 ItemID = -1;
 };

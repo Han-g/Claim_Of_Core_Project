@@ -103,6 +103,7 @@ struct GameData {
     int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
 
     int animationNum = 0;
+    int equippedItemID = -1;
 };
 
 // ============================================================
@@ -157,7 +158,16 @@ struct FPhaseChangePacket {
 struct FMovePacket {
     float X, Y, Z;
     float Yaw;
+    float cameraDir;
     float VelocityX, VelocityY;
+};
+
+struct FItemPacket
+{
+    int32 ItemID;
+    int32 OwnerUID;
+    int32 bEquipped;
+    float X, Y, Z;
 };
 
 struct FDamageApplyPacket { int32 TargetID; int32 Damage; int32 RemainHP; };
@@ -227,6 +237,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapEventTriggered, const FMapEventPacket&
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnObjectSpawned, const FSpawnObjectPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAttackActionReceived, const FAttackActionPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSyncAnimationReceived, const FSyncAnimationPacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemOwnershipChanged, const FItemPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSnapshotReceived, const TArray<GameData>&);
 
 // ============================================================
@@ -278,6 +289,7 @@ enum class ENetEventType : uint8
     MapEventTriggered,
     ObjectSpawned,
     PhaseChanged,
+    ItemOwnershipChanged,
 };
 
 struct FNetEvent
@@ -306,4 +318,5 @@ struct FNetEvent
     FSpawnObjectPacket   SpawnObject;
     FAttackActionPacket  AttackAction;
     FSyncAnimationPacket SyncAnimation;
+    FItemPacket          ItemOwnership;
 };

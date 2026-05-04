@@ -254,6 +254,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void DropCurrentItem();
 
+	void ApplyEquipItemVisual(ABaseItem* Item);
+	void ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocation);
+
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
 
@@ -499,10 +502,24 @@ private:
 	bool bHasNetworkTransform = false;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
-	float RemoteInterpSpeed = 12.f;
+	float RemoteInterpSpeed = 30.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
-	float RemoteSnapDistance = 250.f;
+	float RemoteSnapDistance = 120.f;
+
+	// Player Location Interpolation Data
+	FVector NetworkBlendStartLocation = FVector::ZeroVector;
+	FVector NetworkBlendTargetLocation = FVector::ZeroVector;
+
+	FRotator NetworkBlendStartRotation = FRotator::ZeroRotator;
+	FRotator NetworkBlendTargetRotation = FRotator::ZeroRotator;
+
+	float NetworkBlendElapsed = 0.f;
+	float NetworkBlendDuration = 0.033f;
+	float LastNetworkSnapshotTime = -1.f;
+
+	float MinNetworkBlendDuration = 0.016f;
+	float MaxNetworkBlendDuration = 0.050f;
 
 	// Temporary Movement Members
 

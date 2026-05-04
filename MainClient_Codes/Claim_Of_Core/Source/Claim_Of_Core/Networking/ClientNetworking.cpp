@@ -176,6 +176,10 @@ void ClientNetworking::PumpEvents()
             OnDamageApplied.Broadcast(Evt.DamageApply);
             break;
 
+        case ENetEventType::ItemOwnershipChanged:
+            OnItemOwnershipChanged.Broadcast(Evt.ItemOwnership);
+            break;
+
         case ENetEventType::StateChange:
             UE_LOG(LogTemp, Display, TEXT("State Change received"));
             OnStateChanged.Broadcast(Evt.StateChange);
@@ -344,6 +348,38 @@ void ClientNetworking::ReadyToggleRequest()
 void ClientNetworking::GameStartRequest()
 {
     EnqueueSendCommand(PKT_C2S_GAME_START_REQ);
+}
+
+void ClientNetworking::ItemPickupRequest(int32 ItemID)
+{
+    FItemPacket Packet{};
+    Packet.ItemID = ItemID;
+    Packet.OwnerUID = -1;
+    Packet.bEquipped = 0;
+    Packet.X = 0.f;
+    Packet.Y = 0.f;
+    Packet.Z = 0.f;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FItemPacket));
+
+    EnqueueSendCommand(PKT_C2S_ITEMPICKUP_KEYINPUT, Payload);
+}
+
+void ClientNetworking::ItemDropRequest(int32 ItemID)
+{
+    FItemPacket Packet{};
+    Packet.ItemID = ItemID;
+    Packet.OwnerUID = -1;
+    Packet.bEquipped = 0;
+    Packet.X = 0.f;
+    Packet.Y = 0.f;
+    Packet.Z = 0.f;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FItemPacket));
+
+    EnqueueSendCommand(PKT_C2S_ITEMDROP_KEYINPUT, Payload);
 }
 
 void ClientNetworking::SendMoveInput(const FMovePacket& MoveData)

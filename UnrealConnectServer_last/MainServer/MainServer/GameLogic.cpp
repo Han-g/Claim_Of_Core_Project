@@ -21,11 +21,11 @@ void GameLogic::Update(float deltaTime)
     }
     
     // Adapt Player Movement
-    /*for (auto& Pair : players)
+    for (auto& Pair : players)
     {
         Session* player = Pair.second;
         UpdatePlayerMovement(player, deltaTime);
-    }*/
+    }
 
     // Update map-specific hazard logic.
     if (mapType == 1) { UpdateBuildingMap(deltaTime); } 
@@ -199,7 +199,10 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
     if (damageAmount <= 0 || gd.characterState == 1) { return; } // non-positive damage or already dead
 
     const int prevHP = gd.currentHP;
@@ -207,14 +210,14 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount)
 
     LOG_INFO("[ATK_TRACE][4_ServerDamage] targetSession=%d targetUID=%d damage=%d hpBefore=%d hpAfter=%d",
         sessionID,
-        it->second->playerUID,
+        targetSession->playerUID,
         damageAmount,
         prevHP,
         gd.currentHP);
 
     // Broadcast the damage result to all clients in the room.
     // PKT_S2C_DAMAGE_APPLY_BRD: target session, damage, remaining HP
-    BroadcastDamageApply(sessionID, damageAmount, gd.currentHP);
+    BroadcastDamageApply(targetSession->playerUID, damageAmount, gd.currentHP);
 }
 
 void GameLogic::Heal(int sessionID, int healAmount)
@@ -222,13 +225,16 @@ void GameLogic::Heal(int sessionID, int healAmount)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
     if (healAmount <= 0) { return; }
 
     SetCurrentHP(sessionID, gd.currentHP + healAmount);
 
     // PKT_S2C_STATUS_UPDATE_BRD: target session and updated HP
-    BroadcastStatusUpdate(sessionID, gd.currentHP);
+    BroadcastStatusUpdate(targetSession->playerUID, gd.currentHP);
 }
 
 void GameLogic::ResetHP(int sessionID)
@@ -236,7 +242,10 @@ void GameLogic::ResetHP(int sessionID)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
 
     if (gd.characterState == 1) {  // Dead
         gd.currentHP = gd.maxHP;
@@ -247,7 +256,7 @@ void GameLogic::ResetHP(int sessionID)
         SetCurrentHP(sessionID, gd.maxHP);
     }
 
-    BroadcastStatusUpdate(sessionID, gd.currentHP);
+    BroadcastStatusUpdate(targetSession->playerUID, gd.currentHP);
 }
 
 void GameLogic::SetCurrentHP(int sessionID, int newHP)
@@ -255,7 +264,10 @@ void GameLogic::SetCurrentHP(int sessionID, int newHP)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
     // Clamp the value to the valid HP range.
     if (newHP < 0) { newHP = 0; }
     if (newHP > gd.maxHP) { newHP = gd.maxHP; }
@@ -272,13 +284,16 @@ void GameLogic::SetCharacterState(int sessionID, int newState)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
     if (gd.characterState == newState) { return; }
 
     gd.characterState = newState;
 
     // PKT_S2C_STATE_CHANGE_BRD: target session and new life state
-    BroadcastStateChange(sessionID, newState);
+    BroadcastStateChange(targetSession->playerUID, newState);
 }
 
 void GameLogic::HandleDeath(int sessionID)
@@ -319,7 +334,7 @@ void GameLogic::HandleRespawn(int sessionID)
     gd.z = spawnPoint.z;
 
     // PKT_S2C_RESPAWN_BRD: target session, position, and HP
-    BroadcastRespawn(sessionID, gd.x, gd.y, gd.z, gd.currentHP);
+    BroadcastRespawn(targetSession->playerUID, gd.x, gd.y, gd.z, gd.currentHP);
 }
 
 void GameLogic::SetRole(int sessionID)
@@ -327,12 +342,15 @@ void GameLogic::SetRole(int sessionID)
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
-    GameData& gd = it->second->gameDatas;
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
     if (gd.characterState == 1) { return; }  // cannot change while Dead
 
     ApplyRoleStats(sessionID);
 
-    BroadcastRoleChange(sessionID, gd.roleType);
+    BroadcastRoleChange(targetSession->playerUID, gd.roleType);
 }
 
 void GameLogic::ApplyRoleStats(int sessionID)
@@ -341,7 +359,7 @@ void GameLogic::ApplyRoleStats(int sessionID)
     if (it == players.end()) { return; }
 
     GameData& gd = it->second->gameDatas;
-    gd.baseWalkSpeed = 500.f * GetRoleSpeedMultiplier(gd.roleType);
+    gd.baseWalkSpeed = 2000.f * GetRoleSpeedMultiplier(gd.roleType);
 
     // Apply role-specific max HP values.
     switch (gd.roleType) {
@@ -365,6 +383,124 @@ float GameLogic::GetRoleSpeedMultiplier(int roleType)
         case 2: return 1.0f;   // Manipulator
         default: return 1.0f;
     }
+}
+
+void GameLogic::HandleItemPickup(int sessionID, int itemID)
+{
+    if (!ownerRoom) { return; }
+
+    auto it = players.find(sessionID);
+    if (it == players.end()) { return; }
+
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
+
+    ItemData* pickUpItemData = ownerRoom->GetItemData(itemID);
+    if (!pickUpItemData) { return; }
+
+    if (pickUpItemData->bEquipped) {
+        LOG_WARN("[ItemPickup] already equipped. session=%d uid=%d itemID=%d ownerUID=%d",
+            sessionID,
+            targetSession->playerUID,
+            itemID,
+            pickUpItemData->ownerUID);
+        return;
+    }
+
+    if (gd.equippedItemID != -1)
+    {
+        LOG_WARN("[ItemPickup] player already has item. session=%d uid=%d currentItemID=%d tryItemID=%d",
+            sessionID,
+            targetSession->playerUID,
+            gd.equippedItemID,
+            itemID);
+        return;
+    }
+    else if (!pickUpItemData->bEquipped) {
+        pickUpItemData->ownerUID = targetSession->playerUID;
+        pickUpItemData->bEquipped = true;
+        gd.equippedItemID = itemID;
+
+        ItemPacket pkt{};
+        pkt.itemID = itemID;
+        pkt.ownerUID = targetSession->playerUID;
+        pkt.bEquipped = 1;
+        pkt.x = pickUpItemData->x;
+        pkt.y = pickUpItemData->y;
+        pkt.z = pickUpItemData->z;
+
+        ownerRoom->BroadcastToMembers(
+            PKT_S2C_ITEM_OWNERSHIP_BRD,
+            (const char*)&pkt,
+            sizeof(pkt)
+        );
+    }
+
+    else {
+        LOG_WARN("[ItemPickup] Failed to Pick up Item");
+    }
+}
+
+void GameLogic::DropCurrentItem(int sessionID, int itemID)
+{
+    if (!ownerRoom) { return; }
+
+    auto it = players.find(sessionID);
+    if (it == players.end()) { return; }
+
+    Session* targetSession = it->second;
+    if (!targetSession) { return; }
+
+    GameData& gd = targetSession->gameDatas;
+
+    ItemData* dropItemData = ownerRoom->GetItemData(itemID);
+    if (!dropItemData) { return; }
+
+    if (!dropItemData->bEquipped)
+    {
+        return;
+    }
+
+    if (dropItemData->ownerUID != targetSession->playerUID)
+    {
+        return;
+    }
+
+    if (gd.equippedItemID != itemID)
+    {
+        return;
+    }
+
+    dropItemData->bEquipped = false;
+    dropItemData->ownerUID = -1;
+
+    // 1차 구현은 플레이어 현재 위치에 드롭해도 충분
+    dropItemData->x = gd.x;
+    dropItemData->y = gd.y;
+    dropItemData->z = gd.z;
+
+    gd.equippedItemID = -1;
+
+    ItemPacket pkt{};
+    pkt.itemID = itemID;
+    pkt.ownerUID = -1;
+    pkt.bEquipped = 0;
+    pkt.x = dropItemData->x;
+    pkt.y = dropItemData->y;
+    pkt.z = dropItemData->z;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_ITEM_OWNERSHIP_BRD,
+        (const char*)&pkt,
+        sizeof(pkt)
+    );
+
+    LOG_INFO("[ItemDrop] success. session=%d uid=%d itemID=%d",
+        sessionID,
+        targetSession->playerUID,
+        itemID);
 }
 
 void GameLogic::HandleAttackInput(int sessionID)
@@ -759,7 +895,7 @@ void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)
     }
 
     // Calculate Forward and Side Vector On the basis of Client Sight
-    const float yawRad = GameMath::DegreesToRadians(input.Yaw);
+    const float yawRad = GameMath::DegreesToRadians(input.CameraDir);
 
     const float forwardX = std::cos(yawRad);
     const float forwardY = std::sin(yawRad);
@@ -790,10 +926,21 @@ void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)
     gd.x = resolvedPos.x;
     gd.y = resolvedPos.y;
     gd.z = resolvedPos.z;
-    gd.rotate = input.Yaw;
+    //gd.rotate = input.CameraDir;
 
     if (std::abs(moveX) > 0.001f || std::abs(moveY) > 0.001f)
     {
+        LOG_INFO("[MoveStep] session=%d uid=%d hasInput=%d f=%.2f r=%.2f yaw=%.2f speed=%.1f prev=(%.1f, %.1f, %.1f) new=(%.1f, %.1f, %.1f)",
+            player->sessionID,
+            gd.userUID,
+            input.bHasInput ? 1 : 0,
+            input.Forward,
+            input.Right,
+            input.CameraDir,
+            gd.baseWalkSpeed,
+            currentPos.x, currentPos.y, currentPos.z,
+            gd.x, gd.y, gd.z);
+
         gd.animationNum = 1; // Run
     }
     else

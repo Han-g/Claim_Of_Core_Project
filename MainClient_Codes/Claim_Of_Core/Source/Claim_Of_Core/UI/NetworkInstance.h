@@ -12,8 +12,13 @@
 class ClientNetworking;
 class URoomWidget;
 class AMyCharacter;
+class ABaseItem;
+class ASmallDebrisActor;
+class ALargeDebrisController;
+
 struct FRoomInfoData;
 struct FRoomMemberInfo;
+
 enum PacketID : uint16;
 
 
@@ -55,7 +60,11 @@ public:
 	void RequestReady();
 	void RequestGameStart();
 	void RequestAttackInput(int32 AttackType = 0);
+	void RequestItemPickup(int32 ItemID);
+	void RequestItemDrop(int32 ItemID);
+
 	void SendMoveInputToServer(const FMovePacket& MoveData);
+
 
 	// Send Packet for Test
 	void SendGameplayAttackPacket(PacketID TestPacket);
@@ -78,6 +87,7 @@ public:
 
 	void HandleAttackActionReceived(const FAttackActionPacket& Packet);
 	void HandleDamageApplied(const FDamageApplyPacket& Packet);
+	void HandleItemOwnershipChanged(const FItemPacket& Packet);
 	void HandleStatusUpdated(const FStatusUpdatePacket& Packet);
 	void HandleStateChanged(const FStateChangePacket& Packet);
 	void HandleRespawned(const FRespawnPacket& Packet);
@@ -128,6 +138,10 @@ public:
 	AMyCharacter* FindCharacterByUID(int32 UID) const;
 	AMyCharacter* EnsureRemoteCharacter(const GameData& Data);
 
+	// Item Control Function
+	ABaseItem* FindItemByID(int32 ItemID) const;
+
+
 private:
 	// Checker Game Play Setting
 	bool bPendingGameplayActivation = false;
@@ -146,6 +160,13 @@ private:
 
 	// Remote player instances indexed by userUID.
 	TMap<int32, TWeakObjectPtr<AMyCharacter>> RemoteCharacters;
+
+
+	// Control Game and Map Objects
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Map", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ASmallDebrisActor> SmallDebrisClass;
+
+	TMap<int32, TWeakObjectPtr<ASmallDebrisActor>> SpawnedSmallDebris;
 
 	// Test Checker
 	bool bClientOnlyTestMode = false;

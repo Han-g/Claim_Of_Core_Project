@@ -73,6 +73,9 @@ public:
 	// Returns the current number of members in the room.
 	int GetCurrentMemberCount();
 
+	// Find Item to Pick up the Item
+	ItemData* GetItemData(int itemID) { return &m_ItemObjects[itemID]; }
+
 	// Builds the serialized room member list used by room UI packets.
 	std::vector<RoomMemberPacket> GetMemberInfoList();
 	// Broadcasts a packet to room members, optionally excluding one session.

@@ -147,42 +147,67 @@ void AMyCharacter::Tick(float DeltaTime)
 	// Temporary Movement Threat 20fps transform send
 	if (IsLocallyControlled() && !IsDead())
 	{
-		MoveSyncAccumulator += DeltaTime;
-
-		if (MoveSyncAccumulator >= 0.05f)
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 		{
-			MoveSyncAccumulator = 0.f;
-
-			if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+			if (MoveComp->MovementMode != EMovementMode::MOVE_None)
 			{
-				FMovePacket Packet{};
-				const FVector Pos = GetActorLocation();
-				const FRotator Rot = GetActorRotation();
+				MoveSyncAccumulator += DeltaTime;
 
-				Packet.X = Pos.X;
-				Packet.Y = Pos.Y;
-				Packet.Z = Pos.Z;
-				Packet.Yaw = Rot.Yaw;
-				Packet.VelocityX = CachedMoveRight;
-				Packet.VelocityY = CachedMoveForward;
+				if (MoveSyncAccumulator >= 0.05f)
+				{
+					MoveSyncAccumulator = 0.f;
 
-				NetInst->SendMoveInputToServer(Packet);
+					if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+					{
+						FMovePacket Packet{};
+
+						const FVector Pos = GetActorLocation();
+						const float BodyYaw = GetActorRotation().Yaw;
+
+						float CameraDir = BodyYaw;
+						if (AController* C = GetController())
+						{
+							CameraDir = C->GetControlRotation().Yaw;
+						}
+
+						Packet.X = Pos.X;
+						Packet.Y = Pos.Y;
+						Packet.Z = Pos.Z;
+
+						// Character facing direction for remote visual rotation
+						Packet.Yaw = BodyYaw;
+
+						// Controller/camera yaw used by server to reconstruct movement
+						Packet.cameraDir = CameraDir;
+
+						Packet.VelocityX = CachedMoveRight;
+						Packet.VelocityY = CachedMoveForward;
+
+						NetInst->SendMoveInputToServer(Packet);
+					}
+				}
 			}
 		}
 	}
 
 	if (!IsLocallyControlled() && bHasNetworkTransform && CharacterState == ERecCharacterState::Alive)
 	{
-		const FVector NewLocation = FMath::VInterpTo(
-			GetActorLocation(),
-			TargetNetworkLocation,
-			DeltaTime,
-			RemoteInterpSpeed
+		NetworkBlendElapsed += DeltaTime;
+
+		const float Alpha =
+			(NetworkBlendDuration > KINDA_SMALL_NUMBER)
+			? FMath::Clamp(NetworkBlendElapsed / NetworkBlendDuration, 0.f, 1.f)
+			: 1.f;
+
+		const FVector NewLocation = FMath::Lerp(
+			NetworkBlendStartLocation,
+			NetworkBlendTargetLocation,
+			Alpha
 		);
 
 		const FRotator NewRotation = FMath::RInterpTo(
 			GetActorRotation(),
-			TargetNetworkRotation,
+			NetworkBlendTargetRotation,
 			DeltaTime,
 			RemoteInterpSpeed
 		);
@@ -206,8 +231,8 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 
 	float Axis = 0.f;
-	if (bSpectateUpHeld)   Axis += 1.f;
-	if (bSpectateDownHeld) Axis -= 1.f;
+	if (bSpectateUpHeld) { Axis += 1.f; }
+	if (bSpectateDownHeld) { Axis -= 1.f; }
 
 	if (Axis != 0.f)
 	{
@@ -1724,7 +1749,6 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 {
 	const FVector NewLocation(X, Y, Z);
 	const FRotator NewRotation(0.f, Yaw, 0.f);
-	const bool bIsLocal = IsLocallyControlled();
 	
 	if (IsLocallyControlled())
 	{
@@ -1743,7 +1767,6 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 		return;
 	}
 
-	// 죽은 상태는 보간보다 스냅이 더 안전함
 	if (CharacterState == ERecCharacterState::Dead)
 	{
 		SetActorLocationAndRotation(
@@ -1756,7 +1779,57 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 		return;
 	}
 
-	TargetNetworkLocation = NewLocation;
+	const float Now = GetWorld()->GetTimeSeconds();
+
+	float MeasuredInterval = 0.033f;
+	if (LastNetworkSnapshotTime >= 0.f)
+	{
+		MeasuredInterval = Now - LastNetworkSnapshotTime;
+	}
+	LastNetworkSnapshotTime = Now;
+
+	NetworkBlendDuration = FMath::Clamp(
+		MeasuredInterval,
+		MinNetworkBlendDuration,
+		MaxNetworkBlendDuration
+	);
+
+	if (!bHasNetworkTransform)
+	{
+		bHasNetworkTransform = true;
+
+		SetActorLocationAndRotation(NewLocation, NewRotation, false, nullptr, ETeleportType::TeleportPhysics);
+
+		NetworkBlendStartLocation = NewLocation;
+		NetworkBlendTargetLocation = NewLocation;
+		NetworkBlendStartRotation = NewRotation;
+		NetworkBlendTargetRotation = NewRotation;
+		NetworkBlendElapsed = NetworkBlendDuration;
+
+		return;
+	}
+
+	const float Distance = FVector::Dist(GetActorLocation(), NewLocation);
+	if (Distance >= RemoteSnapDistance)
+	{
+		SetActorLocationAndRotation(NewLocation, NewRotation, false, nullptr, ETeleportType::TeleportPhysics);
+
+		NetworkBlendStartLocation = NewLocation;
+		NetworkBlendTargetLocation = NewLocation;
+		NetworkBlendStartRotation = NewRotation;
+		NetworkBlendTargetRotation = NewRotation;
+		NetworkBlendElapsed = NetworkBlendDuration;
+
+		return;
+	}
+
+	NetworkBlendStartLocation = GetActorLocation();
+	NetworkBlendTargetLocation = NewLocation;
+	NetworkBlendStartRotation = GetActorRotation();
+	NetworkBlendTargetRotation = NewRotation;
+	NetworkBlendElapsed = 0.f;
+
+	/*TargetNetworkLocation = NewLocation;
 	TargetNetworkRotation = NewRotation;
 
 	if (!bHasNetworkTransform)
@@ -1783,24 +1856,6 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 			nullptr,
 			ETeleportType::TeleportPhysics
 		);
-	}
-
-	// Temporary Movement Threat Only Other Character Movement Syncronize
-	/*
-	SetActorLocationAndRotation(NewLocation, NewRotation, false, nullptr, 
-		ETeleportType::TeleportPhysics);
-
-	if (!bIsLocal) {
-		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement()) {
-			MoveComp->StopMovementImmediately();
-			MoveComp->Velocity = FVector::ZeroVector;
-		}
-	}
-
-	if (IsLocallyControlled()) {
-		if (AController* C = GetController()) {
-			C->SetControlRotation(NewRotation);
-		}
 	}*/
 }
 
@@ -1996,12 +2051,17 @@ void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
 
 void AMyCharacter::EquipItem()
 {
-	if (!OverlappingItem || CurrentItem)
-	{
-		return;
-	}
+	if (!OverlappingItem || CurrentItem) { return; }
+	if (!IsLocallyControlled()) { return; }
 
-	CurrentItem = OverlappingItem;
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PickupTry] Item=%s ItemID=%d"),
+			*GetNameSafe(OverlappingItem),
+			OverlappingItem ? OverlappingItem->GetItemID() : -999);
+		NetworkInstance->RequestItemPickup(OverlappingItem->GetItemID());
+	}
+	/*CurrentItem = OverlappingItem;
 	CurrentItem->SetOwnerCharacter(this);
 	CurrentItem->SetActorEnableCollision(false);
 
@@ -2018,17 +2078,19 @@ void AMyCharacter::EquipItem()
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			TEXT("LeftHandSocket")
 		);
-	}
+	}*/
 }
 
 void AMyCharacter::DropCurrentItem()
 {
-	if (!CurrentItem)
-	{
-		return;
-	}
+	if (!CurrentItem) { return; }
+	if (!IsLocallyControlled()) { return; }
 
-	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+	{
+		NetworkInstance->RequestItemDrop(CurrentItem->GetItemID());
+	}
+	/*CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	CurrentItem->SetOwnerCharacter(nullptr);
 	CurrentItem->SetActorEnableCollision(true);
 
@@ -2038,7 +2100,61 @@ void AMyCharacter::DropCurrentItem()
 		Prim->SetSimulatePhysics(true);
 	}
 
-	CurrentItem = nullptr;
+	CurrentItem = nullptr;*/
+}
+
+void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
+{
+	if (!Item) { return; }
+
+	if (CurrentItem == Item) { return; }
+
+	if (CurrentItem && CurrentItem != Item) { return; }
+
+	CurrentItem = Item;
+
+	if (OverlappingItem == Item)
+	{
+		OverlappingItem = nullptr;
+	}
+
+	CurrentItem->SetOwnerCharacter(this);
+	CurrentItem->SetActorEnableCollision(false);
+
+	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
+	{
+		Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Prim->SetSimulatePhysics(false);
+	}
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		CurrentItem->AttachToComponent(
+			MeshComp,
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("RightHandSocket")
+		);
+	}
+}
+
+void AMyCharacter::ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocation)
+{
+	if (!Item) { return; }
+
+	if (CurrentItem == Item) { CurrentItem = nullptr; }
+
+	if (OverlappingItem == Item) { OverlappingItem = nullptr; }
+
+	Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	Item->SetOwnerCharacter(nullptr);
+	Item->SetActorLocation(DropLocation);
+	Item->SetActorEnableCollision(true);
+
+	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Item->GetRootComponent()))
+	{
+		Prim->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		Prim->SetSimulatePhysics(true);
+	}
 }
 
 void AMyCharacter::AnimNotify_AttackHit()

@@ -33,9 +33,9 @@ void ADebrisSpawner::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	InitializeGameState();
-	UpdateSpawner(DeltaTime);
+	//UpdateSpawner(DeltaTime);
 
-	if (bDrawDebugBox && SpawnArea)
+	/*if (bDrawDebugBox && SpawnArea)
 	{
 		DrawDebugBox(
 			GetWorld(),
@@ -48,7 +48,7 @@ void ADebrisSpawner::Tick(float DeltaTime)
 			0,
 			2.f
 		);
-	}
+	}*/
 }
 
 void ADebrisSpawner::InitializeGameState()

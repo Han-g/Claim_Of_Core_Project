@@ -131,9 +131,9 @@ enum class ESessionState {
 
 struct MoveIntent
 {
-	float Forward = 0.0f; // W/S
-	float Right = 0.0f;   // A/D
-	float Yaw = 0.0f;     // Client View
+	float Forward = 0.0f;	// W/S
+	float Right = 0.0f;		// A/D
+	float CameraDir = 0.0f; // Client View
 	bool bHasInput = false;
 };
 

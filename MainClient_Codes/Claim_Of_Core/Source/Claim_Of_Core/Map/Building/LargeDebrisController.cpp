@@ -56,7 +56,7 @@ void ALargeDebrisController::Tick(float DeltaTime)
 	if (!bRuntimeActivated) { return; }
 
 	InitializeGameState();
-	HandlePhaseLogic();
+	//HandlePhaseLogic();
 }
 
 void ALargeDebrisController::InitializeGameState()

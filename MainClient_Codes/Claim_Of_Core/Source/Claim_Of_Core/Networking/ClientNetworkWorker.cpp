@@ -263,6 +263,7 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
 {
     switch (Header->PacketID)
     {
+        // Connection and Access Control
     case PKT_S2C_ACCESS_ALLOW:
     {
         FNetEvent Evt;
@@ -311,29 +312,8 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
-    case PKT_S2C_SNAPSHOT_NOTICE:
-    {
-        if (PayloadSize < sizeof(int32)) { break; }
 
-        int32 UserCount = 0;
-        FMemory::Memcpy(&UserCount, PayloadData, sizeof(int32));
-
-        int32 ExpectedSize = sizeof(int32) + UserCount * sizeof(GameData);
-        if (PayloadSize < ExpectedSize || UserCount < 0 || UserCount > 100) { break; }
-
-        FNetEvent Evt;
-        Evt.Type = ENetEventType::SnapshotReceived;
-        int32 Offset = sizeof(int32);
-        for (int32 i = 0; i < UserCount; ++i)
-        {
-            GameData TempData;
-            FMemory::Memcpy(&TempData, PayloadData + Offset, sizeof(GameData));
-            Evt.SnapshotList.Add(TempData);
-            Offset += sizeof(GameData);
-        }
-        PushEvent(MoveTemp(Evt));
-        break;
-    }
+        // Room Management
     case PKT_S2C_ROOM_UPDATE:
     {
         if (PayloadSize < sizeof(int32)) { break; }
@@ -441,6 +421,19 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+    case PKT_S2C_CHARACTER_SELECT_BRD:
+    {
+        if (PayloadSize < sizeof(FRoleChangePacket)) { break; }
+
+        FRoleChangePacket Packet;
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FRoleChangePacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::RoleChanged;
+        Evt.RoleChange = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
     case PKT_S2C_GAME_START_BRD:
     {
         FNetEvent Evt;
@@ -448,6 +441,32 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+
+        // Game Synchronize
+    case PKT_S2C_SNAPSHOT_NOTICE:
+    {
+        if (PayloadSize < sizeof(int32)) { break; }
+
+        int32 UserCount = 0;
+        FMemory::Memcpy(&UserCount, PayloadData, sizeof(int32));
+
+        int32 ExpectedSize = sizeof(int32) + UserCount * sizeof(GameData);
+        if (PayloadSize < ExpectedSize || UserCount < 0 || UserCount > 100) { break; }
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::SnapshotReceived;
+        int32 Offset = sizeof(int32);
+        for (int32 i = 0; i < UserCount; ++i)
+        {
+            GameData TempData;
+            FMemory::Memcpy(&TempData, PayloadData + Offset, sizeof(GameData));
+            Evt.SnapshotList.Add(TempData);
+            Offset += sizeof(GameData);
+        }
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
+    
     case PKT_S2C_ATTACK_ACTION_BRD:
     {
         if (PayloadSize < sizeof(FAttackActionPacket)) { break; }
@@ -473,6 +492,19 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         FNetEvent Evt;
         Evt.Type = ENetEventType::DamageApply;
         Evt.DamageApply = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
+    case PKT_S2C_ITEM_OWNERSHIP_BRD:
+    {
+        if (PayloadSize < sizeof(FItemPacket)) { break; }
+
+        FItemPacket Packet;
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FItemPacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::ItemOwnershipChanged;
+        Evt.ItemOwnership = Packet;
         PushEvent(MoveTemp(Evt));
         break;
     }
@@ -525,19 +557,6 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         FNetEvent Evt;
         Evt.Type = ENetEventType::SyncAnimation;
         Evt.SyncAnimation = Packet;
-        PushEvent(MoveTemp(Evt));
-        break;
-    }
-    case PKT_S2C_CHARACTER_SELECT_BRD:
-    {
-        if (PayloadSize < sizeof(FRoleChangePacket)) { break; }
-
-        FRoleChangePacket Packet;
-        FMemory::Memcpy(&Packet, PayloadData, sizeof(FRoleChangePacket));
-
-        FNetEvent Evt;
-        Evt.Type = ENetEventType::RoleChanged;
-        Evt.RoleChange = Packet;
         PushEvent(MoveTemp(Evt));
         break;
     }

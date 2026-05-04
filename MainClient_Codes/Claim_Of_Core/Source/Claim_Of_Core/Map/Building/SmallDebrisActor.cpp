@@ -36,12 +36,12 @@ void ASmallDebrisActor::BeginPlay()
 
 	if (CollisionComp)
 	{
-		CollisionComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
+		//CollisionComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
 	}
 
 	if (MeshComp)
 	{
-		MeshComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
+		//MeshComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
 	}
 }
 

@@ -191,19 +191,52 @@ void Room::SelectStage(int stageNum)
 
 void Room::LoadStage(int stageNum)
 {
+    m_ItemObjects.clear();
 
+    if (stageNum == 1) // BuildingStage
+    {
+        ItemData item1{};
+        item1.ObjectID = 1;
+        item1.ObjectType = e_ObjectType::WEAPON_ITEM;
+        item1.x = 630.0f;
+        item1.y = -5070.0f;
+        item1.z = 450.0f;
+        item1.ownerUID = -1;
+        item1.bEquipped = false;
+        m_ItemObjects[item1.ObjectID] = item1;
+
+        ItemData item2{};
+        item2.ObjectID = 2;
+        item2.ObjectType = e_ObjectType::WEAPON_ITEM;
+        item2.x = 760.0f;
+        item2.y = -4030.0f;
+        item2.z = 10.0f;
+        item2.ownerUID = -1;
+        item2.bEquipped = false;
+        m_ItemObjects[item2.ObjectID] = item2;
+
+        ItemData item3{};
+        item3.ObjectID = 3;
+        item3.ObjectType = e_ObjectType::WEAPON_ITEM;
+        item3.x = -330.0f;
+        item3.y = -3300.0f;
+        item3.z = 10.0f;
+        item3.ownerUID = -1;
+        item3.bEquipped = false;
+        m_ItemObjects[item3.ObjectID] = item3;
+    }
 }
 
 Vector3 Room::GetRespawnLocation(int slot)
 {
     static const Vector3 SpawnTable[6] =
     {
-        {   0.f,   0.f, 1200.f },  // team 1 Member1
-        { 300.f,   0.f, 1200.f },  // team 1 Member2
-        { 600.f,   0.f, 1200.f },  // team 1 Member3
-        {   0.f, 800.f, 1200.f },  // team 2 Member4
-        { 300.f, 800.f, 1200.f },  // team 2 Member5
-        { 600.f, 800.f, 1200.f }   // team 2 Member6
+        { 600.f,-1500.f, 1200.f },  // team 1 Member1
+        { 600.f,    0.f, 1200.f },  // team 1 Member2
+        { 600.f, 1500.f, 1200.f },  // team 1 Member3
+        {   0.f,-1500.f, 1200.f },  // team 2 Member4
+        { 300.f,    0.f, 1200.f },  // team 2 Member5
+        { 600.f, 1500.f, 1200.f }   // team 2 Member6
     };
 
     if (slot < 0 || slot >= 6) {
@@ -276,6 +309,11 @@ bool Room::BroadcastGameDatas()
     std::vector<GameData> roomSnapshot;
     for (Session* member : m_Members) {
         if (member->gameDatas.isConnected) {
+            LOG_INFO("[SnapshotOut] uid=%d pos=(%.1f, %.1f, %.1f) anim=%d state=%d",
+                member->gameDatas.userUID,
+                member->gameDatas.x, member->gameDatas.y, member->gameDatas.z,
+                member->gameDatas.animationNum,
+                member->gameDatas.characterState);
             roomSnapshot.push_back(member->gameDatas);
         }
     }
@@ -628,6 +666,7 @@ void RoomManager::GameStart(Session* client)
 
     const int selected = AvailableMaps[dist(gen)];
     room->SelectStage(selected);
+    room->LoadStage(selected);
     room->BroadcastToMembers(
         PKT_S2C_MAP_SELECT_NOTICE,
         reinterpret_cast<const char*>(&selected),

@@ -194,6 +194,7 @@ struct GameData {
     int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
 
 	int animationNum = 0;
+    int equippedItemID = -1;
 };
 
 #pragma pack(push, 1)
@@ -305,6 +306,7 @@ struct RoleChangePacket {
 struct MovePacket {
     float x, y, z;
     float yaw;
+    float cameraDir;
     float velocityX, velocityY;
 };
 
@@ -317,7 +319,10 @@ struct AttackPacket {
 };
 
 struct ItemPacket {
-
+    int32_t itemID;
+    int32_t ownerUID;
+    int32_t bEquipped;
+    float x, y, z;
 };
 
 #pragma pack(pop)

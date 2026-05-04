@@ -193,11 +193,12 @@ bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session,
 		LOG_WARN("[MoveInput] Failed to Find Move Objects!");
 		return false;
 	}
+	if (session->playerUID <= 0) { return false; }
 
 	MovePacket packet{};
 
 	if (!reader.Read(packet.x) || !reader.Read(packet.y) || !reader.Read(packet.z) ||
-		!reader.Read(packet.yaw) ||
+		!reader.Read(packet.yaw) || !reader.Read(packet.cameraDir) ||
 		!reader.Read(packet.velocityX) || !reader.Read(packet.velocityY)) {
 		LOG_WARN("[MoveInput] Failed to deserialize MovePacket!");
 		return false;
@@ -210,19 +211,20 @@ bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session,
 	if (packet.velocityY > 1.0f) { packet.velocityY = 1.0f; }
 
 	if (_isnan(packet.yaw)) { packet.yaw = 0.0f; }
+	if (_isnan(packet.cameraDir)) { packet.cameraDir = 0.0f; }
 
 	{
 		std::lock_guard<std::mutex> lock(session->MoveIntentLock);
 		session->LastMoveIntent.Right = packet.velocityX;
 		session->LastMoveIntent.Forward = packet.velocityY;
-		session->LastMoveIntent.Yaw = packet.yaw;
+		session->LastMoveIntent.CameraDir = packet.cameraDir;
 		session->LastMoveIntent.bHasInput =
 			(packet.velocityX != 0.0f || packet.velocityY != 0.0f);
 	}
 
-	session->gameDatas.y = packet.y;
-	session->gameDatas.x = packet.x;
-	session->gameDatas.z = packet.z;
+	//session->gameDatas.y = packet.y;
+	//session->gameDatas.x = packet.x;
+	//session->gameDatas.z = packet.z;
 	session->gameDatas.rotate = packet.yaw;
 
 	session->gameDatas.animationNum =
@@ -254,10 +256,22 @@ void PacketProcessor::Handle_Attack_KeyInput(IOCPServer* server, Session* sessio
 
 void PacketProcessor::Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	ItemPacket pkt{};
+	if (!reader.Read(pkt)) { return; }
 
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	logic->HandleItemPickup(session->sessionID, pkt.itemID);
 }
 
 void PacketProcessor::Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	ItemPacket pkt{};
+	if (!reader.Read(pkt)) { return; }
 
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	logic->DropCurrentItem(session->sessionID, pkt.itemID);
 }

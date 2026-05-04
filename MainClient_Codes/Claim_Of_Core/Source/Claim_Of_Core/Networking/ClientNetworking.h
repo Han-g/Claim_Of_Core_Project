@@ -41,6 +41,8 @@ public:
     void JoinRoomRequest(int32 RoomID);
     void ReadyToggleRequest();
     void GameStartRequest();
+    void ItemPickupRequest(int32 ItemID);
+    void ItemDropRequest(int32 ItemID);
 
     void SendMoveInput(const FMovePacket& MoveData);
 
@@ -67,6 +69,7 @@ public:
     FOnAttackActionReceived OnAttackAction;
     FOnSyncAnimationReceived OnSyncAnimation;
     FOnSnapshotReceived OnSnapshotReceived;
+    FOnItemOwnershipChanged OnItemOwnershipChanged;
 
     // Player data (updated from login response)
     int32 ClientSessionID = -1;
