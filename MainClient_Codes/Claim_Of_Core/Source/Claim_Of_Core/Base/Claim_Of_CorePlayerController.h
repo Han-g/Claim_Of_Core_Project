@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "NetworkInstance.h"
 #include "GameFramework/PlayerController.h"
 #include "Claim_Of_CorePlayerController.generated.h"
 
@@ -17,6 +18,10 @@ UCLASS(abstract)
 class AClaim_Of_CorePlayerController : public APlayerController
 {
 	GENERATED_BODY()
+
+public:
+	// TEST ENTRY FUNC
+	void StartClientOnlyTestPressed(); // Function that to Enter test mode by pressing "-" key
 	
 protected:
 

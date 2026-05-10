@@ -1,5 +1,7 @@
 #include "IceFloorTile.h"
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "TimerManager.h"
 
 AIceFloorTile::AIceFloorTile()
 {
@@ -10,30 +12,26 @@ void AIceFloorTile::BeginPlay()
 {
 	Super::BeginPlay();
 
+	CachedGameState = GetWorld() ? GetWorld()->GetGameState<AInGame_GameState>() : nullptr;
+
 	CollectIcePieces();
 	BuildBreakOrder();
 
-	if (bAutoStart)
-	{
-		StartIceBreaking();
-	}
+	UE_LOG(LogTemp, Warning, TEXT("[IceFloor] BeginPlay / Pieces: %d / Sorted: %d / GameState: %s"),
+		IcePieces.Num(),
+		SortedPieceIndices.Num(),
+		CachedGameState ? TEXT("Valid") : TEXT("Null")
+	);
+
+	Tags.Add(TEXT("IceFloor"));
 }
 
 void AIceFloorTile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	CheckPhaseAndStart();
 	ProcessBreaking(DeltaTime);
-}
-
-void AIceFloorTile::OnActivatedInternal()
-{
-	StartIceBreaking();
-}
-
-void AIceFloorTile::OnBrokenInternal()
-{
-	StartIceBreaking();
 }
 
 void AIceFloorTile::CollectIcePieces()
@@ -52,11 +50,17 @@ void AIceFloorTile::CollectIcePieces()
 
 		IcePieces.Add(MeshComp);
 
-		// 시작할 때는 바닥으로 고정
+		MeshComp->SetMobility(EComponentMobility::Movable);
 		MeshComp->SetSimulatePhysics(false);
 		MeshComp->SetEnableGravity(false);
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		MeshComp->SetCollisionObjectType(ECC_WorldStatic);
+		MeshComp->SetCollisionResponseToAllChannels(ECR_Block);
+		
+		
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[IceFloor] CollectIcePieces Count: %d"), IcePieces.Num());
 }
 
 void AIceFloorTile::BuildBreakOrder()
@@ -74,48 +78,66 @@ void AIceFloorTile::BuildBreakOrder()
 			continue;
 		}
 
+		const FVector PieceCenter = IcePieces[i]->Bounds.Origin;
+
 		const float Distance = FVector::Dist2D(
-			IcePieces[i]->GetComponentLocation(),
+			PieceCenter,
 			Center
 		);
 
-		DistanceList.Add(TPair<int32, float>(i, Distance));
+		UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Piece: %s / Distance: %.1f / Inner: %.1f"),
+			*IcePieces[i]->GetName(),
+			Distance,
+			InnerSafeRadius
+		);
+
+		if (Distance < InnerSafeRadius)
+		{
+			continue;
+		}
+
+		DistanceList.Add({ i, Distance });
 	}
 
-	// 거리 먼 순서 = 바깥쪽부터
-	DistanceList.Sort([](const TPair<int32, float>& A, const TPair<int32, float>& B)
+	DistanceList.Sort([](const auto& A, const auto& B)
 		{
 			return A.Value > B.Value;
 		});
 
-	for (const TPair<int32, float>& Pair : DistanceList)
+	for (auto& Pair : DistanceList)
 	{
 		SortedPieceIndices.Add(Pair.Key);
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Break Count: %d"), SortedPieceIndices.Num());
 }
 
-void AIceFloorTile::StartIceBreaking()
+void AIceFloorTile::CheckPhaseAndStart()
 {
-	if (bStartedBreaking)
+	if (!CachedGameState)
+	{
+		CachedGameState = GetWorld() ? GetWorld()->GetGameState<AInGame_GameState>() : nullptr;
+		return;
+	}
+
+	if (CachedGameState->RoundState != ERoundState::Playing)
 	{
 		return;
 	}
 
-	bStartedBreaking = true;
-	Timer = 0.f;
-	CurrentPieceIndex = 0;
-	bCurrentPieceCracked = false;
-}
+	if (CachedGameState->CurrentPhase == EMapPhase::Phase2 ||
+		CachedGameState->CurrentPhase == EMapPhase::Phase3)
+	{
+		if (!bStartedBreaking)
+		{
+			bStartedBreaking = true;
+			Timer = 0.f;
 
-void AIceFloorTile::StopIceBreaking()
-{
-	bStartedBreaking = false;
-	Timer = 0.f;
-}
-
-void AIceFloorTile::SetBreakInterval(float NewInterval)
-{
-	BreakInterval = FMath::Max(0.01f, NewInterval);
+			UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Start Breaking From Phase: %d"),
+				(int32)CachedGameState->CurrentPhase
+			);
+		}
+	}
 }
 
 void AIceFloorTile::ProcessBreaking(float DeltaTime)
@@ -125,11 +147,25 @@ void AIceFloorTile::ProcessBreaking(float DeltaTime)
 		return;
 	}
 
+	if (SortedPieceIndices.Num() <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[IceFloor] SortedPieceIndices EMPTY"));
+		return;
+	}
+
 	if (CurrentPieceIndex >= SortedPieceIndices.Num())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[IceFloor] All Pieces Broken"));
 		BreakActor();
 		bStartedBreaking = false;
 		return;
+	}
+
+	float CurrentInterval = Phase2BreakInterval;
+
+	if (CachedGameState && CachedGameState->CurrentPhase == EMapPhase::Phase3)
+	{
+		CurrentInterval = Phase3BreakInterval;
 	}
 
 	Timer += DeltaTime;
@@ -138,11 +174,13 @@ void AIceFloorTile::ProcessBreaking(float DeltaTime)
 
 	if (!bCurrentPieceCracked)
 	{
-		if (Timer >= BreakInterval)
+		if (Timer >= CurrentInterval)
 		{
 			Timer = 0.f;
 			CrackPiece(PieceIndex);
 			bCurrentPieceCracked = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Crack Piece: %d"), PieceIndex);
 		}
 
 		return;
@@ -151,7 +189,10 @@ void AIceFloorTile::ProcessBreaking(float DeltaTime)
 	if (Timer >= CrackDelay)
 	{
 		Timer = 0.f;
+
 		BreakPiece(PieceIndex);
+
+		UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Break Piece: %d"), PieceIndex);
 
 		CurrentPieceIndex++;
 		bCurrentPieceCracked = false;
@@ -181,36 +222,52 @@ void AIceFloorTile::BreakPiece(int32 PieceIndex)
 {
 	if (!IcePieces.IsValidIndex(PieceIndex))
 	{
+		UE_LOG(LogTemp, Error, TEXT("[IceFloor] Invalid PieceIndex: %d"), PieceIndex);
 		return;
 	}
 
 	UStaticMeshComponent* Piece = IcePieces[PieceIndex];
 	if (!Piece)
 	{
+		UE_LOG(LogTemp, Error, TEXT("[IceFloor] Piece Null"));
 		return;
 	}
 
 	Piece->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 
+	Piece->SetMobility(EComponentMobility::Movable);
 	Piece->SetSimulatePhysics(true);
 	Piece->SetEnableGravity(true);
 	Piece->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
-	Piece->AddImpulse(FVector(0.f, 0.f, -DownImpulse), NAME_None, true);
+	UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Physics: %d / Gravity: %d / Collision: %d"),
+		Piece->IsSimulatingPhysics(),
+		Piece->IsGravityEnabled(),
+		(int32)Piece->GetCollisionEnabled()
+	);
 
-	if (BrokenLifeSpan > 0.f)
+	DestroyPieceLater(Piece);
+}
+
+void AIceFloorTile::DestroyPieceLater(UStaticMeshComponent* Piece)
+{
+	if (!Piece || BrokenDestroyDelay <= 0.f)
 	{
-		GetWorld()->GetTimerManager().SetTimer(
-			TimerHandle,
-			[Piece]()
-			{
-				if (Piece)
-				{
-					Piece->DestroyComponent();
-				}
-			},
-			BrokenLifeSpan,
-			false
-		);
+		return;
 	}
+
+	FTimerHandle DestroyTimerHandle;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		DestroyTimerHandle,
+		[Piece]()
+		{
+			if (IsValid(Piece))
+			{
+				Piece->DestroyComponent();
+			}
+		},
+		BrokenDestroyDelay,
+		false
+	);
 }

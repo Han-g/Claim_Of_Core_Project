@@ -208,6 +208,7 @@ struct FRoomMemberInfo
 // ============================================================
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoomListUpdated, const TArray<FRoomInfoData>&);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnRoomEntered, bool, const TArray<FRoomMemberInfo>&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapSelected, int32);
 DECLARE_MULTICAST_DELEGATE(FOnGameStartDelegate);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnLoginResultDelegate, bool);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRegisterResultDelegate, bool);
@@ -262,6 +263,7 @@ enum class ENetEventType : uint8
     RoomListUpdated,
     RoomEntered,
     RoomInfoUpdated,
+    MapSelected,
     GameStart,
     SnapshotReceived,
     AttackAction,
@@ -292,6 +294,7 @@ struct FNetEvent
     GameData PlayerData;
 
     float SyncedGameTime = 0.f;
+    int32 SelectedMapType = 0;
 
     FDamageApplyPacket   DamageApply;
     FStatusUpdatePacket  StatusUpdate;

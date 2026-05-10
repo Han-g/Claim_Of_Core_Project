@@ -52,6 +52,7 @@ public:
     FOnRegisterResultDelegate OnRegisterResult;
     FOnRoomListUpdated OnRoomListUpdated;
     FOnRoomEntered OnRoomEnterResult;
+    FOnMapSelected OnMapSelected;
     FOnGameStartDelegate OnGameStart;
 
     FOnDamageApplied OnDamageApplied;

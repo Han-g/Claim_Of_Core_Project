@@ -108,6 +108,9 @@ public:
 	void SetStateFromNetwork(int32 InState);
 	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
 
+	void LockUntilInitialSnapshot();
+	void UnlockAfterInitialSnapshot();
+
 private:
 	int32 NetworkPlayerUID = -1;
 
@@ -189,7 +192,7 @@ public:
 	bool CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const;
 
 	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
-	ERecRoleType RoleType = ERecRoleType::Guardian;
+	ERecRoleType RoleType = ERecRoleType::Manipulator;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
 	ERecCharacterState CharacterState = ERecCharacterState::Alive;
@@ -475,6 +478,10 @@ private:
 
 	void EndRoleSkill();
 	void RespawnAtPlayerStart();
+	
+	void CheckIceFloor();
+	void SetIceMovement(bool bNew);
+
 
 public:
 	void SetAnimationFromNetwork(int32 InAnimationNum) { 
@@ -506,6 +513,9 @@ private:
 	float CachedMoveRight = 0.f;
 	float CachedMoveForward = 0.f;
 	float MoveSyncAccumulator = 0.f;
+	
+	bool bOnIce = false;
+
 
 	FVector LastSentLocation = FVector::ZeroVector;
 	FRotator LastSentRotation = FRotator::ZeroRotator;

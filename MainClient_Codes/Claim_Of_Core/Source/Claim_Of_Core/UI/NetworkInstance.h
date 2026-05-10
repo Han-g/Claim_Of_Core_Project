@@ -31,6 +31,10 @@ public:
 	virtual void Init() override;
 	virtual void Shutdown() override;
 
+	// Test Func
+	void StartClientOnlyTestFlow();
+	bool IsClientOnlyTestMode() const { return bClientOnlyTestMode; }
+
 	// Timer Func
 	virtual void Tick(float DeltaTime) override;
 	virtual bool IsTickable() const override { return true; }
@@ -47,13 +51,15 @@ public:
 	void TryRegister(FString ID, FString PW);
 	void CreateRoom();
 	void JoinRoom(int32 RoomID);
-	void CharacterSelectRequest();
+	void RequestCharacterSelect();
 	void RequestReady();
 	void RequestGameStart();
+	void RequestAttackInput(int32 AttackType = 0);
 	void SendMoveInputToServer(const FMovePacket& MoveData);
 
 	// Send Packet for Test
-	void SendGameplayTestPacket(PacketID TestPacket);
+	void SendGameplayAttackPacket(PacketID TestPacket);
+	void DispatchTestAttackAction(int32 AttackType);
 
 	// Send Prepare Game Packet
 	void HandleLoginResult(bool bSuccess);
@@ -75,6 +81,10 @@ public:
 	void HandleStatusUpdated(const FStatusUpdatePacket& Packet);
 	void HandleStateChanged(const FStateChangePacket& Packet);
 	void HandleRespawned(const FRespawnPacket& Packet);
+	void HandleGameTimeSynced(float SyncedGameTime);
+	void HandlePhaseChanged(const FPhaseChangePacket& Packet);
+	void HandleMapEventTriggered(const FMapEventPacket& Packet);
+	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
 
 protected:
 
@@ -124,6 +134,8 @@ private:
 
 	// One-time initial transform sync for the local player.
 	bool bLocalInitialTransformApplied = false;
+	bool bPendingInitialSpawnLock = false;
+	bool bLocalSpawnLockApplied = false;
 
 	// Cached snapshot received before the local player was ready.
 	TArray<GameData> PendingSnapshotList;
@@ -134,4 +146,7 @@ private:
 
 	// Remote player instances indexed by userUID.
 	TMap<int32, TWeakObjectPtr<AMyCharacter>> RemoteCharacters;
+
+	// Test Checker
+	bool bClientOnlyTestMode = false;
 };

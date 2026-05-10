@@ -3,6 +3,7 @@
 #include "UI/NetworkInstance.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
+#include "ClientNetworkTypes.h"
 
 AInGame_GameState::AInGame_GameState()
 {
@@ -11,8 +12,8 @@ AInGame_GameState::AInGame_GameState()
 
 	CurrentPhase = EMapPhase::None;
 	Phase1Time = 40;
-	Phase2Time = 60;
-	Phase3Time = 20;
+	Phase2Time = 80;
+	Phase3Time = 30;
 	GameTime = Phase1Time + Phase2Time + Phase3Time;
 
 	CurrentReadyTime = ReadyTime;
@@ -91,6 +92,40 @@ void AInGame_GameState::EndRound()
 	ForceNetUpdate();
 }
 
+void AInGame_GameState::ApplyNetworkPhaseState(const FPhaseChangePacket& Packet)
+{
+	const ERoundState OldRoundState = RoundState;
+	const EMapPhase OldPhase = CurrentPhase;
+
+	RoundState = static_cast<ERoundState>(Packet.roundState);
+	CurrentPhase = static_cast<EMapPhase>(Packet.mapPhase);
+	CurrentGameTime = FMath::RoundToInt(Packet.gameTime);
+
+	if (OldRoundState != RoundState)
+	{
+		OnNativeRoundStateChanged.Broadcast(OldRoundState, RoundState);
+	}
+
+	if (OldPhase != CurrentPhase)
+	{
+		OnNativePhaseChanged.Broadcast(OldPhase, CurrentPhase);
+	}
+
+	if (!bGameplayActivated)
+	{
+		bGameplayActivated = true;
+		OnGameplayActivated.Broadcast();
+	}
+
+	ForceNetUpdate();
+}
+
+void AInGame_GameState::ApplyNetworkGameTime(float SyncedGameTime)
+{
+	CurrentGameTime = FMath::RoundToInt(SyncedGameTime);
+	ForceNetUpdate();
+}
+
 void AInGame_GameState::CountdownTick()
 {
 	if (!HasAuthority())
@@ -152,8 +187,15 @@ void AInGame_GameState::ActivateGameplayFromServerStart()
 	bGameplayActivated = true;
 	OnGameplayActivated.Broadcast();
 
-	// 현재 구조를 유지하려면 여기서부터 시작
-	StartReady();
+	// Local Game Timer Setting
+	if (UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance()))
+	{
+		if (GI->IsClientOnlyTestMode())
+		{
+			// If Test mode On, Set Local Timer
+			StartReady();
+		}
+	}
 }
 
 void AInGame_GameState::UpdatePhase()

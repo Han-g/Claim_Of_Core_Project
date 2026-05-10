@@ -4,6 +4,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "InGame_GameState.generated.h"
 
+struct FPhaseChangePacket;
+
 UENUM(BlueprintType)
 enum class ERoundState : uint8
 {
@@ -62,11 +64,16 @@ public:
 	int32 CurrentGameTime;
 
 	DECLARE_MULTICAST_DELEGATE(FOnGameplayActivated);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNativePhaseChanged, EMapPhase, EMapPhase);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNativeRoundStateChanged, ERoundState, ERoundState);
+
+	FOnGameplayActivated OnGameplayActivated;
+	FOnNativePhaseChanged OnNativePhaseChanged;
+	FOnNativeRoundStateChanged OnNativeRoundStateChanged;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Round")
 	bool bGameplayActivated = false;
 
-	FOnGameplayActivated OnGameplayActivated;
 
 	void ActivateGameplayFromServerStart();
 	bool IsGameplayActivated() const { return bGameplayActivated; }
@@ -80,6 +87,9 @@ public:
 	void StartReady();
 	void StartRound();
 	void EndRound();
+
+	void ApplyNetworkPhaseState(const FPhaseChangePacket& Packet);
+	void ApplyNetworkGameTime(float SyncedGameTime);
 
 protected:
 	FTimerHandle TimerHandle_Countdown;

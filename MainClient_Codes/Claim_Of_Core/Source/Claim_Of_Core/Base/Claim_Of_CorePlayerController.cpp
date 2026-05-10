@@ -9,6 +9,15 @@
 #include "Claim_Of_Core.h"
 #include "Widgets/Input/SVirtualJoystick.h"
 
+void AClaim_Of_CorePlayerController::StartClientOnlyTestPressed()
+{
+	if (UNetworkInstance* GI = GetGameInstance<UNetworkInstance>())
+	{
+		UE_LOG(LogTemp, Display, TEXT("Test key Pressed!!!"));
+		GI->StartClientOnlyTestFlow();
+	}
+}
+
 void AClaim_Of_CorePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
@@ -56,6 +65,9 @@ void AClaim_Of_CorePlayerController::SetupInputComponent()
 					Subsystem->AddMappingContext(CurrentContext, 0);
 				}
 			}
+
+			InputComponent->BindKey(EKeys::Subtract, IE_Pressed, this,
+				&AClaim_Of_CorePlayerController::StartClientOnlyTestPressed);
 		}
 	}
 }

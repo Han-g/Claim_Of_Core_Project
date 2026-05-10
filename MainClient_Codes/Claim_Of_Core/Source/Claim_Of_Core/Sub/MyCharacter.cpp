@@ -104,7 +104,7 @@ AMyCharacter::AMyCharacter()
 	MaxHP = 100;
 	CurrentHP = MaxHP;
 	CharacterState = ERecCharacterState::Alive;
-	RoleType = ERecRoleType::Guardian;
+	RoleType = ERecRoleType::Manipulator;
 }
 
 void AMyCharacter::BeginPlay()
@@ -143,6 +143,8 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	CheckIceFloor();
 
 	// Temporary Movement Threat 20fps transform send
 	if (IsLocallyControlled() && !IsDead())
@@ -427,6 +429,24 @@ void AMyCharacter::ApplyRoleVisual()
 	{
 		SkelComp->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 		SkelComp->SetAnimInstanceClass(Data.AnimBPClass);
+	}
+
+	switch (RoleType)
+	{
+	case ERecRoleType::Striker:
+		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		break;
+
+	case ERecRoleType::Guardian:
+		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		break;
+
+	case ERecRoleType::Manipulator:
+		GetMesh()->SetRelativeScale3D(FVector(0.5f));
+		break;
+
+	default:
+		break;
 	}
 }
 
@@ -795,7 +815,7 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	}
 
 	// Test Key Bind
-	PlayerInputComponent->BindKey(EKeys::Subtract, IE_Pressed, this, &AMyCharacter::TestFunc);
+	//PlayerInputComponent->BindKey(EKeys::Subtract, IE_Pressed, this, &AMyCharacter::TestFunc);
 
 	// Key Binding
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMyCharacter::EquipItem);
@@ -823,7 +843,7 @@ void AMyCharacter::TestFunc()
 
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>()) {
 		UE_LOG(LogTemp, Display, TEXT("[ClientTest] TestFunc called. Sending attack test packet."));
-		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		NetworkInstance->StartClientOnlyTestFlow();
 	}
 
 	else { UE_LOG(LogTemp, Warning, TEXT("[ClientTest] NetworkInstance is null.")); }
@@ -1399,6 +1419,7 @@ void AMyCharacter::ApplyAliveState()
 	}
 
 	ApplyRoleStats();
+	ApplyRoleVisual();
 	ApplyRoleSkillState();
 	UpdateHPText();
 	UpdateRoleText();
@@ -1607,7 +1628,8 @@ void AMyCharacter::Attack()
 
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
 	{
-		NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		//NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		NetworkInstance->RequestAttackInput(0);
 	}
 	/*if (!IsValid(Controller))
 	{
@@ -1801,6 +1823,44 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 			C->SetControlRotation(NewRotation);
 		}
 	}*/
+}
+
+void AMyCharacter::LockUntilInitialSnapshot()
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+		MoveComp->GravityScale = 0.f;
+	}
+
+	if (AController* C = GetController())
+	{
+		if (APlayerController* PC = Cast<APlayerController>(C))
+		{
+			PC->SetIgnoreMoveInput(true);
+			PC->SetIgnoreLookInput(true);
+		}
+	}
+}
+
+void AMyCharacter::UnlockAfterInitialSnapshot()
+{
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->GravityScale = 1.f;
+		MoveComp->SetMovementMode(EMovementMode::MOVE_Walking);
+		MoveComp->StopMovementImmediately();
+	}
+
+	if (AController* C = GetController())
+	{
+		if (APlayerController* PC = Cast<APlayerController>(C))
+		{
+			PC->SetIgnoreMoveInput(false);
+			PC->SetIgnoreLookInput(false);
+		}
+	}
 }
 
 void AMyCharacter::KnockbackTest()
@@ -2027,4 +2087,60 @@ void AMyCharacter::StartAttackHitWindow(float Duration)
 		Duration,
 		false
 	);
+}
+
+void AMyCharacter::CheckIceFloor()
+{
+	FHitResult Hit;
+
+	FVector Start = GetActorLocation();
+	FVector End = Start - FVector(0, 0, 500.f);
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit,
+		Start,
+		End,
+		ECC_WorldStatic,
+		Params
+	);
+
+	UE_LOG(LogTemp, Warning, TEXT("[IceCheck] Hit: %d / Actor: %s / HasTag: %d"),
+		bHit,
+		Hit.GetActor() ? *Hit.GetActor()->GetName() : TEXT("None"),
+		Hit.GetActor() ? Hit.GetActor()->ActorHasTag(TEXT("IceFloor")) : false
+	);
+
+	if (bHit && Hit.GetActor() && Hit.GetActor()->ActorHasTag(TEXT("IceFloor")))
+	{
+		
+		SetIceMovement(true);
+	}
+	else
+	{
+		SetIceMovement(false);
+	}
+}
+
+void AMyCharacter::SetIceMovement(bool bNew)
+{
+	if (bOnIce == bNew)
+	{
+		return;
+	}
+
+	bOnIce = bNew;
+
+	if (bOnIce)
+	{
+		GetCharacterMovement()->GroundFriction = 0.1f;
+		GetCharacterMovement()->BrakingFrictionFactor = 0.2f;
+	}
+	else
+	{
+		GetCharacterMovement()->GroundFriction = 8.f;
+		GetCharacterMovement()->BrakingFrictionFactor = 2.f;
+	}
 }
