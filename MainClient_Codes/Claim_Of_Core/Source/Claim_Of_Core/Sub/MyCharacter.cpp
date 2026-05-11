@@ -6,6 +6,7 @@
 #include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -26,6 +27,7 @@
 
 #include "ClientNetworking.h"
 #include "BaseItem.h"
+#include "../Map/IceCave/IceFloorTile.h"
 
 AMyCharacter::AMyCharacter()
 {
@@ -59,7 +61,6 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->bUsePawnControlRotation = false;
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
-	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
 	HandCollision->SetBoxExtent(FVector(18.f, 12.f, 12.f));
 	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
@@ -67,6 +68,13 @@ AMyCharacter::AMyCharacter()
 	HandCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HandCollision->SetGenerateOverlapEvents(true);
 	HandCollision->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnAttackOverlap);
+
+	FrozenOverlayMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrozenOverlayMesh"));
+	FrozenOverlayMeshComponent->SetupAttachment(GetMesh());
+	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FrozenOverlayMeshComponent->SetGenerateOverlapEvents(false);
+	FrozenOverlayMeshComponent->SetHiddenInGame(true);
+	FrozenOverlayMeshComponent->SetVisibility(false, true);
 
 	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
 	HPTextComponent->SetupAttachment(GetMesh());
@@ -360,6 +368,7 @@ bool AMyCharacter::CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) c
 	case ERecStatusEffectType::Slow:
 	case ERecStatusEffectType::Stun:
 	case ERecStatusEffectType::Knockback:
+	case ERecStatusEffectType::Freeze:
 		return false;
 	default:
 		return true;
@@ -381,9 +390,17 @@ void AMyCharacter::ApplyRoleStats()
 {
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
-		const float BaseRoleMult = GetRoleSpeedMultiplier(RoleType);
-		const float SkillMult = GetRoleSkillSpeedMultiplier();
-		MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
+		if (bFrozen)
+		{
+			MoveComp->StopMovementImmediately();
+			MoveComp->MaxWalkSpeed = 0.f;
+		}
+		else
+		{
+			const float BaseRoleMult = GetRoleSpeedMultiplier(RoleType);
+			const float SkillMult = GetRoleSkillSpeedMultiplier();
+			MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
+		}
 	}
 
 	switch (RoleType)
@@ -435,14 +452,29 @@ void AMyCharacter::ApplyRoleVisual()
 	{
 	case ERecRoleType::Striker:
 		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		HandCollision->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("LeftHandSocket")
+		);
 		break;
 
 	case ERecRoleType::Guardian:
 		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		HandCollision->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("RightHandSocket")
+		);
 		break;
 
 	case ERecRoleType::Manipulator:
-		GetMesh()->SetRelativeScale3D(FVector(0.5f));
+		GetMesh()->SetRelativeScale3D(FVector(0.6f));
+		HandCollision->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("RightHandSocket")
+		);
 		break;
 
 	default:
@@ -476,6 +508,30 @@ void AMyCharacter::ApplyRoleSkillState()
 	default:
 		break;
 	}
+}
+
+void AMyCharacter::UpdateFrozenOverlay()
+{
+	if (!FrozenOverlayMeshComponent)
+	{
+		return;
+	}
+
+	if (FrozenOverlayMesh)
+	{
+		FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
+	}
+
+	if (FrozenOverlayMaterial)
+	{
+		FrozenOverlayMeshComponent->SetMaterial(0, FrozenOverlayMaterial);
+	}
+
+	FrozenOverlayMeshComponent->SetRelativeLocation(FrozenOverlayRelativeLocation);
+	FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
+	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FrozenOverlayMeshComponent->SetHiddenInGame(!bFrozen);
+	FrozenOverlayMeshComponent->SetVisibility(bFrozen, true);
 }
 
 void AMyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -529,6 +585,11 @@ void AMyCharacter::SetCharacterState(ERecCharacterState NewState)
 		EndRoleSkill();
 	}
 
+	if (NewState == ERecCharacterState::Dead && bFrozen)
+	{
+		EndFreeze();
+	}
+
 	CharacterState = NewState;
 	ApplyCharacterState();
 	ForceNetUpdate();
@@ -544,6 +605,57 @@ void AMyCharacter::ApplyCharacterState()
 	{
 		ApplyAliveState();
 	}
+}
+
+void AMyCharacter::ApplyFreeze(float Duration)
+{
+	if (Duration <= 0.f || IsDead() || !CanReceiveStatusEffect(ERecStatusEffectType::Freeze))
+	{
+		return;
+	}
+
+	bFrozen = true;
+	CachedMoveRight = 0.f;
+	CachedMoveForward = 0.f;
+	StopJumping();
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->MaxWalkSpeed = 0.f;
+	}
+
+	UpdateFrozenOverlay();
+
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(FreezeTimerHandle);
+		GetWorldTimerManager().SetTimer(
+			FreezeTimerHandle,
+			this,
+			&AMyCharacter::EndFreeze,
+			Duration,
+			false
+		);
+	}
+}
+
+void AMyCharacter::EndFreeze()
+{
+	if (!bFrozen)
+	{
+		return;
+	}
+
+	bFrozen = false;
+
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(FreezeTimerHandle);
+	}
+
+	UpdateFrozenOverlay();
+	ApplyRoleStats();
 }
 
 void AMyCharacter::ApplyDamage(int32 DamageAmount)
@@ -851,6 +963,13 @@ void AMyCharacter::TestFunc()
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
+	if (bFrozen)
+	{
+		CachedMoveRight = 0.f;
+		CachedMoveForward = 0.f;
+		return;
+	}
+
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	const float Right = MovementVector.X;
 	const float Forward = MovementVector.Y;
@@ -890,6 +1009,11 @@ void AMyCharacter::Look(const FInputActionValue& Value)
 
 void AMyCharacter::DoMove(float Right, float Forward)
 {
+	if (bFrozen)
+	{
+		return;
+	}
+
 	if (IsDead())
 	{
 		if (bCanSpectate)
@@ -938,7 +1062,7 @@ void AMyCharacter::DoLook(float Yaw, float Pitch)
 
 void AMyCharacter::DoJumpStart()
 {
-	if (IsDead() || bDeathSequenceLocked)
+	if (IsDead() || bDeathSequenceLocked || bFrozen)
 	{
 		return;
 	}
@@ -953,7 +1077,7 @@ void AMyCharacter::DoJumpEnd()
 
 void AMyCharacter::Jump()
 {
-	if (IsDead() || bDeathSequenceLocked)
+	if (IsDead() || bDeathSequenceLocked || bFrozen)
 	{
 		return;
 	}
@@ -1351,6 +1475,11 @@ void AMyCharacter::ApplyDeadState()
 		return;
 	}
 
+	if (bFrozen)
+	{
+		EndFreeze();
+	}
+
 	ShowCorpse();
 
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -1392,6 +1521,11 @@ void AMyCharacter::ApplyAliveState()
 	bAwaitingSpectateInput = false;
 	bSpectateInputUnlocked = false;
 	bDeathSequenceLocked = false;
+
+	if (bFrozen)
+	{
+		EndFreeze();
+	}
 
 	ShowCorpse();
 
@@ -1994,6 +2128,11 @@ void AMyCharacter::OnAttackOverlap(
 		return;
 	}
 
+	if (Victim == this)
+	{
+		return;
+	}
+
 	if (HitActors.Contains(Victim))
 	{
 		UE_LOG(LogTemp, Error, TEXT("[Attack Trace] Check"));
@@ -2037,7 +2176,7 @@ void AMyCharacter::EquipItem()
 		CurrentItem->AttachToComponent(
 			MeshComp,
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("LeftHandSocket")
+			TEXT("RightHandSocket")
 		);
 	}
 }
@@ -2115,7 +2254,11 @@ void AMyCharacter::CheckIceFloor()
 
 	if (bHit && Hit.GetActor() && Hit.GetActor()->ActorHasTag(TEXT("IceFloor")))
 	{
-		
+		if (AIceFloorTile* IceFloorTile = Cast<AIceFloorTile>(Hit.GetActor()))
+		{
+			IceFloorTile->NotifyPlayerStandingOnPiece(this, Hit.GetComponent());
+		}
+
 		SetIceMovement(true);
 	}
 	else

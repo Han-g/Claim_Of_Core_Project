@@ -15,6 +15,9 @@ class UAnimMontage;
 class USkeletalMesh;
 class UPrimitiveComponent;
 class UBoxComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
+class UMaterialInterface;
 class ABaseItem;
 class FLifetimeProperty;
 
@@ -39,6 +42,7 @@ enum class ERecStatusEffectType : uint8
 	Slow      UMETA(DisplayName = "Slow"),
 	Stun      UMETA(DisplayName = "Stun"),
 	Knockback UMETA(DisplayName = "Knockback"),
+	Freeze    UMETA(DisplayName = "Freeze"),
 };
 
 USTRUCT(BlueprintType)
@@ -191,6 +195,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Status")
 	bool CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const;
 
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	void ApplyFreeze(float Duration);
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	void EndFreeze();
+
+	UFUNCTION(BlueprintPure, Category = "Status")
+	bool IsFrozen() const { return bFrozen; }
+
 	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
 	ERecRoleType RoleType = ERecRoleType::Manipulator;
 
@@ -225,6 +238,21 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBoxComponent> HandCollision;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> FrozenOverlayMeshComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMesh> FrozenOverlayMesh;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UMaterialInterface> FrozenOverlayMaterial;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	FVector FrozenOverlayRelativeLocation = FVector::ZeroVector;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	FVector FrozenOverlayRelativeScale = FVector(1.15f);
 
 	UPROPERTY()
 	TSet<TObjectPtr<AMyCharacter>> HitActors;
@@ -277,6 +305,11 @@ private:
 	bool bRoleSkillActive = false;
 
 	FTimerHandle RoleSkillTimerHandle;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Status|Freeze")
+	bool bFrozen = false;
+
+	FTimerHandle FreezeTimerHandle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
 	float DashDuration = 5.0f;
@@ -446,6 +479,7 @@ private:
 	void ApplyRoleStats();
 	void ApplyRoleVisual();
 	void ApplyRoleSkillState();
+	void UpdateFrozenOverlay();
 	const FRoleVisualData& GetVisualData(ERecRoleType InRole) const;
 
 	void SetCharacterState(ERecCharacterState NewState);

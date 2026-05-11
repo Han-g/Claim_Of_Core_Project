@@ -1,6 +1,8 @@
 #include "IceFloorTile.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "../../Sub/MyCharacter.h"
 #include "TimerManager.h"
 
 AIceFloorTile::AIceFloorTile()
@@ -30,13 +32,41 @@ void AIceFloorTile::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	CheckPhaseAndStart();
-	ProcessBreaking(DeltaTime);
+	ProcessStandingDamage(DeltaTime);
+
+	if (bUsePhaseEdgeBreaking)
+	{
+		CheckPhaseAndStart();
+		ProcessBreaking(DeltaTime);
+	}
+}
+
+void AIceFloorTile::NotifyPlayerStandingOnPiece(AMyCharacter* StandingCharacter, UPrimitiveComponent* StandingComponent)
+{
+	if (!StandingCharacter || StandingCharacter->IsDead() || !StandingComponent)
+	{
+		return;
+	}
+
+	const int32 PieceIndex = FindPieceIndex(StandingComponent);
+	if (!IcePieces.IsValidIndex(PieceIndex) ||
+		!StandingCharactersByPiece.IsValidIndex(PieceIndex) ||
+		!PieceBrokenFlags.IsValidIndex(PieceIndex) ||
+		PieceBrokenFlags[PieceIndex])
+	{
+		return;
+	}
+
+	StandingCharactersByPiece[PieceIndex].Add(StandingCharacter);
 }
 
 void AIceFloorTile::CollectIcePieces()
 {
 	IcePieces.Empty();
+	PieceDamageProgress.Empty();
+	PieceCrackedByStandingFlags.Empty();
+	PieceBrokenFlags.Empty();
+	StandingCharactersByPiece.Empty();
 
 	TArray<UStaticMeshComponent*> MeshComponents;
 	GetComponents<UStaticMeshComponent>(MeshComponents);
@@ -49,6 +79,10 @@ void AIceFloorTile::CollectIcePieces()
 		}
 
 		IcePieces.Add(MeshComp);
+		PieceDamageProgress.Add(0.f);
+		PieceCrackedByStandingFlags.Add(false);
+		PieceBrokenFlags.Add(false);
+		StandingCharactersByPiece.AddDefaulted();
 
 		MeshComp->SetMobility(EComponentMobility::Movable);
 		MeshComp->SetSimulatePhysics(false);
@@ -85,12 +119,6 @@ void AIceFloorTile::BuildBreakOrder()
 			Center
 		);
 
-		UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Piece: %s / Distance: %.1f / Inner: %.1f"),
-			*IcePieces[i]->GetName(),
-			Distance,
-			InnerSafeRadius
-		);
-
 		if (Distance < InnerSafeRadius)
 		{
 			continue;
@@ -109,7 +137,6 @@ void AIceFloorTile::BuildBreakOrder()
 		SortedPieceIndices.Add(Pair.Key);
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Break Count: %d"), SortedPieceIndices.Num());
 }
 
 void AIceFloorTile::CheckPhaseAndStart()
@@ -132,10 +159,6 @@ void AIceFloorTile::CheckPhaseAndStart()
 		{
 			bStartedBreaking = true;
 			Timer = 0.f;
-
-			UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Start Breaking From Phase: %d"),
-				(int32)CachedGameState->CurrentPhase
-			);
 		}
 	}
 }
@@ -172,6 +195,14 @@ void AIceFloorTile::ProcessBreaking(float DeltaTime)
 
 	const int32 PieceIndex = SortedPieceIndices[CurrentPieceIndex];
 
+	if (PieceBrokenFlags.IsValidIndex(PieceIndex) && PieceBrokenFlags[PieceIndex])
+	{
+		Timer = 0.f;
+		CurrentPieceIndex++;
+		bCurrentPieceCracked = false;
+		return;
+	}
+
 	if (!bCurrentPieceCracked)
 	{
 		if (Timer >= CurrentInterval)
@@ -199,9 +230,77 @@ void AIceFloorTile::ProcessBreaking(float DeltaTime)
 	}
 }
 
+void AIceFloorTile::ProcessStandingDamage(float DeltaTime)
+{
+	if (DeltaTime <= 0.f)
+	{
+		return;
+	}
+
+	if (!CachedGameState)
+	{
+		CachedGameState = GetWorld() ? GetWorld()->GetGameState<AInGame_GameState>() : nullptr;
+	}
+
+	const float CurrentBreakTime = GetCurrentStandingBreakTime();
+
+	for (int32 PieceIndex = 0; PieceIndex < StandingCharactersByPiece.Num(); ++PieceIndex)
+	{
+		TSet<TWeakObjectPtr<AMyCharacter>>& StandingCharacters = StandingCharactersByPiece[PieceIndex];
+
+		if (CurrentBreakTime <= 0.f ||
+			!IcePieces.IsValidIndex(PieceIndex) ||
+			!PieceDamageProgress.IsValidIndex(PieceIndex) ||
+			!PieceCrackedByStandingFlags.IsValidIndex(PieceIndex) ||
+			!PieceBrokenFlags.IsValidIndex(PieceIndex) ||
+			PieceBrokenFlags[PieceIndex])
+		{
+			StandingCharacters.Empty();
+			continue;
+		}
+
+		int32 StandingPlayerCount = 0;
+		for (const TWeakObjectPtr<AMyCharacter>& StandingCharacter : StandingCharacters)
+		{
+			AMyCharacter* Character = StandingCharacter.Get();
+			if (Character && !Character->IsDead())
+			{
+				StandingPlayerCount++;
+			}
+		}
+
+		if (StandingPlayerCount > 0)
+		{
+			PieceDamageProgress[PieceIndex] = FMath::Clamp(
+				PieceDamageProgress[PieceIndex] + (DeltaTime / CurrentBreakTime) * StandingPlayerCount,
+				0.f,
+				1.f
+			);
+
+			if (!PieceCrackedByStandingFlags[PieceIndex] && PieceDamageProgress[PieceIndex] >= CrackProgressThreshold)
+			{
+				CrackPiece(PieceIndex);
+				PieceCrackedByStandingFlags[PieceIndex] = true;
+			}
+
+			if (PieceDamageProgress[PieceIndex] >= 1.f)
+			{
+				BreakPiece(PieceIndex);
+			}
+		}
+
+		StandingCharacters.Empty();
+	}
+}
+
 void AIceFloorTile::CrackPiece(int32 PieceIndex)
 {
 	if (!IcePieces.IsValidIndex(PieceIndex))
+	{
+		return;
+	}
+
+	if (PieceBrokenFlags.IsValidIndex(PieceIndex) && PieceBrokenFlags[PieceIndex])
 	{
 		return;
 	}
@@ -226,6 +325,11 @@ void AIceFloorTile::BreakPiece(int32 PieceIndex)
 		return;
 	}
 
+	if (PieceBrokenFlags.IsValidIndex(PieceIndex) && PieceBrokenFlags[PieceIndex])
+	{
+		return;
+	}
+
 	UStaticMeshComponent* Piece = IcePieces[PieceIndex];
 	if (!Piece)
 	{
@@ -233,12 +337,19 @@ void AIceFloorTile::BreakPiece(int32 PieceIndex)
 		return;
 	}
 
+	if (PieceBrokenFlags.IsValidIndex(PieceIndex))
+	{
+		PieceBrokenFlags[PieceIndex] = true;
+	}
+
 	Piece->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 
 	Piece->SetMobility(EComponentMobility::Movable);
 	Piece->SetSimulatePhysics(true);
 	Piece->SetEnableGravity(true);
-	Piece->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Piece->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	Piece->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	Piece->AddImpulse(FVector(0.f, 0.f, -DownImpulse), NAME_None, true);
 
 	UE_LOG(LogTemp, Warning, TEXT("[IceFloor] Physics: %d / Gravity: %d / Collision: %d"),
 		Piece->IsSimulatingPhysics(),
@@ -247,6 +358,39 @@ void AIceFloorTile::BreakPiece(int32 PieceIndex)
 	);
 
 	DestroyPieceLater(Piece);
+}
+
+float AIceFloorTile::GetCurrentStandingBreakTime() const
+{
+	if (!CachedGameState || CachedGameState->RoundState != ERoundState::Playing)
+	{
+		return 0.f;
+	}
+
+	if (CachedGameState->CurrentPhase == EMapPhase::Phase2)
+	{
+		return Phase2StandingBreakTime;
+	}
+
+	if (CachedGameState->CurrentPhase == EMapPhase::Phase3)
+	{
+		return Phase3StandingBreakTime;
+	}
+
+	return 0.f;
+}
+
+int32 AIceFloorTile::FindPieceIndex(UPrimitiveComponent* PieceComponent) const
+{
+	for (int32 i = 0; i < IcePieces.Num(); ++i)
+	{
+		if (IcePieces[i] == PieceComponent)
+		{
+			return i;
+		}
+	}
+
+	return INDEX_NONE;
 }
 
 void AIceFloorTile::DestroyPieceLater(UStaticMeshComponent* Piece)
