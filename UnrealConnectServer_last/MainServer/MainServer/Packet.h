@@ -161,6 +161,7 @@ enum PacketID {
     PKT_C2S_ITEMPICKUP_KEYINPUT = 551,      // Attempt to pick up an item
     PKT_C2S_ITEMDROP_KEYINPUT = 552,        // Attempt to drop the currently equipped item
     PKT_C2S_OBJECT_HIT_REQ = 553,           // Hit attempt on a destructible object (asks server to judge)
+    PKT_C2S_ATTACK_HIT_REPORT = 554,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,           // Instruct spawning a specific item on the map
     PKT_S2C_DESPAWN_ITEM_BRD = 131,         // Instruct removing a specific item from the map
@@ -275,6 +276,13 @@ struct AttackActionPacket
 {
     int32_t attackerID;   // userUID 기준 권장
     int32_t attackType;   // 0 = 기본 공격, 나중에 콤보/무기/스킬로 확장
+    uint32_t attackSeq;
+};
+
+struct AttackHitReportPacket {
+    uint32_t attackSeq;
+    int32_t targetID;
+    int32_t attackType;
 };
 
 struct StatusUpdatePacket {
@@ -315,7 +323,7 @@ struct JumpPakcet {
 };
 
 struct AttackPacket {
-
+    int32_t attackType; // 0=맨손, 1=아이템
 };
 
 struct ItemPacket {

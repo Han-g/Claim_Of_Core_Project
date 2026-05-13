@@ -349,6 +349,21 @@ void UNetworkInstance::RequestAttackInput(int32 AttackType)
 	DispatchTestAttackAction(AttackType);
 }
 
+void UNetworkInstance::RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, int32 AttackType)
+{
+	if (!Client.IsValid())
+	{
+		return;
+	}
+
+	if (AttackSeq == 0 || TargetID <= 0)
+	{
+		return;
+	}
+
+	Client->AttackHitReportRequest(AttackSeq, TargetID, AttackType);
+}
+
 void UNetworkInstance::RequestItemPickup(int32 ItemID)
 {
 	if (!Client.IsValid()) { return; }
@@ -628,6 +643,10 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 						Data.x, Data.y, Data.z);
 				}
 			}
+			else
+			{
+				LocalCharacter->ApplyLocalServerCorrection(Data.x, Data.y, Data.z, Data.rotate);
+			}
 		}
 		else
 		{
@@ -684,7 +703,7 @@ void UNetworkInstance::HandleAttackActionReceived(const FAttackActionPacket& Pac
 			TEXT("[AttackUID] Matched. Play montage. Character=%s"),
 			*Character->GetName());
 
-		Character->PlayAttackMontageFromServer(Packet.AttackType);
+		Character->PlayAttackMontageFromServer(Packet.AttackType,  Packet.AttackSeq);
 		break;
 	}
 }
@@ -694,12 +713,22 @@ void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket& Packet)
 	const int32 LocalUID = Client.IsValid() ? Client->ClientPlayerData.userUID : -1;
 	const bool bIsLocalTarget = (Packet.TargetID == LocalUID);
 
-	UE_LOG(LogTemp, Display,
-		TEXT("[ClientTest] HandleDamageApplied: Target=%d Damage=%d RemainHP=%d LocalTarget=%s"),
-		Packet.TargetID,
-		Packet.Damage,
-		Packet.RemainHP,
-		bIsLocalTarget ? TEXT("true") : TEXT("false"));
+	if(AMyCharacter * Character = FindCharacterByUID(Packet.TargetID))
+	{
+		Character->SetHPFromNetwork(Packet.RemainHP);
+
+		if (Packet.RemainHP <= 0)
+		{
+			Character->SetStateFromNetwork(1); // Dead
+		}
+
+		UE_LOG(LogTemp, Display,
+			TEXT("[DamageApplied] Target=%d Damage=%d RemainHP=%d Character=%s"),
+			Packet.TargetID,
+			Packet.Damage,
+			Packet.RemainHP,
+			*GetNameSafe(Character));
+	}
 }
 
 void UNetworkInstance::HandleItemOwnershipChanged(const FItemPacket& Packet)

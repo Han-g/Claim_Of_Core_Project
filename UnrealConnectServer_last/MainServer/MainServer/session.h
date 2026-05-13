@@ -148,6 +148,13 @@ struct Session {
 
 	bool isConnected = false;
 	bool isReady = false;
+	bool isAttack = false;
+
+	uint32_t attackSeq = 0;
+	bool hasAttackHit = false;
+
+	float attackRemainTime = 0.f;
+	std::mutex AttackStateLock;
 
 	MoveIntent LastMoveIntent;
 	std::mutex MoveIntentLock;

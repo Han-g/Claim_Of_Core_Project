@@ -29,7 +29,7 @@ void URobbyWidget::ReloadRoomList(const TArray<FRoomInfoData>& RoomList)
         URoomEnterWidget* RoomWidget = CreateWidget<URoomEnterWidget>(GetWorld(), RoomEntryClass);
         if (RoomWidget)
         {
-            RoomWidget->InitRoomInfo(Room.RoomID, Room.RoomName, Room.CurrentPlayers, Room.MaxPlayers);
+            RoomWidget->InitRoomInfo(Room.RoomID, Room.RoomName, Room.CurrentPlayers);
 
             RoomScrollBox->AddChild(RoomWidget);
         }

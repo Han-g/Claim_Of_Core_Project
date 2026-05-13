@@ -101,12 +101,13 @@ public:
 
 	void SetNetworkPlayerUID(int32 InUID) { NetworkPlayerUID = InUID; };
 	int32 GetNetworkPlayerUID() const { return NetworkPlayerUID; };
-	void PlayAttackMontageFromServer(int32 AttackType);
+	void PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSeq);
 
 	void SetRoleFromNetwork(int32 InRoleType);
 	void SetHPFromNetwork(int32 InHP);
 	void SetStateFromNetwork(int32 InState);
 	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
+	void ApplyLocalServerCorrection(float X, float Y, float Z, float Yaw);
 
 	void LockUntilInitialSnapshot();
 	void UnlockAfterInitialSnapshot();
@@ -507,6 +508,9 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
 	float RemoteSnapDistance = 120.f;
 
+	int32 CurrentAttackType = 0;
+	uint32 CurrentAttackSeq = 0;
+
 	// Player Location Interpolation Data
 	FVector NetworkBlendStartLocation = FVector::ZeroVector;
 	FVector NetworkBlendTargetLocation = FVector::ZeroVector;
@@ -520,6 +524,14 @@ private:
 
 	float MinNetworkBlendDuration = 0.016f;
 	float MaxNetworkBlendDuration = 0.050f;
+
+	// Datas for Correction Location
+	bool bHasLocalCorrectionTarget = false;
+	FVector LocalCorrectionTargetLocation = FVector::ZeroVector;
+
+	float LocalCorrectionIgnoreDistance = 15.f;
+	float LocalCorrectionSnapDistance = 250.f;
+	float LocalCorrectionInterpSpeed = 10.f;
 
 	// Temporary Movement Members
 

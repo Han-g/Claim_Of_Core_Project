@@ -73,6 +73,7 @@ enum PacketID : uint16 {
     PKT_C2S_ITEMPICKUP_KEYINPUT = 551,
     PKT_C2S_ITEMDROP_KEYINPUT = 552,
     PKT_C2S_OBJECT_HIT_REQ = 553,
+    PKT_C2S_ATTACK_HIT_REPORT = 554,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,
     PKT_S2C_DESPAWN_ITEM_BRD = 131,
@@ -182,7 +183,12 @@ struct FRoleChangePacket { int32 TargetID; int32 NewRoleType; };
 
 struct FSyncGameTimePacket { float GameTime; };
 
-struct FAttackActionPacket { int32 AttackerID; int32 AttackType; };
+struct FAttackPacket { int32 attackType; };
+
+struct FAttackActionPacket { int32 AttackerID; int32 AttackType; uint32 AttackSeq; };
+
+struct FAttackHitReportPacket { uint32 attackSeq; int32 targetID; int32 attackType; };
+
 
 struct FSyncAnimationPacket { int32 TargetID; int32 AnimationNum; };
 
@@ -202,7 +208,7 @@ struct FRoomInfoData
     UPROPERTY(BlueprintReadOnly)
     int32 CurrentPlayers = 0;
     UPROPERTY(BlueprintReadOnly)
-    int32 MaxPlayers = 0;
+    int32 MaxPlayers = 6;
 };
 
 USTRUCT()

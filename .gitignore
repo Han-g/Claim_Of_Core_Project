@@ -16,6 +16,9 @@ UnrealConnectServer_last/ShareData/
 *.o
 *.obj
 
+# Claude 프롬프트
+*CLAUDE.md
+
 # .gitignore 파일에 아래 내용 추가
 # Packaging 폴더 내부의 모든 것을 무시
 MainClient_Codes/Claim_Of_Core/Packaging/*

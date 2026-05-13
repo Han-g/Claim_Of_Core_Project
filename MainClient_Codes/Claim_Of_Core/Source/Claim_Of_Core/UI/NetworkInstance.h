@@ -60,6 +60,7 @@ public:
 	void RequestReady();
 	void RequestGameStart();
 	void RequestAttackInput(int32 AttackType = 0);
+	void RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, int32 AttackType);
 	void RequestItemPickup(int32 ItemID);
 	void RequestItemDrop(int32 ItemID);
 

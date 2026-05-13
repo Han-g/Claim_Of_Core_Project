@@ -1,6 +1,7 @@
 #include "GameLogic.h"
 
 #include "RoomManager.h"
+#include "Packet.h"
 #include "session.h"
 
 GameLogic::GameLogic() { ownerRoom = nullptr; }
@@ -24,7 +25,28 @@ void GameLogic::Update(float deltaTime)
     for (auto& Pair : players)
     {
         Session* player = Pair.second;
+        if (!player) { continue; }
+
         UpdatePlayerMovement(player, deltaTime);
+
+        {
+            std::lock_guard<std::mutex> lock(player->AttackStateLock);
+
+            if (player->isAttack)
+            {
+                player->attackRemainTime -= deltaTime;
+
+                if (player->attackRemainTime <= 0.0f)
+                {
+                    player->isAttack = false;
+                    player->attackRemainTime = 0.0f;
+
+                    LOG_INFO("[Attack] End session=%d uid=%d",
+                        player->sessionID,
+                        player->playerUID);
+                }
+            }
+        }
     }
 
     // Update map-specific hazard logic.
@@ -218,6 +240,11 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount)
     // Broadcast the damage result to all clients in the room.
     // PKT_S2C_DAMAGE_APPLY_BRD: target session, damage, remaining HP
     BroadcastDamageApply(targetSession->playerUID, damageAmount, gd.currentHP);
+
+    if (prevHP > 0 && gd.currentHP <= 0)
+    {
+        HandleDeath(sessionID);
+    }
 }
 
 void GameLogic::Heal(int sessionID, int healAmount)
@@ -248,14 +275,11 @@ void GameLogic::ResetHP(int sessionID)
     GameData& gd = targetSession->gameDatas;
 
     if (gd.characterState == 1) {  // Dead
-        gd.currentHP = gd.maxHP;
-        SetCharacterState(sessionID, 0);  // Alive
         HandleRespawn(sessionID);
+        return;
     }
-    else {
-        SetCurrentHP(sessionID, gd.maxHP);
-    }
-
+    
+    SetCurrentHP(sessionID, gd.maxHP);
     BroadcastStatusUpdate(targetSession->playerUID, gd.currentHP);
 }
 
@@ -274,9 +298,10 @@ void GameLogic::SetCurrentHP(int sessionID, int newHP)
     gd.currentHP = newHP;
 
     // If HP reaches zero while the player is alive, trigger death handling.
-    if (gd.characterState == 0 && gd.currentHP <= 0) {
+    // Death handle Move to ApplyDamage
+    /*if (gd.characterState == 0 && gd.currentHP <= 0) {
         HandleDeath(sessionID);
-    }
+    }*/
 }
 
 void GameLogic::SetCharacterState(int sessionID, int newState)
@@ -513,25 +538,49 @@ void GameLogic::HandleAttackInput(int sessionID)
 
     GameData& gd = attackerSession->gameDatas;
 
-    // 연결 안 된 플레이어면 무시
-    if (!gd.isConnected) { return; }
+    if (!gd.isConnected || gd.characterState != 0 || attackerSession->playerUID <= 0) { return; }
 
-    // 죽은 상태면 공격 금지
-    if (gd.characterState != 0) { return; }
-
-    // 로그인 UID가 아직 없으면 무시
-    if (attackerSession->playerUID <= 0) { return; }
-
-    // 1차는 기본 공격만 보냄
     const int attackType = 0;
 
-    BroadcastAttackAction(attackerSession->playerUID, attackType);
-    LOG_INFO("[Attack] HandleAttackInput session=%d uid=%d room ok",
-        sessionID, gd.userUID);
+    {
+        std::lock_guard<std::mutex> lock(attackerSession->AttackStateLock);
 
-    // 2차에서 여기에 PendingAttack 등록
-    // pendingAttacks.push_back({ sessionID, attackType, AttackWindupSec });
-    Session* bestTarget = nullptr;
+        if (attackerSession->isAttack)
+        {
+            LOG_INFO("[Attack] Reject duplicate attack session=%d uid=%d",
+                sessionID,
+                attackerSession->playerUID);
+            return;
+        }
+
+        attackerSession->isAttack = true;
+        attackerSession->attackRemainTime = 2.f;
+        attackerSession->attackSeq++;
+        attackerSession->hasAttackHit = false;
+    }
+
+    BroadcastAttackAction(attackerSession->playerUID, attackType, attackerSession->attackSeq);
+    //LOG_INFO("[Attack] HandleAttackInput session=%d uid=%d room ok", sessionID, gd.userUID);
+
+   /* Session* bestTarget = nullptr;
+    switch (gd.roleType)
+    {
+    case Guardian:
+        Range = 500.f;
+        break;
+
+    case Striker:
+        Range = 400.f;
+        break;
+
+    case Manipulator:
+        Range = 400.f;
+        break;
+
+    default:
+        Range = 400.f;
+        break;
+    }
     float bestDist = Range;
 
     const float yawRad = GameMath::DegreesToRadians(gd.rotate);
@@ -557,6 +606,21 @@ void GameLogic::HandleAttackInput(int sessionID)
         const float dot = forwardX * toX + forwardY * toY;
         if (dot < minDot) { continue; }
 
+        LOG_INFO(
+            "[ATK_TEST][Target] attackerUID=%d targetUID=%d "
+            "aPos=(%.1f, %.1f) tPos=(%.1f, %.1f) rotate=%.2f "
+            "dist=%.1f range=%.1f dot=%.3f minDot=%.3f",
+            attackerSession->playerUID,
+            targetSession->playerUID,
+            gd.x, gd.y,
+            targetData.x, targetData.y,
+            gd.rotate,
+            dist,
+            Range,
+            dot,
+            minDot
+        );
+
         if (dist < bestDist)
         {
             bestDist = dist;
@@ -578,16 +642,137 @@ void GameLogic::HandleAttackInput(int sessionID)
     default: break;
     }
 
-    ApplyDamage(bestTarget->sessionID, damageAmount);
+    ApplyDamage(bestTarget->sessionID, damageAmount);*/
 }
 
-void GameLogic::BroadcastAttackAction(int attackerUID, int attackType)
+void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket& pkt)
+{
+    auto attackerIt = players.find(sessionID);
+    if (attackerIt == players.end()) return;
+
+    Session* attackerSession = attackerIt->second;
+    if (!attackerSession) return;
+
+    GameData& attackerData = attackerSession->gameDatas;
+    if (!attackerData.isConnected || attackerData.characterState != 0) return;
+
+    {
+        std::lock_guard<std::mutex> lock(attackerSession->AttackStateLock);
+
+        if (!attackerSession->isAttack) return;
+        if (pkt.attackSeq != attackerSession->attackSeq) return;
+        if (attackerSession->hasAttackHit) return;
+    }
+
+    Session* targetSession = nullptr;
+
+    for (const auto& pair : players)
+    {
+        Session* candidate = pair.second;
+        if (!candidate) continue;
+
+        if (candidate->playerUID == pkt.targetID)
+        {
+            targetSession = candidate;
+            break;
+        }
+    }
+
+    if (!targetSession || targetSession == attackerSession) return;
+
+    GameData& targetData = targetSession->gameDatas;
+    if (!targetData.isConnected || targetData.characterState != 0) return;
+
+    float attackRange = 400.f;
+
+    switch (attackerData.roleType)
+    {
+    case Guardian:
+        attackRange = 500.f;
+        break;
+    case Striker:
+    case Manipulator:
+        attackRange = 400.f;
+        break;
+    default:
+        attackRange = 400.f;
+        break;
+    }
+
+    const float serverTolerance = 120.f;
+    const float maxRange = attackRange + serverTolerance;
+
+    float toX = targetData.x - attackerData.x;
+    float toY = targetData.y - attackerData.y;
+    const float dist = GameMath::Length2D(toX, toY);
+
+    if (dist > maxRange)
+    {
+        LOG_INFO("[AttackHit] Reject range attackerUID=%d targetUID=%d dist=%.1f maxRange=%.1f",
+            attackerSession->playerUID, targetSession->playerUID, dist, maxRange);
+        return;
+    }
+
+    const float yawRad = GameMath::DegreesToRadians(attackerData.rotate);
+    const float forwardX = std::cos(yawRad);
+    const float forwardY = std::sin(yawRad);
+
+    GameMath::Normalize2D(toX, toY);
+
+    const float dot = forwardX * toX + forwardY * toY;
+    const float minDot = std::cos(GameMath::DegreesToRadians(65.f));
+
+    if (dot < minDot)
+    {
+        LOG_INFO("[AttackHit] Reject angle attackerUID=%d targetUID=%d dot=%.3f minDot=%.3f",
+            attackerSession->playerUID, targetSession->playerUID, dot, minDot);
+        return;
+    }
+
+    int damageAmount = 20;
+
+    switch (attackerData.roleType)
+    {
+    case Striker:
+        damageAmount = 30;
+        break;
+    case Guardian:
+        damageAmount = 15;
+        break;
+    case Manipulator:
+        damageAmount = 20;
+        break;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(attackerSession->AttackStateLock);
+
+        if (!attackerSession->isAttack) return;
+        if (pkt.attackSeq != attackerSession->attackSeq) return;
+        if (attackerSession->hasAttackHit) return;
+
+        attackerSession->hasAttackHit = true;
+    }
+
+    LOG_INFO("[AttackHit] Confirm attackerUID=%d targetUID=%d seq=%u dist=%.1f range=%.1f damage=%d",
+        attackerSession->playerUID,
+        targetSession->playerUID,
+        pkt.attackSeq,
+        dist,
+        attackRange,
+        damageAmount);
+
+    ApplyDamage(targetSession->sessionID, damageAmount);
+}
+
+void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t attackSeq)
 {
     if (!ownerRoom) { return; }
 
     AttackActionPacket pkt{};
     pkt.attackerID = attackerUID;
     pkt.attackType = attackType;
+    pkt.attackSeq = attackSeq;
 
     LOG_INFO("[Attack] BroadcastAttackAction attackerUID=%d type=%d",
         attackerUID, attackType);

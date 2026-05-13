@@ -184,6 +184,23 @@ void AMyCharacter::Tick(float DeltaTime)
 						Packet.VelocityY = CachedMoveForward;
 
 						NetInst->SendMoveInputToServer(Packet);
+
+						if (IsLocallyControlled() && bHasLocalCorrectionTarget && !IsDead())
+						{
+							const FVector NewLocation = FMath::VInterpTo(
+								GetActorLocation(),
+								LocalCorrectionTargetLocation,
+								DeltaTime,
+								LocalCorrectionInterpSpeed
+							);
+
+							SetActorLocation(NewLocation, false, nullptr, ETeleportType::None);
+
+							if (FVector::Dist(NewLocation, LocalCorrectionTargetLocation) <= LocalCorrectionIgnoreDistance)
+							{
+								bHasLocalCorrectionTarget = false;
+							}
+						}
 					}
 				}
 			}
@@ -412,16 +429,19 @@ void AMyCharacter::ApplyRoleStats()
 	switch (RoleType)
 	{
 	case ERecRoleType::Striker:
+		MaxHP = 100;
 		AttackDamage = 30;
 		KnockbackCoefficient = 1.10f;
 		break;
 
 	case ERecRoleType::Guardian:
+		MaxHP = 200;
 		AttackDamage = 15;
 		KnockbackCoefficient = 0.80f;
 		break;
 
 	case ERecRoleType::Manipulator:
+		MaxHP = 120;
 		AttackDamage = 20;
 		KnockbackCoefficient = 1.30f;
 		break;
@@ -1381,6 +1401,7 @@ void AMyCharacter::ApplyDeadState()
 
 	StartDeathCameraShake();
 	EnterDeathWaitingState();
+	HideCorpse();
 }
 
 void AMyCharacter::ApplyAliveState()
@@ -1619,11 +1640,11 @@ void AMyCharacter::Attack()
 		return;
 	}
 
-	if (CurrentItem)
+	/*if (CurrentItem)
 	{
 		CurrentItem->StartUse();
 		return;
-	}
+	}*/
 
 	if (!IsLocallyControlled())
 	{
@@ -1633,6 +1654,7 @@ void AMyCharacter::Attack()
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
 	{
 		//NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
+		const int32 AttackType = CurrentItem ? 1 : 0;
 		NetworkInstance->RequestAttackInput(0);
 	}
 	/*if (!IsValid(Controller))
@@ -1674,7 +1696,7 @@ void AMyCharacter::EndAttack()
 	HitActors.Empty();
 }
 
-void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
+void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSeq)
 {
 	if (IsDead() || bDeathSequenceLocked) { return; }
 
@@ -1694,6 +1716,9 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
 	//HitActors.Empty();
 	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	AnimInstance->Montage_Play(Data.AttackMontage);
+
+	CurrentAttackType = AttackType;
+	CurrentAttackSeq = AttackSeq;
 
 	if (IsLocallyControlled())
 	{
@@ -1859,6 +1884,30 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 	}*/
 }
 
+void AMyCharacter::ApplyLocalServerCorrection(float X, float Y, float Z, float Yaw)
+{
+	if (!IsLocallyControlled()) { return; }
+
+	const FVector ServerLocation(X, Y, Z);
+	const float ErrorDist = FVector::Dist(GetActorLocation(), ServerLocation);
+
+	if (ErrorDist <= LocalCorrectionIgnoreDistance)
+	{
+		bHasLocalCorrectionTarget = false;
+		return;
+	}
+
+	if (ErrorDist >= LocalCorrectionSnapDistance || IsDead())
+	{
+		SetActorLocation(ServerLocation, false, nullptr, ETeleportType::TeleportPhysics);
+		bHasLocalCorrectionTarget = false;
+		return;
+	}
+
+	LocalCorrectionTargetLocation = ServerLocation;
+	bHasLocalCorrectionTarget = true;
+}
+
 void AMyCharacter::LockUntilInitialSnapshot()
 {
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -2020,6 +2069,9 @@ void AMyCharacter::OnAttackOverlap(
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
+	if (!IsLocallyControlled()) { return; }
+	if (CurrentAttackSeq == 0) { return; }
+
 	AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor);
 	if (!Victim)
 	{
@@ -2034,14 +2086,24 @@ void AMyCharacter::OnAttackOverlap(
 		return;
 	}
 
-	UE_LOG(LogTemp, Display,
+	/*UE_LOG(LogTemp, Display,
 		TEXT("[ATK_TRACE][2_Overlap] Attacker=%s UID=%d Victim=%s UID=%d"),
 		*GetName(),
 		GetNetworkPlayerUID(),
 		*Victim->GetName(),
-		Victim->GetNetworkPlayerUID());
+		Victim->GetNetworkPlayerUID());*/
+
 	HitActors.Add(Victim);
-	Victim->ApplyHitEvent(this);
+	//Victim->ApplyHitEvent(this);
+
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+	{
+		NetworkInstance->RequestAttackHitReport(
+			CurrentAttackSeq,
+			Victim->GetNetworkPlayerUID(),
+			CurrentAttackType
+		);
+	}
 }
 
 void AMyCharacter::SetOverlappingItem(ABaseItem* Item)

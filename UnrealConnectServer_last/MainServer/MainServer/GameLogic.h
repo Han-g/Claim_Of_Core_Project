@@ -6,6 +6,7 @@
 
 class Room;
 struct Session;
+struct AttackHitReportPacket;
 
 enum ERecCharacterState { Alive, Dead };
 enum ERecRoleType { Striker, Guardian, Manipulator };
@@ -242,8 +243,9 @@ public:
 	void DoHit();
 	// Validates and processes an attack input from the given player.
 	void HandleAttackInput(int sessionID);
+	void HandleAttackHitReport(int sessionID, const AttackHitReportPacket& pkt);
 	// Broadcast Attack Calculation Result.
-	void BroadcastAttackAction(int attackerUID, int attackType);
+	void BroadcastAttackAction(int attackerUID, int attackType, uint32_t attackSeq);
 	// Applies validated damage from one player to another target.
 	void ApplyDamageToTarget(int attackerID, int targetID, float damage);
 	// Selects the proper attack animation for the current role.

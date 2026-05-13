@@ -231,12 +231,12 @@ Vector3 Room::GetRespawnLocation(int slot)
 {
     static const Vector3 SpawnTable[6] =
     {
-        { 600.f,-1500.f, 1200.f },  // team 1 Member1
-        { 600.f,    0.f, 1200.f },  // team 1 Member2
-        { 600.f, 1500.f, 1200.f },  // team 1 Member3
-        {   0.f,-1500.f, 1200.f },  // team 2 Member4
-        { 300.f,    0.f, 1200.f },  // team 2 Member5
-        { 600.f, 1500.f, 1200.f }   // team 2 Member6
+        { 600.f,-1500.f, 500.f },  // team 1 Member1
+        { 600.f,    0.f, 500.f },  // team 1 Member2
+        { 600.f, 1500.f, 500.f },  // team 1 Member3
+        {   0.f,-1500.f, 500.f },  // team 2 Member4
+        { 300.f,    0.f, 500.f },  // team 2 Member5
+        { 600.f, 1500.f, 500.f }   // team 2 Member6
     };
 
     if (slot < 0 || slot >= 6) {

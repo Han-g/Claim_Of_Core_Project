@@ -382,6 +382,19 @@ void ClientNetworking::ItemDropRequest(int32 ItemID)
     EnqueueSendCommand(PKT_C2S_ITEMDROP_KEYINPUT, Payload);
 }
 
+void ClientNetworking::AttackHitReportRequest(uint32 AttackSeq, int32 TargetID, int32 AttackType)
+{
+    FAttackHitReportPacket Packet{};
+    Packet.attackSeq = AttackSeq;
+    Packet.targetID = TargetID;
+    Packet.attackType = AttackType;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FAttackHitReportPacket));
+
+    EnqueueSendCommand(PKT_C2S_ATTACK_HIT_REPORT, Payload);
+}
+
 void ClientNetworking::SendMoveInput(const FMovePacket& MoveData)
 {
     TArray<uint8> Payload;
