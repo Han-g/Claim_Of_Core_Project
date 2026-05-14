@@ -71,7 +71,7 @@ void AIceChillZone::Tick(float DeltaTime)
 
 		if (It.Value() >= FreezeBuildUpTime)
 		{
-			Character->ApplyFreeze(FreezeDuration);
+			Character->ApplyFreeze();
 			It.RemoveCurrent();
 		}
 	}

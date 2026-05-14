@@ -607,9 +607,9 @@ void AMyCharacter::ApplyCharacterState()
 	}
 }
 
-void AMyCharacter::ApplyFreeze(float Duration)
+void AMyCharacter::ApplyFreeze()
 {
-	if (Duration <= 0.f || IsDead() || !CanReceiveStatusEffect(ERecStatusEffectType::Freeze))
+	if (IsDead() || !CanReceiveStatusEffect(ERecStatusEffectType::Freeze))
 	{
 		return;
 	}
@@ -626,18 +626,6 @@ void AMyCharacter::ApplyFreeze(float Duration)
 	}
 
 	UpdateFrozenOverlay();
-
-	if (GetWorld())
-	{
-		GetWorldTimerManager().ClearTimer(FreezeTimerHandle);
-		GetWorldTimerManager().SetTimer(
-			FreezeTimerHandle,
-			this,
-			&AMyCharacter::EndFreeze,
-			Duration,
-			false
-		);
-	}
 }
 
 void AMyCharacter::EndFreeze()
@@ -648,11 +636,6 @@ void AMyCharacter::EndFreeze()
 	}
 
 	bFrozen = false;
-
-	if (GetWorld())
-	{
-		GetWorldTimerManager().ClearTimer(FreezeTimerHandle);
-	}
 
 	UpdateFrozenOverlay();
 	ApplyRoleStats();

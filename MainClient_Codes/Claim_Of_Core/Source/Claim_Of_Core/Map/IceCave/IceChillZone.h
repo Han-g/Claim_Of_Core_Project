@@ -47,9 +47,6 @@ protected:
 	float FreezeBuildUpTime = 2.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill")
-	float FreezeDuration = 2.5f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill")
 	float ZoneLifeTime = 7.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill|Visual")

@@ -196,7 +196,7 @@ public:
 	bool CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Status")
-	void ApplyFreeze(float Duration);
+	void ApplyFreeze();
 
 	UFUNCTION(BlueprintCallable, Category = "Status")
 	void EndFreeze();
@@ -308,8 +308,6 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Status|Freeze")
 	bool bFrozen = false;
-
-	FTimerHandle FreezeTimerHandle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
 	float DashDuration = 5.0f;
