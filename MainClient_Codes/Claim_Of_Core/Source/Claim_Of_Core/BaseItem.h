@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Sub/MyCharacter.h"
 #include "Net/UnrealNetwork.h"
+#include "ItemAnimationTypes.h"
 #include "BaseItem.generated.h"
 
 class AMyCharacter;
@@ -48,6 +49,9 @@ public:
 
 
 	/* ===== ±‚∫ª Ω∫≈» ===== */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Item")
+	EItemAnimPoseType ItemAnimPoseType = EItemAnimPoseType::None;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	float Point;
 
@@ -63,6 +67,15 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	float Radius = 80.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
+	FTransform StrikerAttachOffset = FTransform::Identity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
+	FTransform GuardianAttachOffset = FTransform::Identity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
+	FTransform ManipulatorAttachOffset = FTransform::Identity;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
 	UAnimMontage* GuardianMontage;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
@@ -70,6 +83,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
 	UAnimMontage* StrikerMontage;
 	UAnimMontage* GetAttackMontageByRole(ERecRoleType InRole) const;
+	FTransform GetAttachOffsetByRole(ERecRoleType InRole) const;
 
 	UPROPERTY()
 	AMyCharacter* OwnerCharacter;

@@ -273,11 +273,20 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
 	ABaseItem* CurrentItem = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Debug")
+	bool bPreviewItemAttachOffset = false;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item|Debug")
+	FVector CurrentItemAttachBaseScale = FVector::OneVector;
+
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void SetOverlappingItem(ABaseItem* Item);
 
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void EquipItem();
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Category = "Item|Debug")
+	void RefreshCurrentItemAttachOffset();
 
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void DropCurrentItem();

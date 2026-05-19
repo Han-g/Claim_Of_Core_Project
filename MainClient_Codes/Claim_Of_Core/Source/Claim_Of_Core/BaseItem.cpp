@@ -27,6 +27,10 @@ ABaseItem::ABaseItem()
 	PickupCollision->OnComponentBeginOverlap.AddDynamic(this, &ABaseItem::OnBeginOverlap);
 	PickupCollision->OnComponentEndOverlap.AddDynamic(this, &ABaseItem::OnEndOverlap);
 
+	UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(GetRootComponent());
+	Prim->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	Prim->SetSimulatePhysics(true);
+
 }
 
 void ABaseItem::BeginPlay()
@@ -84,6 +88,18 @@ UAnimMontage* ABaseItem::GetAttackMontageByRole(ERecRoleType InRole) const
 	case ERecRoleType::Guardian:    return GuardianMontage;
 	case ERecRoleType::Manipulator: return ManipulatorMontage;
 	default:                        return nullptr;
+	}
+}
+
+
+FTransform ABaseItem::GetAttachOffsetByRole(ERecRoleType InRole) const
+{
+	switch (InRole)
+	{
+	case ERecRoleType::Striker:     return StrikerAttachOffset;
+	case ERecRoleType::Guardian:    return GuardianAttachOffset;
+	case ERecRoleType::Manipulator: return ManipulatorAttachOffset;
+	default:                        return FTransform::Identity;
 	}
 }
 

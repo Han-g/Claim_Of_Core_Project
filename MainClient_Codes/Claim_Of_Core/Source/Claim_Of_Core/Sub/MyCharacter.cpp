@@ -154,6 +154,11 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	CheckIceFloor();
 
+	if (bPreviewItemAttachOffset)
+	{
+		RefreshCurrentItemAttachOffset();
+	}
+
 	// Temporary Movement Threat 20fps transform send
 	if (IsLocallyControlled() && !IsDead())
 	{
@@ -2137,6 +2142,19 @@ void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
 	OverlappingItem = Item;
 }
 
+void AMyCharacter::RefreshCurrentItemAttachOffset()
+{
+	if (!CurrentItem)
+	{
+		return;
+	}
+
+	const FTransform AttachOffset = CurrentItem->GetAttachOffsetByRole(RoleType);
+	CurrentItem->SetActorRelativeLocation(AttachOffset.GetLocation());
+	CurrentItem->SetActorRelativeRotation(AttachOffset.GetRotation());
+	CurrentItem->SetActorRelativeScale3D(CurrentItemAttachBaseScale * AttachOffset.GetScale3D());
+}
+
 void AMyCharacter::EquipItem()
 {
 	if (!OverlappingItem || CurrentItem)
@@ -2147,9 +2165,17 @@ void AMyCharacter::EquipItem()
 	CurrentItem = OverlappingItem;
 	CurrentItem->SetOwnerCharacter(this);
 	CurrentItem->SetActorEnableCollision(false);
+	CurrentItemAttachBaseScale = CurrentItem->GetActorScale3D();
 
-	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentItem->GetRootComponent()))
+	TArray<UPrimitiveComponent*> ItemPrimitiveComponents;
+	CurrentItem->GetComponents(ItemPrimitiveComponents);
+	for (UPrimitiveComponent* Prim : ItemPrimitiveComponents)
 	{
+		if (!Prim)
+		{
+			continue;
+		}
+
 		Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Prim->SetSimulatePhysics(false);
 	}
@@ -2161,6 +2187,7 @@ void AMyCharacter::EquipItem()
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			TEXT("RightHandSocket")
 		);
+		RefreshCurrentItemAttachOffset();
 	}
 }
 
@@ -2181,6 +2208,7 @@ void AMyCharacter::DropCurrentItem()
 		Prim->SetSimulatePhysics(true);
 	}
 
+	CurrentItemAttachBaseScale = FVector::OneVector;
 	CurrentItem = nullptr;
 }
 
