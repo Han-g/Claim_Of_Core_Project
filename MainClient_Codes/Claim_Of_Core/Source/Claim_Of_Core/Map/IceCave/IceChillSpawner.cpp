@@ -149,7 +149,7 @@ FVector AIceChillSpawner::GetRandomSpawnLocation() const
 	FVector SpawnLocation = Center;
 	SpawnLocation.X += FMath::FRandRange(-Extent.X, Extent.X);
 	SpawnLocation.Y += FMath::FRandRange(-Extent.Y, Extent.Y);
-	SpawnLocation.Z += SpawnHeightOffset;
+	SpawnLocation.Z = SpawnZ;
 
 	return SpawnLocation;
 }

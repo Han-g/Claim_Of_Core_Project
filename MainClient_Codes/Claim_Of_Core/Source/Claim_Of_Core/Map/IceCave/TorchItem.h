@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BaseItem.h"
+#include "../../BaseItem.h"
 #include "TorchItem.generated.h"
 
 class AMyCharacter;

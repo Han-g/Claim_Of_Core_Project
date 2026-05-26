@@ -1813,11 +1813,6 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType)
 	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	AnimInstance->Montage_Play(Data.AttackMontage);
 
-	if (IsLocallyControlled())
-	{
-		StartAttackHitWindow(2.f);
-	}
-
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
 		this,
@@ -2217,7 +2212,10 @@ void AMyCharacter::AnimNotify_AttackHit()
 	if (CurrentItem)
 	{
 		CurrentItem->DoHit();
+		return;
 	}
+
+	StartAttackHitWindow(1.2f);
 }
 
 void AMyCharacter::StartAttackHitWindow(float Duration)

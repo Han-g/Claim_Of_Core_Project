@@ -31,7 +31,7 @@ protected:
 	TSubclassOf<AIceChillZone> ChillZoneClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawner")
-	float SpawnHeightOffset = 0.f;
+	float SpawnZ = 130.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Spawner|Phase2")
 	float Phase2MinSpawnInterval = 10.f;

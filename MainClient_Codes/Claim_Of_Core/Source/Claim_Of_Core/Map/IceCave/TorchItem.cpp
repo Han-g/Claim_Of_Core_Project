@@ -3,7 +3,7 @@
 #include "CollisionQueryParams.h"
 #include "Engine/OverlapResult.h"
 #include "Kismet/GameplayStatics.h"
-#include "Sub/MyCharacter.h"
+#include "../../Sub/MyCharacter.h"
 
 ATorchItem::ATorchItem()
 {

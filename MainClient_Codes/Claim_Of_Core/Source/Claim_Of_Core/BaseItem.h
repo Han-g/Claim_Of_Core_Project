@@ -98,6 +98,8 @@ public:
 	/* ===== 사용 ===== */
 
 	virtual void StartUse();   // 버튼 눌렀을 때
+
+	UFUNCTION(BlueprintCallable)
 	virtual void DoHit();      // 애님 노티파이에서 호출
 
 protected:

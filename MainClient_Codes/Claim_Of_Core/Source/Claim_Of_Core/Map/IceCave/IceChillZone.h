@@ -47,7 +47,7 @@ protected:
 	float FreezeBuildUpTime = 2.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill")
-	float ZoneLifeTime = 7.f;
+	float ZoneLifeTime = 5.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill|Visual")
 	TObjectPtr<UStaticMesh> ChillMesh;
