@@ -134,7 +134,14 @@ struct MoveIntent
 	float Forward = 0.0f;	// W/S
 	float Right = 0.0f;		// A/D
 	float CameraDir = 0.0f; // Client View
+
+	float ClientX = 0.0f;
+	float ClientY = 0.0f;
+	float ClientZ = 0.0f;
+	bool bHasClientPosition = false;
+
 	bool bHasInput = false;
+	bool bJumpRequested = false;
 };
 
 // Stores the socket state and runtime data for one client session.
@@ -149,6 +156,19 @@ struct Session {
 	bool isConnected = false;
 	bool isReady = false;
 	bool isAttack = false;
+	bool isGrounded = true;
+
+	float VerticalVelocity = 0.0f;
+	int JumpCount = 0;
+
+	float HorizontalVelocityX = 0.0f;
+	float HorizontalVelocityY = 0.0f;
+
+	bool bOnIce = false;
+	float IceContactRemainTime = 0.0f;
+
+	bool bFrozen = false;
+	float FreezeRemainTime = 0.0f;
 
 	uint32_t attackSeq = 0;
 	bool hasAttackHit = false;

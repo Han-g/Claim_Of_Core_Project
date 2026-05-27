@@ -1,0 +1,1081 @@
+Claim Of Core 빙결 구역 / 빙결 상태 / 횃불 아이템 이식 가이드
+작성 위치: D:\FinalProject\FreezeZone_Torch_Implementation_Guide.txt
+
+목표
+====
+IceCave.zip 및 D:\Download\MyCharacter.h/.cpp에서 참고할 코드를 현재 프로젝트 구조에 맞게 옮기는 순서와 실제로 만들어야 할 C++ 코드를 정리한다.
+
+현재 프로젝트는 클라이언트 언리얼 코드와 IOCP 서버 코드가 분리되어 있으므로, 최종 구조는 다음처럼 나누는 것이 안전하다.
+
+1. 클라이언트
+   - 빙결 구역 액터 표시
+   - 캐릭터 빙결 시 입력 차단, 이동 정지, 얼음 오버레이 표시
+   - 횃불 장착/공격 애니메이션 및 시각 효과
+
+2. 서버
+   - 빙결 구역 생성 시점과 위치 결정
+   - 캐릭터가 빙결 구역에 오래 머물렀는지 판정
+   - 빙결 시작/종료 상태를 authoritative하게 관리
+   - 횃불 타격으로 화상/해동 판정
+
+단계 1. 빙결 구역 생성 코드
+===========================
+
+참고할 파일
+----------
+1. 예제 파일:
+   - D:\Download\IceCave.zip 안의 IceChillSpawner.h
+   - D:\Download\IceCave.zip 안의 IceChillSpawner.cpp
+   - D:\Download\IceCave.zip 안의 IceChillZone.h
+   - D:\Download\IceCave.zip 안의 IceChillZone.cpp
+
+2. 현재 프로젝트 파일:
+   - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceChillSpawner.h
+   - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceChillSpawner.cpp
+   - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceChillZone.h
+   - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceChillZone.cpp
+
+이미 현재 프로젝트에 있는 핵심 함수
+-------------------------------
+AIceChillSpawner:
+ - BeginPlay()
+ - Tick(float DeltaTime)
+ - UpdateSpawner(float DeltaTime)
+ - SpawnChillZones()
+ - GetRandomSpawnInterval() const
+ - GetRandomSpawnCount() const
+ - GetRandomSpawnLocation() const
+ - CanSpawn() const
+
+AIceChillZone:
+ - BeginPlay()
+ - Tick(float DeltaTime)
+ - OnChillBeginOverlap(...)
+ - OnChillEndOverlap(...)
+ - ApplyVisualSettings()
+ - ApplyFreezeToCharacter(AMyCharacter* Character)
+
+발췌해야 하는 코드 흐름
+--------------------
+IceChillSpawner는 그대로 재사용해도 된다. 핵심 흐름은 아래와 같다.
+
+void AIceChillSpawner::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    InitializeGameState();
+    UpdateSpawner(DeltaTime);
+}
+
+void AIceChillSpawner::UpdateSpawner(float DeltaTime)
+{
+    if (!CanSpawn())
+    {
+        SpawnAccumulator = 0.f;
+        return;
+    }
+
+    SpawnAccumulator += DeltaTime;
+
+    if (SpawnAccumulator >= NextSpawnTime)
+    {
+        SpawnAccumulator = 0.f;
+        SpawnChillZones();
+        NextSpawnTime = GetRandomSpawnInterval();
+    }
+}
+
+void AIceChillSpawner::SpawnChillZones()
+{
+    if (!ChillZoneClass || !GetWorld())
+    {
+        return;
+    }
+
+    const int32 SpawnCount = GetRandomSpawnCount();
+    for (int32 i = 0; i < SpawnCount; ++i)
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Owner = this;
+        SpawnParams.SpawnCollisionHandlingOverride =
+            ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+        GetWorld()->SpawnActor<AIceChillZone>(
+            ChillZoneClass,
+            GetRandomSpawnLocation(),
+            FRotator::ZeroRotator,
+            SpawnParams
+        );
+    }
+}
+
+현재 프로젝트에서 수정할 점
+------------------------
+현재 AIceChillSpawner는 클라이언트 월드에서 랜덤으로 AIceChillZone을 직접 생성한다. 멀티플레이에서 모든 클라이언트가 같은 위치에 같은 빙결 구역을 보려면 최종적으로 서버가 위치를 정하고 브로드캐스트해야 한다.
+
+임시 구현:
+ - 현재 AIceChillSpawner를 그대로 사용한다.
+ - bForceSpawnForLocalTest를 true로 켜서 로컬 테스트한다.
+
+최종 구현:
+ - 서버 GameLogic::UpdateIceCaveMap(float deltaTime)에서 빙결 구역 타이머를 돌린다.
+ - 서버가 빙결 구역 ID, 위치, 반지름, 지속시간을 패킷으로 보낸다.
+ - 클라이언트 UNetworkInstance::HandleMapEventTriggered 또는 새 핸들러에서 AIceChillZone을 생성한다.
+
+서버에 추가할 데이터 예시
+----------------------
+수정 대상:
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\GameLogic.h
+
+struct IceChillZoneData
+{
+    int zoneID = -1;
+    float x = 0.f;
+    float y = 0.f;
+    float z = 0.f;
+    float radius = 650.f;
+    float lifeRemainTime = 7.f;
+    float freezeBuildUpTime = 2.5f;
+
+    std::unordered_map<int, float> stayTimesBySessionID;
+};
+
+GameLogic 멤버 변수 예시:
+
+std::vector<IceChillZoneData> chillZones;
+int nextChillZoneID = 1;
+float chillZoneSpawnAccumulator = 0.f;
+float nextChillZoneSpawnTime = 10.f;
+
+float Phase2ChillMinSpawnInterval = 10.f;
+float Phase2ChillMaxSpawnInterval = 16.f;
+float Phase3ChillMinSpawnInterval = 5.f;
+float Phase3ChillMaxSpawnInterval = 9.f;
+
+int Phase2ChillSpawnCount = 1;
+int Phase3ChillMinSpawnCount = 1;
+int Phase3ChillMaxSpawnCount = 2;
+
+추가할 GameLogic 함수 예시:
+
+void UpdateIceChillZones(float deltaTime);
+void SpawnIceChillZones();
+float GetNextIceChillSpawnInterval() const;
+int GetIceChillSpawnCount() const;
+Vector3 GetRandomIceChillSpawnLocation() const;
+
+서버 GameLogic::UpdateIceCaveMap(float deltaTime)에 연결:
+
+void GameLogic::UpdateIceCaveMap(float deltaTime)
+{
+    // 기존 icicle / floor 처리 유지
+
+    if (currentMapPhase >= 2)
+    {
+        UpdateIceChillZones(deltaTime);
+    }
+}
+
+단계 2. 빙결 구역이 캐릭터를 얼리는 방식
+====================================
+
+현재 프로젝트의 문제점
+-------------------
+현재 AIceChillZone::ApplyFreezeToCharacter(AMyCharacter* Character)는 CharacterMovement를 직접 DisableMovement() 했다가 타이머로 복구한다.
+
+문제:
+ - AMyCharacter에 bFrozen 상태가 남지 않는다.
+ - 횃불 아이템이 Target->IsFrozen()으로 해동 대상을 찾을 수 없다.
+ - 서버 이동 계산과 상태가 분리된다.
+
+따라서 현재 AIceChillZone::ApplyFreezeToCharacter는 최종적으로 AMyCharacter::ApplyFreeze() 또는 서버 빙결 요청 호출로 바꿔야 한다.
+
+클라이언트 임시 구현 코드
+----------------------
+수정 대상:
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\IceChillZone.cpp
+
+현재 ApplyFreezeToCharacter를 아래처럼 단순화한다.
+
+void AIceChillZone::ApplyFreezeToCharacter(AMyCharacter* Character)
+{
+    if (!IsValid(Character) || Character->IsDead())
+    {
+        return;
+    }
+
+    Character->ApplyFreeze();
+}
+
+최종 서버 권한 구현에서는 위 함수에서 직접 ApplyFreeze를 호출하지 않고, 서버가 브로드캐스트한 빙결 상태 패킷을 받은 뒤 UNetworkInstance가 Character->ApplyFreeze()를 호출하게 하는 편이 좋다.
+
+단계 3. AMyCharacter에 빙결 상태 추가
+==================================
+
+참고할 파일
+----------
+ - D:\Download\MyCharacter.h
+ - D:\Download\MyCharacter.cpp
+
+현재 프로젝트 수정 대상:
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Sub\MyCharacter.h
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Sub\MyCharacter.cpp
+
+3-1. MyCharacter.h에 enum 값 추가
+-------------------------------
+현재 ERecStatusEffectType에는 Slow, Stun, Knockback만 있다. Freeze를 추가한다.
+
+UENUM(BlueprintType)
+enum class ERecStatusEffectType : uint8
+{
+    Slow      UMETA(DisplayName = "Slow"),
+    Stun      UMETA(DisplayName = "Stun"),
+    Knockback UMETA(DisplayName = "Knockback"),
+    Freeze    UMETA(DisplayName = "Freeze"),
+};
+
+3-2. MyCharacter.h에 public 함수 추가
+-----------------------------------
+CanReceiveStatusEffect 아래쪽에 추가하는 것이 자연스럽다.
+
+UFUNCTION(BlueprintCallable, Category = "Status")
+void ApplyFreeze();
+
+UFUNCTION(BlueprintCallable, Category = "Status")
+void EndFreeze();
+
+UFUNCTION(BlueprintPure, Category = "Status")
+bool IsFrozen() const { return bFrozen; }
+
+3-3. MyCharacter.h에 얼음 오버레이 컴포넌트 추가
+---------------------------------------------
+HandCollision 근처에 추가한다.
+
+UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+TObjectPtr<UStaticMeshComponent> FrozenOverlayMeshComponent;
+
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+TObjectPtr<UStaticMesh> FrozenOverlayMesh;
+
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+TObjectPtr<UMaterialInterface> FrozenOverlayMaterial;
+
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+FVector FrozenOverlayRelativeLocation = FVector::ZeroVector;
+
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+FVector FrozenOverlayRelativeScale = FVector(1.15f);
+
+3-4. MyCharacter.h private 멤버 추가
+---------------------------------
+
+UPROPERTY(VisibleInstanceOnly, Category = "Status|Freeze")
+bool bFrozen = false;
+
+void UpdateFrozenOverlay();
+
+3-5. MyCharacter.cpp include 추가
+-------------------------------
+현재 MyCharacter.cpp에는 Components/StaticMeshComponent.h가 없다. 추가한다.
+
+#include "Components/StaticMeshComponent.h"
+
+3-6. 생성자에 FrozenOverlayMeshComponent 생성
+-------------------------------------------
+AMyCharacter::AMyCharacter()에서 HandCollision 생성 직후 정도에 넣는다.
+
+FrozenOverlayMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrozenOverlayMesh"));
+FrozenOverlayMeshComponent->SetupAttachment(GetMesh());
+FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+FrozenOverlayMeshComponent->SetGenerateOverlapEvents(false);
+FrozenOverlayMeshComponent->SetHiddenInGame(true);
+FrozenOverlayMeshComponent->SetVisibility(false, true);
+
+3-7. CanReceiveStatusEffect에 Freeze 추가
+--------------------------------------
+현재 프로젝트의 AMyCharacter::CanReceiveStatusEffect는 Knockback까지만 막는다. Freeze도 추가한다.
+
+bool AMyCharacter::CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const
+{
+    if (!IsStatusEffectImmune())
+    {
+        return true;
+    }
+
+    switch (InStatusEffect)
+    {
+    case ERecStatusEffectType::Slow:
+    case ERecStatusEffectType::Stun:
+    case ERecStatusEffectType::Knockback:
+    case ERecStatusEffectType::Freeze:
+        return false;
+    default:
+        return true;
+    }
+}
+
+3-8. ApplyRoleStats에 bFrozen 처리 추가
+-------------------------------------
+현재 AMyCharacter::ApplyRoleStats()는 항상 RoleType 기반 MaxWalkSpeed를 설정한다. 함수 시작 부분의 movement 처리에서 bFrozen이면 속도를 0으로 유지해야 한다.
+
+void AMyCharacter::ApplyRoleStats()
+{
+    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+    {
+        if (bFrozen)
+        {
+            MoveComp->StopMovementImmediately();
+            MoveComp->MaxWalkSpeed = 0.f;
+        }
+        else
+        {
+            const float BaseRoleMult = GetRoleSpeedMultiplier(RoleType);
+            const float SkillMult = GetRoleSkillSpeedMultiplier();
+            MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
+        }
+    }
+
+    // 기존 RoleType별 MaxHP, AttackDamage, KnockbackCoefficient 설정은 유지한다.
+}
+
+3-9. UpdateFrozenOverlay 구현
+---------------------------
+
+void AMyCharacter::UpdateFrozenOverlay()
+{
+    if (!FrozenOverlayMeshComponent)
+    {
+        return;
+    }
+
+    if (FrozenOverlayMesh)
+    {
+        FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
+    }
+
+    if (FrozenOverlayMaterial)
+    {
+        FrozenOverlayMeshComponent->SetMaterial(0, FrozenOverlayMaterial);
+    }
+
+    FrozenOverlayMeshComponent->SetRelativeLocation(FrozenOverlayRelativeLocation);
+    FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
+    FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    FrozenOverlayMeshComponent->SetHiddenInGame(!bFrozen);
+    FrozenOverlayMeshComponent->SetVisibility(bFrozen, true);
+}
+
+3-10. ApplyFreeze / EndFreeze 구현
+--------------------------------
+
+void AMyCharacter::ApplyFreeze()
+{
+    if (IsDead() || !CanReceiveStatusEffect(ERecStatusEffectType::Freeze))
+    {
+        return;
+    }
+
+    bFrozen = true;
+    CachedMoveRight = 0.f;
+    CachedMoveForward = 0.f;
+    StopJumping();
+
+    if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+    {
+        MoveComp->StopMovementImmediately();
+        MoveComp->MaxWalkSpeed = 0.f;
+    }
+
+    UpdateFrozenOverlay();
+}
+
+void AMyCharacter::EndFreeze()
+{
+    if (!bFrozen)
+    {
+        return;
+    }
+
+    bFrozen = false;
+
+    UpdateFrozenOverlay();
+    ApplyRoleStats();
+}
+
+3-11. 죽거나 부활할 때 빙결 해제
+------------------------------
+AMyCharacter::SetStateFromNetwork 또는 ApplyDeadState / ApplyAliveState에서 처리한다.
+
+SetStateFromNetwork 안에서 Dead로 바뀔 때:
+
+if (NewState == ERecCharacterState::Dead && bFrozen)
+{
+    EndFreeze();
+}
+
+ApplyDeadState() 시작부:
+
+if (bFrozen)
+{
+    EndFreeze();
+}
+
+ApplyAliveState() 시작부:
+
+if (bFrozen)
+{
+    EndFreeze();
+}
+
+3-12. 입력 차단
+--------------
+Move / DoMove / DoJumpStart / Jump / Attack에서 bFrozen이면 return한다.
+
+AMyCharacter::Move:
+
+if (bFrozen)
+{
+    CachedMoveRight = 0.f;
+    CachedMoveForward = 0.f;
+    return;
+}
+
+AMyCharacter::DoMove:
+
+if (bFrozen)
+{
+    return;
+}
+
+AMyCharacter::DoJumpStart:
+
+if (IsDead() || bDeathSequenceLocked || bFrozen)
+{
+    return;
+}
+
+AMyCharacter::Jump:
+
+if (IsDead() || bDeathSequenceLocked || bFrozen)
+{
+    return;
+}
+
+AMyCharacter::Attack:
+
+if (IsDead() || bDeathSequenceLocked || bFrozen)
+{
+    return;
+}
+
+단계 4. 서버에 빙결 상태 추가
+===========================
+
+수정 대상
+--------
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\session.h
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\GameLogic.h
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\GameLogic.cpp
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\Packet.h
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\PacketProcessor.cpp
+
+4-1. Session에 빙결 상태 추가
+---------------------------
+session.h의 Session에 추가한다.
+
+bool bFrozen = false;
+float FreezeRemainTime = 0.0f;
+
+4-2. 이동 계산에서 빙결 차단
+--------------------------
+GameLogic::UpdatePlayerMovement(Session* player, float deltaTime) 초반에 추가한다.
+
+{
+    std::lock_guard<std::mutex> lock(player->MoveIntentLock);
+    if (player->bFrozen)
+    {
+        player->FreezeRemainTime -= deltaTime;
+        player->HorizontalVelocityX = 0.0f;
+        player->HorizontalVelocityY = 0.0f;
+
+        if (player->FreezeRemainTime <= 0.0f)
+        {
+            player->FreezeRemainTime = 0.0f;
+            player->bFrozen = false;
+            BroadcastFreezeState(player->playerUID, 0);
+        }
+
+        return;
+    }
+}
+
+주의:
+ - 위 코드는 개념 예시다.
+ - 실제로는 BroadcastFreezeState를 직접 만들고, lock 범위 안에서 Broadcast 호출을 하지 않는 식으로 정리하는 것이 좋다.
+
+4-3. 빙결 브로드캐스트 패킷 추가
+------------------------------
+Packet.h에 새 패킷 ID와 구조체를 추가한다.
+
+PacketID 예시:
+
+PKT_S2C_FREEZE_STATE_BRD = 125,
+
+구조체:
+
+struct FreezeStatePacket
+{
+    int32_t targetID;
+    int32_t bFrozen;        // 0=false, 1=true
+    float duration;
+};
+
+GameLogic.h 함수 선언:
+
+void ApplyFreezeToPlayer(int sessionID, float duration);
+void EndFreezeOnPlayer(int sessionID);
+void BroadcastFreezeState(int targetUID, int bFrozen, float duration = 0.f);
+
+GameLogic.cpp 구현 예시:
+
+void GameLogic::ApplyFreezeToPlayer(int sessionID, float duration)
+{
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second)
+    {
+        return;
+    }
+
+    Session* target = it->second;
+    GameData& gd = target->gameDatas;
+
+    if (!gd.isConnected || gd.characterState != 0)
+    {
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(target->MoveIntentLock);
+        target->bFrozen = true;
+        target->FreezeRemainTime = duration;
+        target->HorizontalVelocityX = 0.0f;
+        target->HorizontalVelocityY = 0.0f;
+    }
+
+    BroadcastFreezeState(target->playerUID, 1, duration);
+}
+
+void GameLogic::EndFreezeOnPlayer(int sessionID)
+{
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second)
+    {
+        return;
+    }
+
+    Session* target = it->second;
+
+    {
+        std::lock_guard<std::mutex> lock(target->MoveIntentLock);
+        if (!target->bFrozen)
+        {
+            return;
+        }
+
+        target->bFrozen = false;
+        target->FreezeRemainTime = 0.0f;
+    }
+
+    BroadcastFreezeState(target->playerUID, 0, 0.f);
+}
+
+void GameLogic::BroadcastFreezeState(int targetUID, int bFrozen, float duration)
+{
+    if (!ownerRoom)
+    {
+        return;
+    }
+
+    FreezeStatePacket pkt{};
+    pkt.targetID = targetUID;
+    pkt.bFrozen = bFrozen;
+    pkt.duration = duration;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_FREEZE_STATE_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+4-4. 클라이언트 수신 처리
+----------------------
+클라이언트 네트워크 타입에 FreezeStatePacket을 맞춰 추가한다.
+
+수정 대상:
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworkTypes.h
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworkWorker.cpp
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworking.cpp
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Networking\ClientNetworking.h
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\NetworkInstance.h
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\UI\NetworkInstance.cpp
+
+UNetworkInstance에 최종 핸들러 형태:
+
+void UNetworkInstance::HandleFreezeStateChanged(const FFreezeStatePacket& Packet)
+{
+    if (AMyCharacter* Character = FindCharacterByUID(Packet.TargetID))
+    {
+        if (Packet.bFrozen != 0)
+        {
+            Character->ApplyFreeze();
+        }
+        else
+        {
+            Character->EndFreeze();
+        }
+    }
+}
+
+단계 5. 횃불 아이템 추가
+======================
+
+참고할 파일
+----------
+ - D:\Download\IceCave.zip 안의 TorchItem.h
+ - D:\Download\IceCave.zip 안의 TorchItem.cpp
+
+생성할 파일
+----------
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\TorchItem.h
+ - D:\FinalProject\MainClient_Codes\Claim_Of_Core\Source\Claim_Of_Core\Map\IceCave\TorchItem.cpp
+
+TorchItem.h 예시
+---------------
+#pragma once
+
+#include "CoreMinimal.h"
+#include "../../BaseItem.h"
+#include "TorchItem.generated.h"
+
+class AMyCharacter;
+
+struct FTorchBurnState
+{
+    float RemainingTime = 0.f;
+    float TimeUntilNextTick = 0.f;
+};
+
+UCLASS()
+class CLAIM_OF_CORE_API ATorchItem : public ABaseItem
+{
+    GENERATED_BODY()
+
+public:
+    ATorchItem();
+
+    virtual void Tick(float DeltaTime) override;
+    virtual void DoHit() override;
+
+protected:
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Torch|Burn")
+    int32 BurnDamagePerTick = 3;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Torch|Burn")
+    float BurnTickInterval = 0.5f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Torch|Burn")
+    float BurnDuration = 2.f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Torch|Thaw")
+    float ThawRequiredTime = 1.5f;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Torch|Thaw")
+    float ThawRangeBuffer = 0.f;
+
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Torch|Thaw")
+    TObjectPtr<AMyCharacter> CurrentThawTarget = nullptr;
+
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Torch|Thaw")
+    float ThawProgress = 0.f;
+
+    TMap<AMyCharacter*, FTorchBurnState> ActiveBurns;
+
+    void ApplyBurn(AMyCharacter* Target);
+    void UpdateBurns(float DeltaTime);
+    void TryStartThaw(AMyCharacter* Target);
+    void UpdateThaw(float DeltaTime);
+    void CancelThaw();
+    bool IsValidThawTarget(AMyCharacter* Target) const;
+    bool IsTargetInTorchRange(AMyCharacter* Target) const;
+
+    UFUNCTION(BlueprintImplementableEvent, Category = "Torch")
+    void BP_OnTorchHitTarget(AActor* Target);
+
+    UFUNCTION(BlueprintImplementableEvent, Category = "Torch")
+    void BP_OnUnfreezeTarget(AMyCharacter* Target);
+};
+
+TorchItem.cpp 핵심 구현
+---------------------
+#include "TorchItem.h"
+
+#include "CollisionQueryParams.h"
+#include "Engine/OverlapResult.h"
+#include "Kismet/GameplayStatics.h"
+#include "../../Sub/MyCharacter.h"
+
+ATorchItem::ATorchItem()
+{
+    PrimaryActorTick.bCanEverTick = true;
+
+    Damage = 0.f;
+    KnockbackPower = 200.f;
+    Range = 220.f;
+    Radius = 110.f;
+}
+
+void ATorchItem::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    UpdateBurns(DeltaTime);
+    UpdateThaw(DeltaTime);
+}
+
+void ATorchItem::DoHit()
+{
+    if (!OwnerCharacter || OwnerCharacter->IsDead() || !GetWorld())
+    {
+        CancelThaw();
+        return;
+    }
+
+    const FVector Center =
+        OwnerCharacter->GetActorLocation() +
+        OwnerCharacter->GetActorForwardVector() * Range;
+
+    TArray<FOverlapResult> Overlaps;
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(OwnerCharacter);
+    Params.AddIgnoredActor(this);
+
+    const FCollisionShape Shape = FCollisionShape::MakeSphere(Radius);
+    const bool bHit = GetWorld()->OverlapMultiByChannel(
+        Overlaps,
+        Center,
+        FQuat::Identity,
+        ECC_Pawn,
+        Shape,
+        Params
+    );
+
+    if (!bHit)
+    {
+        return;
+    }
+
+    for (const FOverlapResult& Result : Overlaps)
+    {
+        AMyCharacter* Target = Cast<AMyCharacter>(Result.GetActor());
+        if (!Target || Target->IsDead())
+        {
+            continue;
+        }
+
+        ApplyBurn(Target);
+        TryStartThaw(Target);
+        BP_OnTorchHitTarget(Target);
+    }
+}
+
+void ATorchItem::ApplyBurn(AMyCharacter* Target)
+{
+    if (!Target || Target->IsDead())
+    {
+        return;
+    }
+
+    FTorchBurnState& BurnState = ActiveBurns.FindOrAdd(Target);
+    BurnState.RemainingTime = BurnDuration;
+    if (BurnState.TimeUntilNextTick <= 0.f)
+    {
+        BurnState.TimeUntilNextTick = BurnTickInterval;
+    }
+}
+
+void ATorchItem::UpdateBurns(float DeltaTime)
+{
+    if (DeltaTime <= 0.f || ActiveBurns.Num() == 0)
+    {
+        return;
+    }
+
+    for (auto It = ActiveBurns.CreateIterator(); It; ++It)
+    {
+        AMyCharacter* Target = It.Key();
+        FTorchBurnState& BurnState = It.Value();
+
+        if (!OwnerCharacter || OwnerCharacter->IsDead() || !Target || Target->IsDead())
+        {
+            It.RemoveCurrent();
+            continue;
+        }
+
+        BurnState.TimeUntilNextTick -= DeltaTime;
+
+        while (BurnState.RemainingTime > 0.f && BurnState.TimeUntilNextTick <= 0.f)
+        {
+            UGameplayStatics::ApplyDamage(
+                Target,
+                static_cast<float>(BurnDamagePerTick),
+                OwnerCharacter->GetController(),
+                this,
+                nullptr
+            );
+
+            BurnState.TimeUntilNextTick += BurnTickInterval;
+        }
+
+        BurnState.RemainingTime -= DeltaTime;
+        if (BurnState.RemainingTime <= 0.f)
+        {
+            It.RemoveCurrent();
+        }
+    }
+}
+
+void ATorchItem::TryStartThaw(AMyCharacter* Target)
+{
+    if (!IsValidThawTarget(Target))
+    {
+        return;
+    }
+
+    if (CurrentThawTarget != Target)
+    {
+        CurrentThawTarget = Target;
+        ThawProgress = 0.f;
+    }
+}
+
+void ATorchItem::UpdateThaw(float DeltaTime)
+{
+    if (!CurrentThawTarget)
+    {
+        return;
+    }
+
+    if (DeltaTime <= 0.f || !IsValidThawTarget(CurrentThawTarget))
+    {
+        CancelThaw();
+        return;
+    }
+
+    ThawProgress += DeltaTime;
+    if (ThawProgress >= ThawRequiredTime)
+    {
+        AMyCharacter* ThawedTarget = CurrentThawTarget;
+        ThawedTarget->EndFreeze();
+        BP_OnUnfreezeTarget(ThawedTarget);
+        CancelThaw();
+    }
+}
+
+void ATorchItem::CancelThaw()
+{
+    CurrentThawTarget = nullptr;
+    ThawProgress = 0.f;
+}
+
+bool ATorchItem::IsValidThawTarget(AMyCharacter* Target) const
+{
+    return OwnerCharacter &&
+        !OwnerCharacter->IsDead() &&
+        Target &&
+        !Target->IsDead() &&
+        Target->IsFrozen() &&
+        IsTargetInTorchRange(Target);
+}
+
+bool ATorchItem::IsTargetInTorchRange(AMyCharacter* Target) const
+{
+    if (!OwnerCharacter || !Target)
+    {
+        return false;
+    }
+
+    const FVector Center =
+        OwnerCharacter->GetActorLocation() +
+        OwnerCharacter->GetActorForwardVector() * Range;
+
+    const float AllowedRange = Radius + ThawRangeBuffer;
+    return FVector::DistSquared(Target->GetActorLocation(), Center) <= FMath::Square(AllowedRange);
+}
+
+중요한 수정 포인트
+----------------
+위 TorchItem 코드는 클라이언트 로컬 판정 예시다. 현재 프로젝트는 서버에서 GameLogic::HandleAttackHitReport를 통해 공격을 검증하므로 최종 구현은 다음처럼 바꿔야 한다.
+
+1. 클라이언트 ATorchItem::DoHit()
+   - 타겟 후보를 찾고 바로 ApplyDamage/EndFreeze를 호출하지 않는다.
+   - 현재 프로젝트의 AMyCharacter::OnAttackOverlap처럼 UNetworkInstance::RequestAttackHitReport를 보내는 방식에 맞춘다.
+
+2. 서버 GameLogic::HandleAttackHitReport(...)
+   - 공격자의 gd.equippedItemID를 확인한다.
+   - 해당 itemID가 횃불이면 일반 공격 피해 대신 BurnDamagePerTick / 해동 처리를 수행한다.
+   - 대상이 bFrozen이면 EndFreezeOnPlayer(targetSession->sessionID)를 호출한다.
+
+단계 6. 현재 공격/아이템 흐름에 횃불 연결
+=====================================
+
+현재 프로젝트 흐름
+----------------
+1. AMyCharacter::Attack()
+   - UNetworkInstance::RequestAttackInput(0) 호출
+
+2. 서버 GameLogic::HandleAttackInput(int sessionID)
+   - BroadcastAttackAction(attackerUID, attackType, attackSeq) 호출
+
+3. 클라이언트 UNetworkInstance::HandleAttackActionReceived(...)
+   - AMyCharacter::PlayAttackMontageFromServer(Packet.AttackType, Packet.AttackSeq) 호출
+
+4. AMyCharacter::PlayAttackMontageFromServer(...)
+   - 로컬 캐릭터면 StartAttackHitWindow(1.8f)
+
+5. AMyCharacter::OnAttackOverlap(...)
+   - UNetworkInstance::RequestAttackHitReport(CurrentAttackSeq, VictimUID, CurrentAttackType)
+
+6. 서버 GameLogic::HandleAttackHitReport(...)
+   - 거리/각도 검증 후 ApplyDamage(...)
+
+수정해야 할 부분
+--------------
+AMyCharacter::Attack() 안에서 현재 const int32 AttackType = CurrentItem ? 1 : 0;를 만들지만 RequestAttackInput(0)을 호출하고 있다.
+
+현재 코드:
+
+const int32 AttackType = CurrentItem ? 1 : 0;
+NetworkInstance->RequestAttackInput(0);
+
+수정 방향:
+
+const int32 AttackType = CurrentItem ? 1 : 0;
+NetworkInstance->RequestAttackInput(AttackType);
+
+하지만 서버 GameLogic::HandleAttackInput(int sessionID)는 현재 const int attackType = 0;으로 고정되어 있다.
+
+서버까지 제대로 하려면:
+ - Packet.h의 AttackPacket을 실제로 읽도록 PacketProcessor::Handle_Attack_KeyInput 수정
+ - GameLogic::HandleAttackInput(int sessionID, int attackType)로 인자 확장
+ - BroadcastAttackAction(attackerUID, attackType, attackSeq)에 실제 attackType 전달
+
+간단한 우선 구현:
+ - attackType은 서버에서 gd.equippedItemID != -1이면 1, 아니면 0으로 결정한다.
+
+GameLogic::HandleAttackInput 예시:
+
+const int attackType = gd.equippedItemID != -1 ? 1 : 0;
+
+단계 7. 서버에 횃불 아이템 등록
+============================
+
+수정 대상:
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\RoomManager.cpp
+ - D:\FinalProject\UnrealConnectServer_last\MainServer\MainServer\RoomManager.h
+
+현재 Room::LoadStage(int stageNum)는 stageNum == 1일 때만 item1, item2, item3을 등록한다. IceCave에 횃불을 쓰려면 IceCave stageNum에 Torch ItemData를 추가한다.
+
+예시:
+
+if (stageNum == 2) // IceCaveStage
+{
+    ItemData torch{};
+    torch.ObjectID = 101;
+    torch.ObjectType = e_ObjectType::WEAPON_ITEM;
+    torch.x = 0.0f;
+    torch.y = 0.0f;
+    torch.z = 500.0f;
+    torch.ownerUID = -1;
+    torch.bEquipped = false;
+    m_ItemObjects[torch.ObjectID] = torch;
+}
+
+클라이언트 맵에 배치한 ATorchItem 또는 BP_TorchItem의 ItemID도 101로 맞춘다.
+
+RoomManager.h의 GetItemData도 수정 권장:
+
+현재 코드:
+
+ItemData* GetItemData(int itemID) { return &m_ItemObjects[itemID]; }
+
+문제:
+ - 없는 itemID를 요청해도 unordered_map에 기본 ItemData가 생긴다.
+
+수정 권장:
+
+ItemData* GetItemData(int itemID)
+{
+    auto it = m_ItemObjects.find(itemID);
+    if (it == m_ItemObjects.end())
+    {
+        return nullptr;
+    }
+
+    return &it->second;
+}
+
+단계 8. 구현 순서 추천
+====================
+
+1. AMyCharacter에 bFrozen, ApplyFreeze, EndFreeze, IsFrozen, UpdateFrozenOverlay 추가
+2. AIceChillZone::ApplyFreezeToCharacter를 Character->ApplyFreeze() 호출 방식으로 임시 변경
+3. 로컬에서 빙결 구역에 들어가면 움직임이 멈추고 오버레이가 보이는지 확인
+4. ATorchItem.h/.cpp 추가
+5. BP_TorchItem을 만들고 BaseItem 기반 블루프린트 대신 ATorchItem 기반으로 설정
+6. 맵에 BP_TorchItem 배치 후 ItemID를 서버 Room::LoadStage의 ObjectID와 맞춤
+7. 횃불로 얼어 있는 캐릭터를 때렸을 때 EndFreeze가 되는지 로컬 테스트
+8. 서버 Session에 bFrozen, FreezeRemainTime 추가
+9. 서버 GameLogic::UpdatePlayerMovement에서 bFrozen이면 이동 차단
+10. FreezeStatePacket을 추가해 클라이언트 ApplyFreeze/EndFreeze를 서버 상태에 맞춰 호출
+11. 횃불 화상/해동 판정을 GameLogic::HandleAttackHitReport로 이동
+
+최소 테스트 체크리스트
+====================
+
+클라이언트 로컬 테스트
+-------------------
+ - AIceChillSpawner의 ChillZoneClass가 BP_IceChillZone으로 설정되어 있는지
+ - bForceSpawnForLocalTest 또는 CurrentPhase 조건으로 실제 구역이 생성되는지
+ - AIceChillZone의 ChillCollision이 Pawn과 Overlap 되는지
+ - FreezeBuildUpTime 이후 AMyCharacter::ApplyFreeze()가 호출되는지
+ - bFrozen 상태에서 Move, Jump, Attack이 막히는지
+ - AMyCharacter::EndFreeze() 호출 후 ApplyRoleStats()로 MaxWalkSpeed가 복구되는지
+
+서버 테스트
+---------
+ - GameLogic::UpdatePlayerMovement에서 bFrozen인 플레이어 위치가 움직이지 않는지
+ - FreezeRemainTime 종료 후 BroadcastFreezeState(..., 0)이 호출되는지
+ - UNetworkInstance::HandleFreezeStateChanged에서 올바른 AMyCharacter를 찾는지
+ - Room::LoadStage에서 Torch ItemData가 등록되는지
+ - ABaseItem::GetItemID()와 서버 ItemData.ObjectID가 같은지
+ - GameLogic::HandleItemPickup에서 gd.equippedItemID가 횃불 ID로 설정되는지
+ - GameLogic::HandleAttackHitReport에서 횃불 장착 상태일 때 해동/화상 분기가 타는지
+
+주의할 점
+========
+
+1. D:\Download\MyCharacter.cpp 전체를 현재 프로젝트에 덮어쓰면 안 된다.
+   현재 프로젝트의 PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSeq), ApplyLocalServerCorrection, ApplyEquipItemVisual, ApplyDropItemVisual 같은 네트워크 흐름이 사라질 수 있다.
+
+2. IceChillZone의 직접 DisableMovement 방식은 횃불 해동과 잘 맞지 않는다.
+   반드시 AMyCharacter::bFrozen 상태를 중심으로 정리하는 것이 좋다.
+
+3. 횃불의 UGameplayStatics::ApplyDamage는 로컬 프로토타입 참고용이다.
+   최종 멀티플레이 판정은 서버 GameLogic::HandleAttackHitReport에서 처리해야 한다.
+
+4. 빙결 구역 랜덤 생성은 클라이언트마다 다르게 생성되면 안 된다.
+   최종적으로는 서버가 위치를 정하고 모든 클라이언트에 같은 zoneID/location을 보내야 한다.
+
+5. 현재 서버 RoomManager.h의 GetItemData는 없는 아이템 ID도 생성할 수 있으므로 반드시 find 기반으로 바꾸는 것을 권장한다.
+

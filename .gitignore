@@ -561,3 +561,5 @@ FodyWeavers.xsd
 
 # Security: Ignore real database config
 server_config.ini
+# Unreal packaged builds
+/MainClient_Codes/Claim_Of_Core/Packaging/**

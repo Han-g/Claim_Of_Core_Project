@@ -42,6 +42,8 @@ private:
 	static void Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 
+	static void Handle_IceFloor_StandReq(IOCPServer* server, Session* session, PacketReader& reader);
+
 private:
 	std::unordered_map<int, HandlerFunc> m_FuncHandlerMap;
 };

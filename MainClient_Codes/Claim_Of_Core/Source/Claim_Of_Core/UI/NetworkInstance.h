@@ -15,6 +15,8 @@ class AMyCharacter;
 class ABaseItem;
 class ASmallDebrisActor;
 class ALargeDebrisController;
+class AIceChillZone;
+class ABlackHoleActor;
 
 struct FRoomInfoData;
 struct FRoomMemberInfo;
@@ -61,11 +63,13 @@ public:
 	void RequestGameStart();
 	void RequestAttackInput(int32 AttackType = 0);
 	void RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, int32 AttackType);
+	void RequestJumpInput();
 	void RequestItemPickup(int32 ItemID);
 	void RequestItemDrop(int32 ItemID);
 
-	void SendMoveInputToServer(const FMovePacket& MoveData);
+	void RequestIceFloorStanding(int32 FloorID, int32 PieceIndex);
 
+	void SendMoveInputToServer(const FMovePacket& MoveData);
 
 	// Send Packet for Test
 	void SendGameplayAttackPacket(PacketID TestPacket);
@@ -84,6 +88,7 @@ public:
 	void HandleDisconnected();
 
 	// Game Logic Packet
+	void HandleMapSelected(int32 MapType);
 	void HandleSnapshotReceived(const TArray<GameData>& SnapshotList);
 
 	void HandleAttackActionReceived(const FAttackActionPacket& Packet);
@@ -96,6 +101,8 @@ public:
 	void HandlePhaseChanged(const FPhaseChangePacket& Packet);
 	void HandleMapEventTriggered(const FMapEventPacket& Packet);
 	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
+
+	void HandleStatusEffect(const FStatusEffectPacket& Packet);
 
 protected:
 
@@ -168,6 +175,16 @@ private:
 	TSubclassOf<ASmallDebrisActor> SmallDebrisClass;
 
 	TMap<int32, TWeakObjectPtr<ASmallDebrisActor>> SpawnedSmallDebris;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Map", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<AIceChillZone> IceChillZoneClass;
+
+	TMap<int32, TWeakObjectPtr<AIceChillZone>> SpawnedIceChillZones;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpaceMap", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABlackHoleActor> BlackHoleClass;
+
+	TMap<int32, TWeakObjectPtr<ABlackHoleActor>> SpawnedBlackHoles;
 
 	// Test Checker
 	bool bClientOnlyTestMode = false;

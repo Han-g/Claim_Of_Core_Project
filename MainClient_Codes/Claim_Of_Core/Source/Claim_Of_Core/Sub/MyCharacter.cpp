@@ -1,11 +1,14 @@
 ﻿#include "MyCharacter.h"
 
+#include "../Map/IceCave/IceFloorTile.h"
+
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -40,8 +43,9 @@ AMyCharacter::AMyCharacter()
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
-	GetCharacterMovement()->JumpZVelocity = 500.f;
+	GetCharacterMovement()->JumpZVelocity = 1000.f;
 	GetCharacterMovement()->AirControl = 0.35f;
+	GetCharacterMovement()->GravityScale = 1.2f;
 	GetCharacterMovement()->MaxWalkSpeed = 2000.f;
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
@@ -53,6 +57,9 @@ AMyCharacter::AMyCharacter()
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 400.0f;
 	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->bDoCollisionTest = true;
+	CameraBoom->ProbeChannel = ECC_Camera;
+	CameraBoom->ProbeSize = 8.f;
 
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
@@ -60,13 +67,30 @@ AMyCharacter::AMyCharacter()
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
 	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
-	HandCollision->SetBoxExtent(FVector(18.f, 12.f, 12.f));
+	HandCollision->SetBoxExtent(FVector(300.f, 250.f, 250.f));
 	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
 	HandCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
 	HandCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HandCollision->SetGenerateOverlapEvents(true);
 	HandCollision->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnAttackOverlap);
+
+	FrozenOverlayMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrozenOverlayMesh"));
+	FrozenOverlayMeshComponent->SetupAttachment(GetMesh());
+	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FrozenOverlayMeshComponent->SetGenerateOverlapEvents(false);
+	FrozenOverlayMeshComponent->SetHiddenInGame(true);
+	FrozenOverlayMeshComponent->SetVisibility(false, true);
+	FrozenOverlayMeshComponent->SetCastShadow(false);
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> FrozenOverlayMeshFinder(
+		TEXT("/Game/Game/Map/Background/IceCave/Mesh/Crystal.Crystal")
+	);
+
+	if (FrozenOverlayMeshFinder.Succeeded())
+	{
+		FrozenOverlayMesh = FrozenOverlayMeshFinder.Object;
+	}
 
 	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
 	HPTextComponent->SetupAttachment(GetMesh());
@@ -149,8 +173,76 @@ void AMyCharacter::Tick(float DeltaTime)
 	{
 		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 		{
+			CheckIceFloor();
+
+			if (CameraBoom && CameraBoom->bDoCollisionTest)
+			{
+				static float CameraProbeLogTime = 0.f;
+				CameraProbeLogTime += DeltaTime;
+
+				if (CameraProbeLogTime >= 0.2f)
+				{
+					CameraProbeLogTime = 0.f;
+
+					const FVector Start = CameraBoom->GetComponentLocation();
+					const FRotator BoomRot = CameraBoom->GetTargetRotation();
+					const FVector End = Start - BoomRot.Vector() * CameraBoom->TargetArmLength;
+
+					FHitResult Hit;
+					FCollisionQueryParams Params(SCENE_QUERY_STAT(CameraBoomDebug), false, this);
+					Params.AddIgnoredActor(this);
+
+					const bool bHit = GetWorld()->SweepSingleByChannel(
+						Hit,
+						Start,
+						End,
+						FQuat::Identity,
+						CameraBoom->ProbeChannel,
+						FCollisionShape::MakeSphere(CameraBoom->ProbeSize),
+						Params
+					);
+
+					if (bHit)
+					{
+						UPrimitiveComponent* HitComp = Hit.GetComponent();
+
+						/*UE_LOG(LogTemp, Warning,
+							TEXT("[CameraProbeHit] Actor=%s Comp=%s ChannelResponse=%d Location=%s"),
+							*GetNameSafe(Hit.GetActor()),
+							*GetNameSafe(HitComp),
+							HitComp ? static_cast<int32>(HitComp->GetCollisionResponseToChannel(ECC_Camera)) : -1,
+							*Hit.ImpactPoint.ToString()
+						);*/
+					}
+				}
+			}
+
 			if (MoveComp->MovementMode != EMovementMode::MOVE_None)
 			{
+				if (IsLocallyControlled() && bHasLocalCorrectionTarget && !IsDead())
+				{
+					const FVector CurrentLocation = GetActorLocation();
+
+					FVector NewLocation = CurrentLocation;
+					NewLocation.X = FMath::FInterpTo(CurrentLocation.X, LocalCorrectionTargetLocation.X, DeltaTime, LocalCorrectionInterpSpeed);
+					NewLocation.Y = FMath::FInterpTo(CurrentLocation.Y, LocalCorrectionTargetLocation.Y, DeltaTime, LocalCorrectionInterpSpeed);
+
+					if (!MoveComp->IsFalling())
+					{
+						NewLocation.Z = FMath::FInterpTo(CurrentLocation.Z, LocalCorrectionTargetLocation.Z, DeltaTime, 4.f);
+					}
+
+					SetActorLocation(NewLocation, false, nullptr, ETeleportType::None);
+
+					const float XYError = FVector::Dist2D(NewLocation, LocalCorrectionTargetLocation);
+					const float ZError = FMath::Abs(NewLocation.Z - LocalCorrectionTargetLocation.Z);
+
+					if (XYError <= LocalCorrectionIgnoreDistance && (MoveComp->IsFalling() || ZError <= 30.f))
+					{
+						bHasLocalCorrectionTarget = false;
+					}
+				}
+
 				MoveSyncAccumulator += DeltaTime;
 
 				if (MoveSyncAccumulator >= 0.05f)
@@ -184,23 +276,6 @@ void AMyCharacter::Tick(float DeltaTime)
 						Packet.VelocityY = CachedMoveForward;
 
 						NetInst->SendMoveInputToServer(Packet);
-
-						if (IsLocallyControlled() && bHasLocalCorrectionTarget && !IsDead())
-						{
-							const FVector NewLocation = FMath::VInterpTo(
-								GetActorLocation(),
-								LocalCorrectionTargetLocation,
-								DeltaTime,
-								LocalCorrectionInterpSpeed
-							);
-
-							SetActorLocation(NewLocation, false, nullptr, ETeleportType::None);
-
-							if (FVector::Dist(NewLocation, LocalCorrectionTargetLocation) <= LocalCorrectionIgnoreDistance)
-							{
-								bHasLocalCorrectionTarget = false;
-							}
-						}
 					}
 				}
 			}
@@ -209,7 +284,37 @@ void AMyCharacter::Tick(float DeltaTime)
 
 	if (!IsLocallyControlled() && bHasNetworkTransform && CharacterState == ERecCharacterState::Alive)
 	{
-		NetworkBlendElapsed += DeltaTime;
+		const float RenderTime = GetWorld()->GetTimeSeconds() - RemoteInterpolationDelay;
+
+		while (RemoteSnapshots.Num() >= 2 && RemoteSnapshots[1].Time <= RenderTime)
+		{
+			RemoteSnapshots.RemoveAt(0);
+		}
+
+		if (RemoteSnapshots.Num() >= 2)
+		{
+			const FRemoteSnapshot& A = RemoteSnapshots[0];
+			const FRemoteSnapshot& B = RemoteSnapshots[1];
+
+			const float Alpha = FMath::Clamp(
+				(RenderTime - A.Time) / FMath::Max(B.Time - A.Time, KINDA_SMALL_NUMBER),
+				0.f,
+				1.f
+			);
+
+			const FVector NewLocation = FMath::Lerp(A.Location, B.Location, Alpha);
+			const FRotator NewRotation = FMath::Lerp(A.Rotation, B.Rotation, Alpha);
+
+			SetActorLocationAndRotation(
+				NewLocation,
+				NewRotation,
+				false,
+				nullptr,
+				ETeleportType::None
+			);
+		}
+
+		/*NetworkBlendElapsed += DeltaTime;
 
 		const float Alpha =
 			(NetworkBlendDuration > KINDA_SMALL_NUMBER)
@@ -227,15 +332,7 @@ void AMyCharacter::Tick(float DeltaTime)
 			NetworkBlendTargetRotation,
 			DeltaTime,
 			RemoteInterpSpeed
-		);
-
-		SetActorLocationAndRotation(
-			NewLocation,
-			NewRotation,
-			false,
-			nullptr,
-			ETeleportType::None
-		);
+		);*/
 	}
 
 	UpdateLowHPPulseEffect(DeltaTime);
@@ -254,6 +351,93 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (Axis != 0.f)
 	{
 		SpectateMoveVertical(Axis, DeltaTime);
+	}
+}
+
+void AMyCharacter::CheckIceFloor()
+{
+	if (!GetWorld() || IsDead())
+	{
+		SetIceMovement(false);
+		return;
+	}
+
+	FHitResult Hit;
+
+	const FVector Start = GetActorLocation();
+	const float TraceDistance =
+		GetCapsuleComponent()
+		? GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 150.f
+		: 650.f;
+
+	const FVector End = Start - FVector(0.f, 0.f, TraceDistance);
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(CheckIceFloor), false, this);
+
+	const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit,
+		Start,
+		End,
+		ECC_WorldStatic,
+		Params
+	);
+
+	if (!bHit)
+	{
+		SetIceMovement(false);
+		return;
+	}
+
+	AIceFloorTile* IceFloorTile = Cast<AIceFloorTile>(Hit.GetActor());
+
+	if (!IceFloorTile && Hit.GetComponent())
+	{
+		IceFloorTile = Cast<AIceFloorTile>(Hit.GetComponent()->GetOwner());
+	}
+
+	if (!IceFloorTile)
+	{
+		SetIceMovement(false);
+		return;
+	}
+
+	// Ice Floor Local Distruction 
+	//IceFloorTile->NotifyPlayerStandingOnPiece(this, Hit.GetComponent());
+
+
+	// Ice Floor Server Distruction 
+	SetIceMovement(true);
+	const int32 PieceIndex = IceFloorTile->GetPieceIndexFromComponent(Hit.GetComponent());
+	if (PieceIndex >= 0)
+{
+    if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+    {
+        NetInst->RequestIceFloorStanding(0, PieceIndex);
+    }
+}
+}
+
+void AMyCharacter::SetIceMovement(bool bNew)
+{
+	if (bOnIce == bNew)
+	{
+		return;
+	}
+
+	bOnIce = bNew;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		if (bOnIce)
+		{
+			MoveComp->GroundFriction = 0.1f;
+			MoveComp->BrakingFrictionFactor = 0.2f;
+		}
+		else
+		{
+			MoveComp->GroundFriction = 8.f;
+			MoveComp->BrakingFrictionFactor = 2.f;
+		}
 	}
 }
 
@@ -400,6 +584,7 @@ bool AMyCharacter::CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) c
 	case ERecStatusEffectType::Slow:
 	case ERecStatusEffectType::Stun:
 	case ERecStatusEffectType::Knockback:
+	case ERecStatusEffectType::Freeze:
 		return false;
 	default:
 		return true;
@@ -421,9 +606,17 @@ void AMyCharacter::ApplyRoleStats()
 {
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
 	{
-		const float BaseRoleMult = GetRoleSpeedMultiplier(RoleType);
-		const float SkillMult = GetRoleSkillSpeedMultiplier();
-		MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
+		if (bFrozen)
+		{
+			MoveComp->StopMovementImmediately();
+			MoveComp->MaxWalkSpeed = 0.f;
+		}
+		else
+		{
+			const float BaseRoleMult = GetRoleSpeedMultiplier(RoleType);
+			const float SkillMult = GetRoleSkillSpeedMultiplier();
+			MoveComp->MaxWalkSpeed = BaseWalkSpeed * BaseRoleMult * SkillMult;
+		}
 	}
 
 	switch (RoleType)
@@ -876,9 +1069,24 @@ void AMyCharacter::TestFunc()
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
+	if (IsDead() || bDeathSequenceLocked || bFrozen)
+	{
+		CachedMoveRight = 0.f;
+		CachedMoveForward = 0.f;
+
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->StopMovementImmediately();
+			MoveComp->Velocity = FVector::ZeroVector;
+		}
+
+		return;
+	}
+
 	const FVector2D MovementVector = Value.Get<FVector2D>();
 	const float Right = MovementVector.X;
 	const float Forward = MovementVector.Y;
+
 	CachedMoveRight = Right;
 	CachedMoveForward = Forward;
 
@@ -924,7 +1132,7 @@ void AMyCharacter::DoMove(float Right, float Forward)
 		return;
 	}
 
-	if (bDeathSequenceLocked)
+	if (bDeathSequenceLocked || bFrozen)
 	{
 		return;
 	}
@@ -949,7 +1157,7 @@ void AMyCharacter::DoLook(float Yaw, float Pitch)
 		return;
 	}
 
-	if (IsDead() && !bCanSpectate)
+	if (IsDead() || bCanSpectate)
 	{
 		return;
 	}
@@ -961,6 +1169,74 @@ void AMyCharacter::DoLook(float Yaw, float Pitch)
 	}
 }
 
+void AMyCharacter::UpdateFrozenOverlay()
+{
+	if (!FrozenOverlayMeshComponent)
+	{
+		return;
+	}
+
+	if (FrozenOverlayMesh)
+	{
+		FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
+	}
+
+	if (FrozenOverlayMaterial)
+	{
+		FrozenOverlayMeshComponent->SetMaterial(0, FrozenOverlayMaterial);
+	}
+
+	FrozenOverlayMeshComponent->SetRelativeLocation(FrozenOverlayRelativeLocation);
+	FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
+	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FrozenOverlayMeshComponent->SetHiddenInGame(!bFrozen);
+	FrozenOverlayMeshComponent->SetVisibility(bFrozen, true);
+}
+
+void AMyCharacter::ApplyFreeze()
+{
+	if (IsDead() || !CanReceiveStatusEffect(ERecStatusEffectType::Freeze))
+	{
+		return;
+	}
+
+	bFrozen = true;
+	CachedMoveRight = 0.f;
+	CachedMoveForward = 0.f;
+
+	StopJumping();
+
+	EndAttack();
+	GetWorldTimerManager().ClearTimer(AttackTimer);
+
+	if (UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		AnimInstance->Montage_Stop(0.05f);
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->MaxWalkSpeed = 0.f;
+		MoveComp->Velocity = FVector::ZeroVector;
+	}
+
+	UpdateFrozenOverlay();
+}
+
+void AMyCharacter::EndFreeze()
+{
+	if (!bFrozen)
+	{
+		return;
+	}
+
+	bFrozen = false;
+	UpdateFrozenOverlay();
+
+	ApplyRoleStats();
+}
+
 void AMyCharacter::DoJumpStart()
 {
 	if (IsDead() || bDeathSequenceLocked)
@@ -968,11 +1244,30 @@ void AMyCharacter::DoJumpStart()
 		return;
 	}
 
+	if (CanJump())
+	{
+		if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+		{
+			NetInst->RequestJumpInput();
+		}
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[JumpCheck][Client] JumpZ=%.1f GravityScale=%.2f AirControl=%.2f MaxWalkSpeed=%.1f"),
+			MoveComp->JumpZVelocity,
+			MoveComp->GravityScale,
+			MoveComp->AirControl,
+			MoveComp->MaxWalkSpeed);
+	}
+
 	Jump();
 }
 
 void AMyCharacter::DoJumpEnd()
 {
+	if (bFrozen) { return; }
 	StopJumping();
 }
 
@@ -1722,14 +2017,14 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 
 	if (IsLocallyControlled())
 	{
-		StartAttackHitWindow(2.f);
+		StartAttackHitWindow(1.8f);
 	}
 
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
 		this,
 		&AMyCharacter::EndAttack,
-		2.f,
+		1.8f,
 		false
 	);
 }
@@ -1806,7 +2101,16 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 
 	const float Now = GetWorld()->GetTimeSeconds();
 
-	float MeasuredInterval = 0.033f;
+	RemoteSnapshots.Add({ NewLocation, NewRotation, Now });
+
+	while (RemoteSnapshots.Num() > MaxRemoteSnapshotCount)
+	{
+		RemoteSnapshots.RemoveAt(0);
+	}
+
+	bHasNetworkTransform = true;
+
+	/*float MeasuredInterval = 0.033f;
 	if (LastNetworkSnapshotTime >= 0.f)
 	{
 		MeasuredInterval = Now - LastNetworkSnapshotTime;
@@ -1853,8 +2157,8 @@ void AMyCharacter::ApplyTransformFromNetwork(float X, float Y, float Z, float Ya
 	NetworkBlendStartRotation = GetActorRotation();
 	NetworkBlendTargetRotation = NewRotation;
 	NetworkBlendElapsed = 0.f;
-
-	/*TargetNetworkLocation = NewLocation;
+	//--------------------------------------------------------------
+	TargetNetworkLocation = NewLocation;
 	TargetNetworkRotation = NewRotation;
 
 	if (!bHasNetworkTransform)
@@ -1888,16 +2192,23 @@ void AMyCharacter::ApplyLocalServerCorrection(float X, float Y, float Z, float Y
 {
 	if (!IsLocallyControlled()) { return; }
 
-	const FVector ServerLocation(X, Y, Z);
-	const float ErrorDist = FVector::Dist(GetActorLocation(), ServerLocation);
+	const FVector Current = GetActorLocation();
+	FVector ServerLocation(X, Y, Z);
 
-	if (ErrorDist <= LocalCorrectionIgnoreDistance)
+	ServerLocation.Z = Current.Z;
+	const float XYError = FVector::Dist2D(Current, ServerLocation);
+	const float ZError = FMath::Abs(Current.Z - ServerLocation.Z);
+
+	UCharacterMovementComponent* MoveComp = GetCharacterMovement();
+	const bool bIsFalling = MoveComp && MoveComp->IsFalling();
+
+	if (XYError <= LocalCorrectionIgnoreDistance && ZError <= 30.f)
 	{
 		bHasLocalCorrectionTarget = false;
 		return;
 	}
 
-	if (ErrorDist >= LocalCorrectionSnapDistance || IsDead())
+	if (XYError >= LocalCorrectionSnapDistance || ZError >= 400.f || IsDead())
 	{
 		SetActorLocation(ServerLocation, false, nullptr, ETeleportType::TeleportPhysics);
 		bHasLocalCorrectionTarget = false;
@@ -1905,6 +2216,13 @@ void AMyCharacter::ApplyLocalServerCorrection(float X, float Y, float Z, float Y
 	}
 
 	LocalCorrectionTargetLocation = ServerLocation;
+
+
+	if (bIsFalling)
+	{
+		LocalCorrectionTargetLocation.Z = Current.Z;
+	}
+
 	bHasLocalCorrectionTarget = true;
 }
 

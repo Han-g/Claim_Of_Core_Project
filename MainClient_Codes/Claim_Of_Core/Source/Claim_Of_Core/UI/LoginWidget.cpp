@@ -6,7 +6,7 @@
 
 void ULoginWidget::FocusInitialWidget()
 {
-	if (!ID_BOX)
+	if (!IsValid(ID_BOX) || !IsInViewport())
 	{
 		return;
 	}

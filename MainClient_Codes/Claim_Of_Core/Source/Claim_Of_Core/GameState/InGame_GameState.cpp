@@ -1,9 +1,13 @@
 #include "InGame_GameState.h"
 
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
 #include "UI/NetworkInstance.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "ClientNetworkTypes.h"
+
+#include "EngineUtils.h"
 
 AInGame_GameState::AInGame_GameState()
 {
@@ -34,6 +38,60 @@ void AInGame_GameState::BeginPlay()
 		if (GI->ConsumePendingGameplayActivation())
 		{
 			ActivateGameplayFromServerStart();
+		}
+	}
+
+	bool bFoundFloor = false;
+	FBox FloorBox(EForceInit::ForceInit);
+
+	if (UWorld* World = GetWorld())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MAP_CHECK] MapName=%s"), *World->GetMapName());
+
+		for (TActorIterator<AStaticMeshActor> It(World); It; ++It)
+		{
+			AStaticMeshActor* StaticMeshActor = *It;
+			if (!StaticMeshActor)
+			{
+				continue;
+			}
+
+			UStaticMeshComponent* MeshComp = StaticMeshActor->GetStaticMeshComponent();
+			if (!MeshComp || !MeshComp->GetStaticMesh())
+			{
+				continue;
+			}
+
+			const FString MeshName = MeshComp->GetStaticMesh()->GetName();
+
+			if (!MeshName.Contains(TEXT("Floor")))
+			{
+				continue;
+			}
+
+			FVector BoundsOrigin;
+			FVector BoundsExtent;
+			StaticMeshActor->GetActorBounds(false, BoundsOrigin, BoundsExtent);
+
+			const FVector Min = BoundsOrigin - BoundsExtent;
+			const FVector Max = BoundsOrigin + BoundsExtent;
+
+			UE_LOG(LogTemp, Warning,
+				TEXT("[MAP_CHECK] Actor=%s Mesh=%s Loc=%s BoundsOrigin=%s BoundsExtent=%s"),
+				*StaticMeshActor->GetName(),
+				*MeshName,
+				*StaticMeshActor->GetActorLocation().ToString(),
+				*BoundsOrigin.ToString(),
+				*BoundsExtent.ToString());
+
+			UE_LOG(LogTemp, Warning,
+				TEXT("[MAP_CHECK] Mesh=%s Min=%s Max=%s Size=%s"),
+				*MeshName,
+				*Min.ToString(),
+				*Max.ToString(),
+				*(Max - Min).ToString());
+
+			break;
 		}
 	}
 }
@@ -100,6 +158,11 @@ void AInGame_GameState::ApplyNetworkPhaseState(const FPhaseChangePacket& Packet)
 	RoundState = static_cast<ERoundState>(Packet.roundState);
 	CurrentPhase = static_cast<EMapPhase>(Packet.mapPhase);
 	CurrentGameTime = FMath::RoundToInt(Packet.gameTime);
+	SpaceBlackHoleLocation = FVector(
+		Packet.blackHoleX,
+		Packet.blackHoleY,
+		Packet.blackHoleZ
+	);
 
 	if (OldRoundState != RoundState)
 	{

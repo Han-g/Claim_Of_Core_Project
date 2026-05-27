@@ -161,7 +161,7 @@ void ClientNetworking::PumpEvents()
         case ENetEventType::SnapshotReceived:
             if (SnapshotLogCounter % 30 == 0)
             {
-                UE_LOG(LogTemp, Display, TEXT("Snapshot received: Count=%d"), Evt.SnapshotList.Num());
+               // UE_LOG(LogTemp, Display, TEXT("Snapshot received: Count=%d"), Evt.SnapshotList.Num());
             }
             OnSnapshotReceived.Broadcast(Evt.SnapshotList);
             break;
@@ -219,6 +219,10 @@ void ClientNetworking::PumpEvents()
         case ENetEventType::ObjectSpawned:
             OnObjectSpawned.Broadcast(Evt.SpawnObject);
             break;
+
+        case ENetEventType::StatusEffect:
+            OnStatusEffect.Broadcast(Evt.StatusEffect);
+            break;
         }
     }
 }
@@ -242,6 +246,19 @@ void ClientNetworking::EnqueueSendCommand(uint16 PacketID)
 {
     TArray<uint8> Empty;
     EnqueueSendCommand(PacketID, Empty);
+}
+
+void ClientNetworking::IceFloorStandRequest(int32 FloorID, int32 PieceIndex)
+{
+
+    FIceFloorStandPacket Packet{};
+    Packet.FloorID = FloorID;
+    Packet.PieceIndex = PieceIndex;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FIceFloorStandPacket));
+
+    EnqueueSendCommand(PKT_C2S_ICE_FLOOR_STAND_REQ, Payload);
 }
 
 // ============================================================
@@ -400,4 +417,9 @@ void ClientNetworking::SendMoveInput(const FMovePacket& MoveData)
     TArray<uint8> Payload;
     Payload.Append((const uint8*)&MoveData, sizeof(FMovePacket));
     EnqueueSendCommand(PKT_C2S_MOVE_KEYINPUT, Payload);
+}
+
+void ClientNetworking::SendJumpInput()
+{
+    EnqueueSendCommand(PKT_C2S_JUMP_KEYINPUT);
 }

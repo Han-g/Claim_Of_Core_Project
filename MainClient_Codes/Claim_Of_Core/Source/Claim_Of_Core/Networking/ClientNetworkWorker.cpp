@@ -263,6 +263,11 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
 {
     switch (Header->PacketID)
     {
+    case PKT_S2C_ERROR:
+    {
+        UE_LOG(LogTemp, Error, TEXT("InVaild Packet Error!"));
+        break;
+    }
         // Connection and Access Control
     case PKT_S2C_ACCESS_ALLOW:
     {
@@ -473,8 +478,8 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
 
         FAttackActionPacket Packet;
         FMemory::Memcpy(&Packet, PayloadData, sizeof(FAttackActionPacket));
-        UE_LOG(LogTemp, Display, TEXT("[Attack Packet Trace] AttackerID=%d AttackType=%d"),
-            Packet.AttackerID, Packet.AttackType);
+        UE_LOG(LogTemp, Display, TEXT("[Attack Packet Trace] AttackerID=%d AttackType=%d AttackSeq=%d"),
+            Packet.AttackerID, Packet.AttackType, Packet.AttackSeq);
 
         FNetEvent Evt;
         Evt.Type = ENetEventType::AttackAction;
@@ -586,6 +591,19 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+    case PKT_S2C_STATUS_EFFECT_BRD:
+    {
+        if (PayloadSize < sizeof(FStatusEffectPacket)) { break; }
+
+        FStatusEffectPacket Packet;
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FStatusEffectPacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::StatusEffect;
+        Evt.StatusEffect = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
     case PKT_S2C_SPAWN_OBJECT_BRD:
     {
         if (PayloadSize < sizeof(FSpawnObjectPacket)) { break; }
@@ -610,6 +628,11 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         Evt.Type = ENetEventType::PhaseChanged;
         Evt.PhaseChange = Packet;
         PushEvent(MoveTemp(Evt));
+        break;
+    }
+    case PKT_S2C_GAME_RESULT_BRD:
+    {
+
         break;
     }
     default:

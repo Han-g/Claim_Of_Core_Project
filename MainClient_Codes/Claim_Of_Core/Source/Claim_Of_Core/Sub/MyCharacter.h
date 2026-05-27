@@ -5,10 +5,10 @@
 #include "TimerManager.h"
 #include "MyCharacter.generated.h"
 
+struct FInputActionValue;
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
-struct FInputActionValue;
 class UTextRenderComponent;
 class UAnimInstance;
 class UAnimMontage;
@@ -16,6 +16,9 @@ class USkeletalMesh;
 class UPrimitiveComponent;
 class UBoxComponent;
 class ABaseItem;
+class UStaticMeshComponent;
+class UStaticMesh;
+class UMaterialInterface;
 class FLifetimeProperty;
 
 UENUM(BlueprintType)
@@ -39,6 +42,7 @@ enum class ERecStatusEffectType : uint8
 	Slow      UMETA(DisplayName = "Slow"),
 	Stun      UMETA(DisplayName = "Stun"),
 	Knockback UMETA(DisplayName = "Knockback"),
+	Freeze	  UMETA(DisplayName = "Freeze"),
 };
 
 USTRUCT(BlueprintType)
@@ -55,6 +59,7 @@ struct FRoleVisualData
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
 };
+
 
 UCLASS(Abstract)
 class AMyCharacter : public ACharacter
@@ -118,7 +123,10 @@ private:
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void CheckIceFloor();
+	virtual void SetIceMovement(bool bNew);
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
 	virtual void Jump() override;
 
 	virtual float TakeDamage(
@@ -154,6 +162,37 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	virtual void DoJumpEnd();
+
+	// Ice Map Gimmicks
+	void UpdateFrozenOverlay();
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	void ApplyFreeze();
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	void EndFreeze();
+
+	UFUNCTION(BlueprintPure, Category = "Status")
+	bool IsFrozen() const { return bFrozen; }
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status|Freeze", meta =
+		(AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> FrozenOverlayMeshComponent;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta =
+		(AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMesh> FrozenOverlayMesh;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta =
+		(AllowPrivateAccess = "true"))
+	TObjectPtr<UMaterialInterface> FrozenOverlayMaterial;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	FVector FrozenOverlayRelativeLocation = FVector::ZeroVector;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	FVector FrozenOverlayRelativeScale = FVector(1.15f);
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Status|Freeze")
+	bool bFrozen = false;
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "HP")
@@ -498,6 +537,13 @@ public:
 
 private:
 	// Remote Player Data
+	struct FRemoteSnapshot
+	{
+		FVector Location;
+		FRotator Rotation;
+		float Time;
+	};
+
 	FVector TargetNetworkLocation = FVector::ZeroVector;
 	FRotator TargetNetworkRotation = FRotator::ZeroRotator;
 	bool bHasNetworkTransform = false;
@@ -525,6 +571,11 @@ private:
 	float MinNetworkBlendDuration = 0.016f;
 	float MaxNetworkBlendDuration = 0.050f;
 
+	TArray<FRemoteSnapshot> RemoteSnapshots;
+	float RemoteInterpolationDelay = 0.10f; // 100ms 정도부터 테스트
+	int32 MaxRemoteSnapshotCount = 8;
+	float RemoteIgnoreDistance = 2.f;
+
 	// Datas for Correction Location
 	bool bHasLocalCorrectionTarget = false;
 	FVector LocalCorrectionTargetLocation = FVector::ZeroVector;
@@ -532,6 +583,8 @@ private:
 	float LocalCorrectionIgnoreDistance = 15.f;
 	float LocalCorrectionSnapDistance = 250.f;
 	float LocalCorrectionInterpSpeed = 10.f;
+
+	bool bOnIce = false;
 
 	// Temporary Movement Members
 

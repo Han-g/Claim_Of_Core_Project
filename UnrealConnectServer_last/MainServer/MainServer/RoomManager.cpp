@@ -72,8 +72,16 @@ void Room::InitCharacter(Session* member, GameLogic* logic)
 
     gd.x = spawn.x;
     gd.y = spawn.y;
-    gd.z = spawn.z;
+    gd.z = logic->GetGroundActorZ(); //spawn.z;
     gd.rotate = GetSpawnYawBySlot(slot);
+
+    member->VerticalVelocity = 0.0f;
+    member->isGrounded = true;
+    member->JumpCount = 0;
+    member->HorizontalVelocityX = 0.0f;
+    member->HorizontalVelocityY = 0.0f;
+    member->bOnIce = false;
+    member->IceContactRemainTime = 0.0f;
 
     LOG_INFO("InitCharacter session=%d uid=%d slot=%d team=%d pos=(%.1f, %.1f, %.1f)",
         member->sessionID,
@@ -225,26 +233,110 @@ void Room::LoadStage(int stageNum)
         item3.bEquipped = false;
         m_ItemObjects[item3.ObjectID] = item3;
     }
+
+    if (stageNum == 2) // IceCaveStage
+    {
+        ItemData torch{};
+        torch.ObjectID = 101;
+        torch.ObjectType = e_ObjectType::WEAPON_ITEM;
+        torch.ItemKind = EItemKind::Torch;
+        torch.x = 0.0f;
+        torch.y = 0.0f;
+        torch.z = 500.0f;
+        torch.ownerUID = -1;
+        torch.bEquipped = false;
+
+        m_ItemObjects[torch.ObjectID] = torch;
+    }
 }
 
 Vector3 Room::GetRespawnLocation(int slot)
 {
-    static const Vector3 SpawnTable[6] =
+    if (slot < 0 || slot >= 6)
     {
-        { 600.f,-1500.f, 500.f },  // team 1 Member1
-        { 600.f,    0.f, 500.f },  // team 1 Member2
-        { 600.f, 1500.f, 500.f },  // team 1 Member3
-        {   0.f,-1500.f, 500.f },  // team 2 Member4
-        { 300.f,    0.f, 500.f },  // team 2 Member5
-        { 600.f, 1500.f, 500.f }   // team 2 Member6
-    };
-
-    if (slot < 0 || slot >= 6) {
-        // Invalid slot Connect
         return { -100.f, -100.f, -100.f };
     }
 
-    return SpawnTable[slot];
+    static const Vector3 BuildingSpawnTable[6] =
+    {
+        { 600.f, -1500.f, 1000.f },
+        { 600.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f },
+        {   0.f, -1500.f, 1000.f },
+        { 300.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f }
+    };
+
+    static const Vector3 IceCaveSpawnTable[6] =
+    {
+        { 600.f, -1500.f, 1000.f },
+        { 600.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f },
+        {   0.f, -1500.f, 1000.f },
+        { 300.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f }
+    };
+
+    static const Vector3 SpaceStationSpawnTable[6] =
+    {
+        { 600.f, -3000.f, 2000.f },
+        { 600.f,     0.f, 2000.f },
+        { 600.f,  3000.f, 2000.f },
+        {-600.f, -1500.f, 2000.f },
+        {-600.f,     0.f, 2000.f },
+        {-600.f,  1500.f, 2000.f }
+    };
+
+    static const Vector3 SkyIslandSpawnTable[6] =
+    {
+        { 600.f, -1500.f, 1000.f },
+        { 600.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f },
+        {   0.f, -1500.f, 1000.f },
+        { 300.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f }
+    };
+
+    static const Vector3 JungleSpawnTable[6] =
+    {
+        { 600.f, -1500.f, 1000.f },
+        { 600.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f },
+        {   0.f, -1500.f, 1000.f },
+        { 300.f,     0.f, 1000.f },
+        { 600.f,  1500.f, 1000.f }
+    };
+
+    const Vector3* spawnTable = BuildingSpawnTable;
+
+    switch (selectedMapType)
+    {
+    case 1:
+        spawnTable = BuildingSpawnTable;
+        break;
+
+    case 2:
+        spawnTable = IceCaveSpawnTable;
+        break;
+
+    case 3:
+        spawnTable = SpaceStationSpawnTable;
+        break;
+
+    case 4:
+        spawnTable = SkyIslandSpawnTable;
+        break;
+
+    case 5:
+        spawnTable = JungleSpawnTable;
+        break;
+
+    default:
+        spawnTable = BuildingSpawnTable;
+        break;
+    }
+
+    return spawnTable[slot];
 }
 
 float Room::GetSpawnYawBySlot(int slot) const
@@ -309,11 +401,11 @@ bool Room::BroadcastGameDatas()
     std::vector<GameData> roomSnapshot;
     for (Session* member : m_Members) {
         if (member->gameDatas.isConnected) {
-            LOG_INFO("[SnapshotOut] uid=%d pos=(%.1f, %.1f, %.1f) anim=%d state=%d",
+            /*LOG_INFO("[SnapshotOut] uid=%d pos=(%.1f, %.1f, %.1f) anim=%d state=%d",
                 member->gameDatas.userUID,
                 member->gameDatas.x, member->gameDatas.y, member->gameDatas.z,
                 member->gameDatas.animationNum,
-                member->gameDatas.characterState);
+                member->gameDatas.characterState);*/
             roomSnapshot.push_back(member->gameDatas);
         }
     }
@@ -657,14 +749,14 @@ void RoomManager::GameStart(Session* client)
 
     // Switch the room into PLAYING state.
     room->SetState(ERoomState::PLAYING);
-    // 1: Building, 2: IceCave, 3: Jungle, 4: SkyIsland, 5: Space
-    std::vector<int> AvailableMaps = { 1 }; 
+    // 1: Building, 2: IceCave, 3: Space, 4: SkyIsland, 5: Jungle
+    std::vector<int> AvailableMaps = { 1, 2, 3, /*4, 5*/ }; 
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(0, static_cast<int>(AvailableMaps.size()) - 1);
 
-    const int selected = AvailableMaps[dist(gen)];
+    const int selected = 2;//AvailableMaps[dist(gen)];
     room->SelectStage(selected);
     room->LoadStage(selected);
     room->BroadcastToMembers(

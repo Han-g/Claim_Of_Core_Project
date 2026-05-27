@@ -42,13 +42,13 @@ void AIceMapController::EnterPhase2()
 	CurrentPhase = EIceMapPhase::Phase2;
 	BP_OnPhaseChanged(CurrentPhase);
 
-	GetWorldTimerManager().SetTimer(
+	/*GetWorldTimerManager().SetTimer(
 		IcicleSpawnTimerHandle,
 		this,
 		&AIceMapController::TriggerRandomIcicle,
 		IcicleSpawnIntervalPhase2,
 		true
-	);
+	);*/
 }
 
 void AIceMapController::EnterPhase3()
@@ -58,7 +58,7 @@ void AIceMapController::EnterPhase3()
 
 	GetWorldTimerManager().ClearTimer(IcicleSpawnTimerHandle);
 
-	GetWorldTimerManager().SetTimer(
+	/*GetWorldTimerManager().SetTimer(
 		IcicleSpawnTimerHandle,
 		this,
 		&AIceMapController::TriggerRandomIcicle,
@@ -72,7 +72,7 @@ void AIceMapController::EnterPhase3()
 		&AIceMapController::TriggerRandomFloorTile,
 		FloorBreakIntervalPhase3,
 		true
-	);
+	);*/
 }
 
 void AIceMapController::TriggerRandomIcicle()

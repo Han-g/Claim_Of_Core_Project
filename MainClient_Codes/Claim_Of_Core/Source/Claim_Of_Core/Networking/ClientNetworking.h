@@ -44,8 +44,10 @@ public:
     void ItemPickupRequest(int32 ItemID);
     void ItemDropRequest(int32 ItemID);
     void AttackHitReportRequest(uint32 AttackSeq, int32 TargetID, int32 AttackType);
+    void IceFloorStandRequest(int32 FloorID, int32 PieceIndex);
 
     void SendMoveInput(const FMovePacket& MoveData);
+    void SendJumpInput();
 
     // Delegates (broadcast on game thread only)
     FOnConnectedDelegate OnConnected;
@@ -72,6 +74,8 @@ public:
     FOnSnapshotReceived OnSnapshotReceived;
     FOnItemOwnershipChanged OnItemOwnershipChanged;
 
+    FOnStatusEffect OnStatusEffect;
+
     // Player data (updated from login response)
     int32 ClientSessionID = -1;
     GameData ClientPlayerData;
@@ -80,6 +84,7 @@ public:
 private:
     void EnqueueSendCommand(uint16 PacketID, const TArray<uint8>& Payload);
     void EnqueueSendCommand(uint16 PacketID);
+
 
     TSharedPtr<FClientNetworkWorker> Worker;
 

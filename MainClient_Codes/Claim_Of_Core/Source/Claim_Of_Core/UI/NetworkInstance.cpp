@@ -7,11 +7,17 @@
 #include "BaseItem.h"
 #include "Map/Building/SmallDebrisActor.h"
 #include "Map/Building/LargeDebrisController.h"
+#include "Map/IceCave/IceFloorTile.h"
+#include "Map/IceCave/IceChillZone.h"
+#include "Map/Space/BlackHoleActor.h"
 #include "Sub/MyCharacter.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Misc/PackageName.h"
 #include "EngineUtils.h"
+#include "DrawDebugHelpers.h"
 
 #include "GameState/InGame_GameState.h"
 
@@ -64,6 +70,7 @@ void UNetworkInstance::Init()
 	Client->OnRegisterResult.AddUObject(this, &UNetworkInstance::HandleRegisterResult);
 	Client->OnGameStart.AddUObject(this, &UNetworkInstance::HandleGameStart);
 
+	Client->OnMapSelected.AddUObject(this, &UNetworkInstance::HandleMapSelected);
 	Client->OnSnapshotReceived.AddUObject(this, &UNetworkInstance::HandleSnapshotReceived);
 	Client->OnAttackAction.AddUObject(this, &UNetworkInstance::HandleAttackActionReceived);
 	Client->OnDamageApplied.AddUObject(this, &UNetworkInstance::HandleDamageApplied);
@@ -75,7 +82,9 @@ void UNetworkInstance::Init()
 	Client->OnMapEventTriggered.AddUObject(this, &UNetworkInstance::HandleMapEventTriggered);
 	Client->OnObjectSpawned.AddUObject(this, &UNetworkInstance::HandleObjectSpawned);
 	Client->OnItemOwnershipChanged.AddUObject(this, &UNetworkInstance::HandleItemOwnershipChanged);
-
+	
+	Client->OnStatusEffect.AddUObject(this, &UNetworkInstance::HandleStatusEffect);
+	
 	// Start worker thread + connect
 	Client->Start(ServerIPAddress, 9000);
 
@@ -261,13 +270,15 @@ void UNetworkInstance::ShowLoginHUD()
 	// 실제 포커스는 루트 위젯이 아니라 로그인 입력창에 준다.
 	if (ULoginWidget* LoginUI = Cast<ULoginWidget>(LoginWidgetInstance))
 	{
+		TWeakObjectPtr<ULoginWidget> WeakLoginUI = LoginUI;
+
 		if (UWorld* World = GetWorld())
 		{
-			World->GetTimerManager().SetTimerForNextTick([LoginUI]()
+			World->GetTimerManager().SetTimerForNextTick([WeakLoginUI]()
 				{
-					if (LoginUI)
+					if (ULoginWidget* SafeLoginUI = WeakLoginUI.Get())
 					{
-						LoginUI->FocusInitialWidget();
+						SafeLoginUI->FocusInitialWidget();
 					}
 				});
 		}
@@ -364,6 +375,13 @@ void UNetworkInstance::RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, 
 	Client->AttackHitReportRequest(AttackSeq, TargetID, AttackType);
 }
 
+void UNetworkInstance::RequestJumpInput()
+{
+	if (!Client.IsValid()) { return; }
+
+	Client->SendJumpInput();
+}
+
 void UNetworkInstance::RequestItemPickup(int32 ItemID)
 {
 	if (!Client.IsValid()) { return; }
@@ -380,6 +398,16 @@ void UNetworkInstance::RequestItemDrop(int32 ItemID)
 	if (ItemID < 0) { return; }
 
 	Client->ItemDropRequest(ItemID);
+}
+
+void UNetworkInstance::RequestIceFloorStanding(int32 FloorID, int32 PieceIndex)
+{
+	if (!Client.IsValid() || PieceIndex < 0)
+	{
+		return;
+	}
+
+	Client->IceFloorStandRequest(FloorID, PieceIndex);
 }
 
 void UNetworkInstance::SendMoveInputToServer(const FMovePacket& MoveData)
@@ -594,6 +622,39 @@ void UNetworkInstance::HandleDisconnected()
 	}
 }
 
+void UNetworkInstance::HandleMapSelected(int32 MapType)
+{
+	switch (MapType)
+	{
+	case 1:
+		InGameLevel = TSoftObjectPtr<UWorld>(
+			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/BuildingStage.BuildingStage"))
+		);
+		break;
+
+	case 2:
+		InGameLevel = TSoftObjectPtr<UWorld>(
+			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/IceCaveStage.IceCaveStage"))
+		);
+		break;
+
+	case 3:
+		InGameLevel = TSoftObjectPtr<UWorld>(
+			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/SpaceStationStage.SpaceStationStage"))
+		);
+		break;
+
+	default:
+		UE_LOG(LogTemp, Warning, TEXT("Unknown MapType: %d. Fallback to BuildingStage"), MapType);
+		InGameLevel = TSoftObjectPtr<UWorld>(
+			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/BuildingStage.BuildingStage"))
+		);
+		break;
+	}
+
+	UE_LOG(LogTemp, Display, TEXT("Selected InGameLevel: %s"), *InGameLevel.ToString());
+}
+
 void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotList)
 {
 	if (!Client.IsValid()) { return; }
@@ -662,13 +723,13 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			
 			const FVector After = RemoteCharacter->GetActorLocation();
 
-			UE_LOG(LogTemp, Display,
+			/*UE_LOG(LogTemp, Display,
 				TEXT("[RemoteSnapshotIn] UID=%d Snapshot=(%.1f, %.1f, %.1f) Before=(%.1f, %.1f, %.1f) After=(%.1f, %.1f, %.1f) Anim=%d"),
 				Data.userUID,
 				Data.x, Data.y, Data.z,
 				Before.X, Before.Y, Before.Z,
 				After.X, After.Y, After.Z,
-				Data.animationNum);
+				Data.animationNum);*/
 
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
 		}
@@ -829,10 +890,47 @@ void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
 
 void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 {
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// EMapEventType::Floor == 1
+	if (Packet.eventType == 1)
+	{
+		for (TActorIterator<AIceFloorTile> It(World); It; ++It)
+		{
+			if (AIceFloorTile* Tile = *It)
+			{
+				Tile->ApplyNetworkPieceState(Packet.objectIndex, Packet.eventState);
+			}
+		}
+
+		return;
+	}
+
 	// EMapEventType::LargeDebris == 3
 	if (Packet.eventType != 3)
 	{
 		return;
+	}
+
+	// EMapEventType::IceChillZone == 4
+	if (Packet.eventType == 4) {
+		// Delete ChillZone
+		if (Packet.eventState == 0)
+		{
+			if (TWeakObjectPtr<AIceChillZone>* Found = SpawnedIceChillZones.Find(Packet.objectIndex))
+			{
+				if (AIceChillZone* Zone = Found->Get())
+				{
+					Zone->Destroy();
+				}
+
+				SpawnedIceChillZones.Remove(Packet.objectIndex);
+			}
+		}
 	}
 
 	// 서버 GameLogic.cpp 기준:
@@ -842,11 +940,6 @@ void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 		return;
 	}
 
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
 
 	for (TActorIterator<ALargeDebrisController> It(World); It; ++It)
 	{
@@ -878,60 +971,199 @@ void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 {
 	// EMapEventType::SmallDebris == 2
-	if (Packet.objectType != 2)
-	{
-		return;
-	}
-
-	if (Packet.objectID < 0)
-	{
-		return;
-	}
-
-	if (!SmallDebrisClass)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[DebrisSpawn] SmallDebrisClass is not set."));
-		return;
-	}
-
-	if (TWeakObjectPtr<ASmallDebrisActor>* Found = SpawnedSmallDebris.Find(Packet.objectID))
-	{
-		if (Found->IsValid())
+	if (Packet.objectType == 2) {
+		if (Packet.objectID < 0)
 		{
 			return;
 		}
-	}
 
-	UWorld* World = GetWorld();
-	if (!World)
-	{
+		if (!SmallDebrisClass)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[DebrisSpawn] SmallDebrisClass is not set."));
+			return;
+		}
+
+		if (TWeakObjectPtr<ASmallDebrisActor>* Found = SpawnedSmallDebris.Find(Packet.objectID))
+		{
+			if (Found->IsValid())
+			{
+				return;
+			}
+		}
+
+		UWorld* World = GetWorld();
+		if (!World)
+		{
+			return;
+		}
+
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+		ASmallDebrisActor* NewDebris = World->SpawnActor<ASmallDebrisActor>(
+			SmallDebrisClass,
+			FVector(Packet.x, Packet.y, Packet.z),
+			FRotator::ZeroRotator,
+			Params
+		);
+
+		if (!NewDebris)
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("[DebrisSpawn] Failed to spawn small debris. objectID=%d"),
+				Packet.objectID);
+			return;
+		}
+
+		SpawnedSmallDebris.Add(Packet.objectID, NewDebris);
+
+		UE_LOG(LogTemp, Display,
+			TEXT("[DebrisSpawn] Spawned small debris. objectID=%d pos=(%.1f, %.1f, %.1f)"),
+			Packet.objectID,
+			Packet.x, Packet.y, Packet.z);
+
 		return;
 	}
 
-	FActorSpawnParameters Params;
-	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-	ASmallDebrisActor* NewDebris = World->SpawnActor<ASmallDebrisActor>(
-		SmallDebrisClass,
-		FVector(Packet.x, Packet.y, Packet.z),
-		FRotator::ZeroRotator,
-		Params
-	);
-
-	if (!NewDebris)
+	if (Packet.objectType == 4)
 	{
+		if (Packet.objectID < 0)
+		{
+			return;
+		}
+
+		if (!IceChillZoneClass)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[IceChillZoneSpawn] IceChillZoneClass is not set."));
+			return;
+		}
+
+		if (TWeakObjectPtr<AIceChillZone>* Found = SpawnedIceChillZones.Find(Packet.objectID))
+		{
+			if (Found->IsValid())
+			{
+				return;
+			}
+		}
+
+		UWorld* World = GetWorld();
+		if (!World)
+		{
+			return;
+		}
+
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+		AIceChillZone* NewZone = World->SpawnActor<AIceChillZone>(
+			IceChillZoneClass,
+			FVector(Packet.x, Packet.y, Packet.z),
+			FRotator::ZeroRotator,
+			Params
+		);
+
+		if (!NewZone)
+		{
+			return;
+		}
+
+		NewZone->bApplyFreezeLocally = false;
+		SpawnedIceChillZones.Add(Packet.objectID, NewZone);
+		return;
+	}
+
+	if (Packet.objectType == 5) {
+		if (!BlackHoleClass)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[BlackHoleSpawn] BlackHoleClass is not set."));
+			return;
+		}
+
+		if (TWeakObjectPtr<ABlackHoleActor>* Found = SpawnedBlackHoles.Find(Packet.objectID))
+		{
+			if (Found->IsValid())
+			{
+				return;
+			}
+		}
+
+		UWorld* World = GetWorld();
+		if (!World) { return; }
+
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		ABlackHoleActor* NewBlackHole = World->SpawnActor<ABlackHoleActor>(
+			BlackHoleClass,
+			FVector(Packet.x, Packet.y, Packet.z),
+			FRotator::ZeroRotator,
+			Params
+		);
+
+		if (!NewBlackHole) { return; }
+
+		NewBlackHole->ShowBlackHole();
+
+		// Draw BlackHole Range For Debuging
+		const FVector SpawnLocation(Packet.x, Packet.y, Packet.z);
+
+		DrawDebugSphere(
+			World,
+			SpawnLocation,
+			300.0f,
+			32,
+			FColor::Purple,
+			true,
+			30.0f,
+			0,
+			10.0f
+		);
+
+		DrawDebugString(
+			World,
+			SpawnLocation + FVector(0.f, 0.f, 400.f),
+			FString::Printf(TEXT("BlackHole ID=%d\n%s"), Packet.objectID, *SpawnLocation.ToString()),
+			nullptr,
+			FColor::Yellow,
+			30.0f,
+			true
+		);
+
+		// 서버가 실제 흡입을 담당하게 할 거면 클라이언트 흡입은 끄는 게 좋음
+		//NewBlackHole->DeactivateBlackHole();
+
+		SpawnedBlackHoles.Add(Packet.objectID, NewBlackHole);
+
 		UE_LOG(LogTemp, Warning,
-			TEXT("[DebrisSpawn] Failed to spawn small debris. objectID=%d"),
-			Packet.objectID);
+			TEXT("[BlackHoleSpawn] objectID=%d Location=(%.1f, %.1f, %.1f)"),
+			Packet.objectID,
+			Packet.x, Packet.y, Packet.z);
+
+		return;
+	}
+}
+
+void UNetworkInstance::HandleStatusEffect(const FStatusEffectPacket& Packet)
+{
+	AMyCharacter* Character = FindCharacterByUID(Packet.TargetID);
+	if (!Character)
+	{
 		return;
 	}
 
-	SpawnedSmallDebris.Add(Packet.objectID, NewDebris);
-
-	UE_LOG(LogTemp, Display,
-		TEXT("[DebrisSpawn] Spawned small debris. objectID=%d pos=(%.1f, %.1f, %.1f)"),
-		Packet.objectID,
-		Packet.x, Packet.y, Packet.z);
+	if (Packet.EffectType == 0)
+	{
+		if (Packet.Active != 0)
+		{
+			Character->ApplyFreeze();
+		}
+		else
+		{
+			Character->EndFreeze();
+		}
+	}
 }
 
 void UNetworkInstance::MarkPendingGameplayActivation()
@@ -998,6 +1230,14 @@ AMyCharacter* UNetworkInstance::EnsureRemoteCharacter(const GameData& Data)
 
 	if (!NewCharacter) { return nullptr; }
 
+	if (UCharacterMovementComponent* MoveComp = NewCharacter->GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->DisableMovement();
+		MoveComp->SetComponentTickEnabled(false);
+	}
+
+	NewCharacter->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	NewCharacter->SetNetworkPlayerUID(Data.userUID);
 	RemoteCharacters.Add(Data.userUID, NewCharacter);
 

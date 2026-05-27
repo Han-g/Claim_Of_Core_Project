@@ -163,6 +163,8 @@ enum PacketID {
     PKT_C2S_OBJECT_HIT_REQ = 553,           // Hit attempt on a destructible object (asks server to judge)
     PKT_C2S_ATTACK_HIT_REPORT = 554,
 
+    PKT_C2S_ICE_FLOOR_STAND_REQ = 555,
+
     PKT_S2C_SPAWN_ITEM_BRD = 130,           // Instruct spawning a specific item on the map
     PKT_S2C_DESPAWN_ITEM_BRD = 131,         // Instruct removing a specific item from the map
     PKT_S2C_ITEM_OWNERSHIP_BRD = 132,       // Item ownership acquisition (who picked up what)
@@ -173,6 +175,7 @@ enum PacketID {
     PKT_S2C_MAPEVENT_TRIGGER_BRD = 150,     // Map gimmick trigger notice (ID fixed per spec)
     PKT_S2C_GAME_PHASE_CHANGE_BRD = 151,    // Phase transition (Waiting -> Playing -> Finished, etc.)
     PKT_S2C_GAME_RESULT_BRD = 152,          // End-of-game result: win/loss + kills/deaths
+    PKT_S2C_STATUS_EFFECT_BRD = 153,
 };
 
 struct PacketHeader {
@@ -259,6 +262,27 @@ struct PhaseChangePacket {
     int32_t roundState;   // 0 = Waiting, 1 = Playing, 2 = Finished
     int32_t mapPhase;     // 0 = None, 1 = Phase1, 2 = Phase2, 3 = Phase3
     float gameTime;       // Elapsed game time
+
+    // Space Black Hole Coor
+    float blackHoleX = -1;
+    float blackHoleY = -1;
+    float blackHoleZ = -1;
+};
+
+struct RoundResultPacket {
+    int32_t winnerTeamID;     // -1 = draw, 0 = team1, 1 = team2
+    int32_t endReason;        // 0 = TimeOver, 1 = TeamEliminated, 2 = HostEnded
+    int32_t team1Score;
+    int32_t team2Score;
+};
+
+struct RoundChangePacket {
+    int32_t currentRound;
+    int32_t maxRound;
+    int32_t currentMap;
+    int32_t nextRoundStartSec;
+
+    RoundResultPacket result;
 };
 
 
@@ -308,6 +332,23 @@ struct RoleChangePacket {
 
 
 // ---------------------------------------
+// ------    Map Handle Packets     ------
+// ---------------------------------------
+struct IceFloorStandPacket
+{
+    int32_t floorID;
+    int32_t pieceIndex;
+};
+
+struct StatusEffectPacket
+{
+    int32_t targetID;
+    int32_t effectType; // 0 = Freeze
+    int32_t active;     // 1 = Apply, 0 = End
+    float duration;
+};
+
+// ---------------------------------------
 // ------   Event Handle Packets    ------
 // ---------------------------------------
 
@@ -325,6 +366,7 @@ struct JumpPakcet {
 struct AttackPacket {
     int32_t attackType; // 0=맨손, 1=아이템
 };
+
 
 struct ItemPacket {
     int32_t itemID;

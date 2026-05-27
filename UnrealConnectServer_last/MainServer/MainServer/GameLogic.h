@@ -3,17 +3,21 @@
 #include <map>
 #include <vector>
 #include <cmath>
+#include <unordered_set>
+#include <unordered_map>
+#include <mutex>
 
 class Room;
 struct Session;
 struct AttackHitReportPacket;
+struct RoundChangePacket;
 
 enum ERecCharacterState { Alive, Dead };
 enum ERecRoleType { Striker, Guardian, Manipulator };
 enum ERoundState { Waiting, Playing, Finished };
 
 namespace GameMath {
-	constexpr float PI = 3.141592;
+	constexpr float PI = 3.141592f;
 
 	inline float DegreesToRadians(float degrees)
 	{
@@ -51,6 +55,11 @@ namespace GameMath {
 //};
 
 
+enum class EItemKind {
+	None = 0,
+	Torch = 1,
+};
+
 enum class e_ObjectType {
 	WEAPON_ITEM = 1,
 	DESTROYALBE_OBJECT = 2,
@@ -66,11 +75,14 @@ struct ObjectData {
 struct ItemData {
 	int ObjectID;
 	e_ObjectType ObjectType;
+	EItemKind ItemKind = EItemKind::None;
 	float x, y, z;
 
 	int ownerUID = -1;
 	bool bEquipped = false;
 };
+
+
 
 class ObjectManager {
 public:
@@ -89,7 +101,14 @@ private:
 
 enum class EIcicleState { Idle, Warning, Falling, Broken };
 enum class EIceFloorState { Normal, Cracked, Breaking, Broken };
-enum class EMapEventType { Icicle = 0, Floor = 1, SmallDebris = 2, LargeDebris = 3 };
+enum class EMapEventType { 
+	Icicle = 0, 
+	Floor = 1, 
+	SmallDebris = 2, 
+	LargeDebris = 3,
+	IceChillZone = 4,
+	BlackHole = 5
+};
 
 struct IcicleData {
 	int icicleID = -1;
@@ -100,12 +119,30 @@ struct IcicleData {
 	float damage = 20.f;
 };
 
-struct  IceFloorTileData {
+struct IceFloorTileData {
 	int tileID = -1;
 	EIceFloorState tileState = EIceFloorState::Normal;
 
 	float breakTimer = 0.f;
 	float breakDelay = 1.5f;
+
+	float standingProgress = 0.f;
+	bool bCrackBroadcastedByStanding = false;
+	std::unordered_set<int> standingSessionIDs;
+};
+
+struct IceChillZoneData {
+	int zoneID = -1;
+	float x = 0.f;
+	float y = 0.f;
+	float z = 0.f;
+	float radius = 1500.f;
+	float lifeRemainTime = 10.f;
+	float freezeBuildUpTime = 0.5f;
+	float freezeDuration = 3.f;
+
+	std::unordered_map<int, float> stayTimesBySessionID;
+	std::unordered_set<int> triggeredSessionIDs;
 };
 
 struct DebrisSpawnConfig {
@@ -113,11 +150,23 @@ struct DebrisSpawnConfig {
 	int min_Count, max_Count;
 };
 
+struct Vector3 { float x = 0.f, y = 0.f, z = 0.f; };
+
+struct SpaceBlackHoleData
+{
+	int objectID;
+	Vector3 center;
+	float pullRadius;
+	float minDistance;
+	float pullStrength;
+	float maxPullSpeed;
+	bool bActive;
+};
+
 
 struct CollisionBox {
 	float MinX = 0.f, MinY = 0.f, MaxX = 0.f, MaxY = 0.f;
 };
-struct Vector3 { float x = 0.f, y = 0.f, z = 0.f; };
 
 class GameLogic
 {
@@ -157,8 +206,11 @@ public:
 	// Broadcasts a role change to every room member.
 	void BroadcastRoleChange(int targetID, int newRoleType); 
 
+	void BroadcastRoundResult(const RoundChangePacket& packet);
+
 	void CountdownTick();                                  // Advances the server-side one-second round timer.
 	void HandlePhaseChanged(int newPhase);                 // Triggers and broadcasts a map phase transition.
+	int CalculateWinnerTeam();
 
 private:
 	int roundState = 0;            // 0=Waiting, 1=Playing, 2=Finished
@@ -184,9 +236,12 @@ public:
 	void SetCurrentHP(int sessionID, int newHP);			// Sets the internal HP value after clamping it to the valid range.
 
 	// State System
+	void EndGameRoundByElimination(int eliminatedTeamID);
+	void EndGameRoundWithResult(int winnerTeamID, int endReason);
 	void SetCharacterState(int sessionID, int newState);	// Changes the life state and broadcasts the update.
 	void HandleDeath(int sessionID);						// Marks the character as dead and starts respawn handling.
 	void HandleRespawn(int sessionID);						// Restores HP, revives the player, resets position, and broadcasts the respawn.
+	bool IsTeamEliminated(int teamID) const;
 
 	// Role System
 	void SetRole(int sessionID);							// Assigns a role and broadcasts the change.
@@ -208,11 +263,21 @@ public:
 	void AnimNotify_AttackHit();
 	// Character Movement Update
 	void UpdatePlayerMovement(Session* player, float DeltaTime);
+	void UpdatePlayerVertical(Session* player, float deltaTime, bool bJumpRequested);
 	// Check Collision with Other Player and Objects
 	float GetCollisionRadius(int roleType) const;
 	bool CanOccupyPosition(const Vector3& pos, float radius) const;
 	Vector3 ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const;
+	float GetGroundActorZ() const { return FixedGroundZ + ServerCapsuleHalfHeight; }
+	float GetCurrentServerGravityZ() const
+	{
+		return mapType == 3 ? SpaceServerGravityZ : ServerGravityZ;
+	}
 
+	float GetCurrentServerJumpZVelocity() const
+	{
+		return mapType == 3 ? SpaceServerJumpZVelocity : ServerJumpZVelocity;
+	}
 
 private:
 	int MaxHP = 100;
@@ -223,6 +288,16 @@ private:
 	int RoleType = 0;				// 0 = Striker, 1 = Guardian, 2 = Manipulator
 	float BaseWalkSpeed = 500.f;	// Striker: 1.2x, Guardian: 0.8x, Manipulator: 1.0x
 
+	float ServerGravityZ = -1200.f;
+	float ServerJumpZVelocity = 1000.0f;
+	float SpaceServerGravityZ = -490.0f;      // -980 * 0.5
+	float SpaceServerJumpZVelocity = 1500.0f;
+	float ServerCapsuleHalfHeight = 475.0f;
+	float GroundSnapTolerance = 2.0f;
+
+	float AirMoveAcceleration = 6000.0f;
+	float AirBrakingDeceleration = 800.0f;
+
 	// =============================================
 	// =============	Need  Modify	============
 	// =============	Set Map Size	============
@@ -232,7 +307,6 @@ private:
 	float MapMinY = -10000.0f;
 	float MapMaxY = 10000.0f;
 	float FixedGroundZ = 500.0f;
-
 public:
 	// ------------------------------------
 	// -----------   BaseItem   -----------
@@ -284,6 +358,7 @@ public:
 	void ApplyDamageToChunk(int debrisID, int chunkIndex, float damage); // Applies damage to a chunk and evaluates chain breaks.
 	void DropUnsupportedChunks(int debrisID);               // Drops unsupported chunks and broadcasts the result.
 
+	void StartBuildingMap();
 	void TriggerBuildingPhase2();                           // Broadcasts the resulting event to all room members.
 	void TriggerBuildingPhase3();                           // Broadcasts the resulting event to all room members.
 
@@ -317,13 +392,77 @@ public:
 	void BreakIcicle(int icicleID);                         // Marks the object as Broken and broadcasts the event.
 	void TriggerRandomIcicle();                             // Selects a random idle icicle and starts its warning state.
 
+	void UpdateIceChillSpawner(float deltaTime);
+	void UpdateIceChillZones(float deltaTime);
+	void SpawnIceChillZones();
+	void SpawnIceChillZone();
+	void DespawnIceChillZone(int zoneID);
+
+	void ApplyFreezeToPlayer(int sessionID, float duration);
+	void EndFreezeOnPlayer(int sessionID);
+	void UpdateFrozenPlayers(float deltaTime);
+	void BroadcastFreezeState(int targetUID, bool bFrozen, float duration);
+
+	void HandleIceFloorStanding(int sessionID, int floorID, int pieceIndex);
+
+	void UpdateTorchThaw(float deltaTime);
+	bool IsTorchEquipped(Session* player) const;
+	bool IsInTorchThawRange(Session* torchOwner, Session* frozenTarget) const;
+
+	// Torch Test Function
+	void ApplyDebugFreezeOnceForTorchTest();
+
 private:
+	void UpdateIceFloorStanding(float deltaTime);
+	void BroadcastFloorEvent(int pieceIndex, int eventState);
+
 	int mapType = 0;	// 1 = Building, 2 = Ice Cave
+	int roundCount = 0;
 
 	int phase1Time = 40;
 	int phase2Time = 80;
 	int phase3Time = 30;
 
+	std::mutex iceFloorMutex;
+
+	std::vector<IceChillZoneData> iceChillZones;
+
+	int nextIceChillZoneID = 1;
+	float iceChillSpawnAccumulator = 0.f;
+	float iceChillNextSpawnTime = 5.f;
+
+	float phase2ChillMinSpawnInterval = 6.f;
+	float phase2ChillMaxSpawnInterval = 10.f;
+	float phase3ChillMinSpawnInterval = 3.f;
+	float phase3ChillMaxSpawnInterval = 6.f;
+
+	// Torch Progress Data
+	std::unordered_map<long long, float> torchThawProgressByPair;
+
+	bool bDebugTorchThawTestEnabled = false;
+	bool bDebugFreezeAppliedForTorchTest = false;
+
+	float TorchThawRequiredTime = 1.5f;
+	float TorchThawRadius = 350.f;
+
+public:
+	// ------------------------------------
+	// ---------   Map Control   ----------
+	// ---------  Space Station  ----------
+	// ------------------------------------
+	void UpdateSpaceStation(float deltaTime);
+
+	void StartSpaceStation();
+
+	void EnterSpaceStationPhase2();
+	void EnterSpaceStationPhase3();
+
+	void ApplyBlackHolePull(float deltaTime);
+	void AddSpaceBlackHole(int objectID, const Vector3& center);
+	void BroadcastSpaceBlackHoleSpawn(const SpaceBlackHoleData& blackHole);
+
+
+private:
 	// ------------ Building Map Statement ------------
 	DebrisSpawnConfig debrisPhaseConfigs[3] = {
 		{6.f, 10.f, 1, 1},
@@ -352,4 +491,29 @@ private:
 
 	bool bIcecavePhase2Trigger = false;
 	bool bIcecavePhase3Trigger = false;
+
+	float NormalMoveAcceleration = 16000.0f;
+	float IceMoveAcceleration = 4500.0f;
+
+	float NormalBrakingDeceleration = 18000.0f;
+	float IceBrakingDeceleration = 700.0f;
+
+	float IceMaxSpeedMultiplier = 1.05f;
+	float StopVelocityThreshold = 5.0f;
+
+	// ------------ SpaceStation Map Statement ------------
+	bool bSpaceStationPhase2Trigger = false;
+	bool bSpaceStationPhase3Trigger = false;
+
+	std::vector<SpaceBlackHoleData> SpaceBlackHoles;
+
+	Vector3 SpaceBlackHoleCenter = { 0.f, 0.f, 500.f };
+	Vector3 Outside1_BlackHoleCenter = {  10000.f,      0.f, 500.f };
+	Vector3 Outside2_BlackHoleCenter = { -10000.f,      0.f, 500.f };
+	Vector3 Outside3_BlackHoleCenter = {      0.f, -10000.f, 500.f };
+
+	float SpaceBlackHolePullRadius   = 12000.f;
+	float SpaceBlackHoleMinDistance  =  150.f;
+	float SpaceBlackHolePullStrength = 1600.f;
+	float SpaceBlackHoleMaxPullSpeed = 1400.f;
 };

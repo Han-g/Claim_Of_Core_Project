@@ -4,6 +4,8 @@
 #include "Packet.h"
 #include "session.h"
 
+#include <algorithm>
+
 GameLogic::GameLogic() { ownerRoom = nullptr; }
 
 GameLogic::~GameLogic() { }
@@ -50,8 +52,11 @@ void GameLogic::Update(float deltaTime)
     }
 
     // Update map-specific hazard logic.
-    if (mapType == 1) { UpdateBuildingMap(deltaTime); } 
-    else if (mapType == 2) { UpdateIceCaveMap(deltaTime); }
+    if (mapType == 1)       { UpdateBuildingMap(deltaTime); } 
+    else if (mapType == 2)  { UpdateIceCaveMap(deltaTime); }
+    else if (mapType == 3)  { UpdateSpaceStation(deltaTime); }
+    else if (mapType == 4)  { UpdateIceCaveMap(deltaTime); }
+    else if (mapType == 5)  { UpdateIceCaveMap(deltaTime); }
     else { LOG_ERROR("InValid Map Type!"); return; }
 }
 
@@ -73,18 +78,24 @@ void GameLogic::StartGameRound()
     // Initialize map gimmicks
     if (mapType == 1) {
         LOG_INFO("Building Map Select");
-        // Building map: no special bootstrap is required beyond resetting phase state.
-        debrisSpawnAccumulator = 0.f;
-        nextDebrisSpawnTime = debrisPhaseConfigs[0].min_Interval;
-        bBuildingPhase2Trigger = false;
-        bBuildingPhase3Trigger = false;
+        StartBuildingMap();
     }
     else if (mapType == 2) {
         LOG_INFO("IceCave Map Select");
         StartIceMap();
     }
+    else if (mapType == 3) {
+        LOG_INFO("Space Map Select");
+        StartSpaceStation();
+    }
+    else if (mapType == 4) {
+        LOG_INFO("SkyIsland Map Select");
+    }
+    else if (mapType == 5) {
+        LOG_INFO("Jungle Map Select");
+    }
     else {
-        LOG_ERROR("InValid Map Select");
+        LOG_ERROR("InValid Map Selection");
         return;
     }
 
@@ -92,20 +103,40 @@ void GameLogic::StartGameRound()
     pkt.roundState = 1;
     pkt.mapPhase = 1;
     pkt.gameTime = (float)currentGameTime;
+    if (mapType == 3) {
+        pkt.blackHoleX = SpaceBlackHoleCenter.x;
+        pkt.blackHoleY = SpaceBlackHoleCenter.y;
+        pkt.blackHoleZ = SpaceBlackHoleCenter.z;
+    }
 
     ownerRoom->BroadcastToMembers(PKT_S2C_GAME_PHASE_CHANGE_BRD, (char*)&pkt, sizeof(pkt));
 }
 
 void GameLogic::EndGameRound()
 {
+    if (roundState == ERoundState::Finished) { return; }
+
     roundState = ERoundState::Finished;
 
-    PhaseChangePacket pkt;
-    pkt.roundState = 2;
-    pkt.mapPhase = currentMapPhase;
-    pkt.gameTime = 0.f;
+    PhaseChangePacket phasePkt;
+    phasePkt.roundState = 2;
+    phasePkt.mapPhase = currentMapPhase;
+    phasePkt.gameTime = 0.f;
 
-    ownerRoom->BroadcastToMembers(PKT_S2C_GAME_PHASE_CHANGE_BRD, (char*)&pkt, sizeof(pkt));
+    ownerRoom->BroadcastToMembers(PKT_S2C_GAME_PHASE_CHANGE_BRD,
+        reinterpret_cast<const char*>(&phasePkt), sizeof(phasePkt));
+
+    RoundResultPacket resultPkt{};
+    resultPkt.winnerTeamID = CalculateWinnerTeam();
+    resultPkt.endReason = 0; // TimeOver µî
+
+    RoundChangePacket finishPkt{};
+    finishPkt.currentMap = mapType;
+    finishPkt.currentRound = roundCount;
+    finishPkt.nextRoundStartSec = 5;
+    finishPkt.result = resultPkt;
+
+    BroadcastRoundResult(finishPkt);
 }
 
 void GameLogic::CountdownTick()
@@ -130,7 +161,10 @@ void GameLogic::CountdownTick()
             HandlePhaseChanged(2);
         }
 
-        if (currentGameTime <= 0) { EndGameRound(); }
+        if (currentGameTime <= 0)
+        {
+            EndGameRoundWithResult(CalculateWinnerTeam(), 0); // 0 = TimeOver
+        }
     }
 }
 
@@ -141,7 +175,44 @@ void GameLogic::HandlePhaseChanged(int newPhase)
     pkt.mapPhase = newPhase;
     pkt.gameTime = (float)currentGameTime;
 
+    if (mapType == 3) {
+        pkt.blackHoleX = SpaceBlackHoleCenter.x;
+        pkt.blackHoleY = SpaceBlackHoleCenter.y;
+        pkt.blackHoleZ = SpaceBlackHoleCenter.z;
+    }
+
     ownerRoom->BroadcastToMembers(PKT_S2C_GAME_PHASE_CHANGE_BRD, (const char*)&pkt, sizeof(pkt));
+}
+
+int GameLogic::CalculateWinnerTeam()
+{
+    int team0AliveCount = 0;
+    int team1AliveCount = 0;
+
+    for (const auto& player : players)
+    {
+        Session* session = player.second;
+
+        if (session == nullptr) {  continue;  }
+
+        const GameData& data = session->gameDatas;
+
+        if (!data.isConnected || data.characterState != Alive) { continue; }
+
+        if (session->teamID == 0)
+        {
+            ++team0AliveCount;
+        }
+        else if (session->teamID == 1)
+        {
+            ++team1AliveCount;
+        }
+    }
+
+    if (team0AliveCount > team1AliveCount) { return 0; }
+    if (team1AliveCount > team0AliveCount) { return 1; }
+
+    return -1; // draw
 }
 
 
@@ -212,6 +283,17 @@ void GameLogic::BroadcastRoleChange(int targetID, int newRoleType)
     pkt.newRoleType = newRoleType;
 
     ownerRoom->BroadcastToMembers(PKT_S2C_CHARACTER_SELECT_BRD, (const char*)&pkt, sizeof(pkt));
+}
+
+void GameLogic::BroadcastRoundResult(const RoundChangePacket& packet)
+{
+    if (!ownerRoom) { return; }
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_GAME_RESULT_BRD,
+        reinterpret_cast<const char*>(&packet),
+        sizeof(packet)
+    );
 }
 
 
@@ -304,6 +386,45 @@ void GameLogic::SetCurrentHP(int sessionID, int newHP)
     }*/
 }
 
+void GameLogic::EndGameRoundByElimination(int eliminatedTeamID)
+{
+    if (roundState == ERoundState::Finished) { return; }
+
+    const int winnerTeamID = (eliminatedTeamID == 0) ? 1 : 0;
+
+    EndGameRoundWithResult(winnerTeamID, 1); // 1 = TeamEliminated
+}
+
+void GameLogic::EndGameRoundWithResult(int winnerTeamID, int endReason)
+{
+    if (roundState == ERoundState::Finished) { return; }
+
+    roundState = ERoundState::Finished;
+
+    PhaseChangePacket phasePkt{};
+    phasePkt.roundState = Finished;
+    phasePkt.mapPhase = currentMapPhase;
+    phasePkt.gameTime = 0.f;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_GAME_PHASE_CHANGE_BRD,
+        reinterpret_cast<const char*>(&phasePkt),
+        sizeof(phasePkt)
+    );
+
+    RoundChangePacket finishPkt{};
+    finishPkt.currentMap = mapType;
+    finishPkt.currentRound = roundCount;
+    finishPkt.nextRoundStartSec = 5;
+
+    finishPkt.result.winnerTeamID = winnerTeamID;
+    finishPkt.result.endReason = endReason;
+    finishPkt.result.team1Score = 0;
+    finishPkt.result.team2Score = 0;
+
+    BroadcastRoundResult(finishPkt);
+}
+
 void GameLogic::SetCharacterState(int sessionID, int newState)
 {
     auto it = players.find(sessionID);
@@ -323,7 +444,20 @@ void GameLogic::SetCharacterState(int sessionID, int newState)
 
 void GameLogic::HandleDeath(int sessionID)
 {
+    auto it = players.find(sessionID);
+    if (it == players.end()) { return; }
+
+    Session* deadSession = it->second;
+    if (deadSession == nullptr) { return; }
+
     SetCharacterState(sessionID, 1);  // Dead
+
+    const int deadTeamID = deadSession->teamID;
+
+    if (IsTeamEliminated(deadTeamID))
+    {
+        EndGameRoundByElimination(deadTeamID);
+    }
 }
 
 void GameLogic::HandleRespawn(int sessionID)
@@ -358,8 +492,32 @@ void GameLogic::HandleRespawn(int sessionID)
     gd.y = spawnPoint.y;
     gd.z = spawnPoint.z;
 
+    targetSession->HorizontalVelocityX = 0.0f;
+    targetSession->HorizontalVelocityY = 0.0f;
+    targetSession->bOnIce = false;
+    targetSession->IceContactRemainTime = 0.0f;
+
     // PKT_S2C_RESPAWN_BRD: target session, position, and HP
     BroadcastRespawn(targetSession->playerUID, gd.x, gd.y, gd.z, gd.currentHP);
+}
+
+bool GameLogic::IsTeamEliminated(int teamID) const
+{
+    bool hasTeamMember = false;
+
+    for (const auto& pair : players)
+    {
+        Session* session = pair.second;
+        if (session == nullptr ||
+            !session->gameDatas.isConnected ||
+            session->teamID != teamID) { continue; }
+
+        hasTeamMember = true;
+
+        if (session->gameDatas.characterState == Alive) { return false; }
+    }
+
+    return hasTeamMember;
 }
 
 void GameLogic::SetRole(int sessionID)
@@ -528,19 +686,272 @@ void GameLogic::DropCurrentItem(int sessionID, int itemID)
         itemID);
 }
 
+auto MoveVelocityToward = [](float& vx, float& vy, float tx, float ty, float maxDelta)
+    {
+        float dx = tx - vx;
+        float dy = ty - vy;
+        float len = GameMath::Length2D(dx, dy);
+
+        if (len <= maxDelta || len <= 0.0001f)
+        {
+            vx = tx;
+            vy = ty;
+            return;
+        }
+
+        vx += (dx / len) * maxDelta;
+        vy += (dy / len) * maxDelta;
+    };
+
+void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)
+{
+    if (player == nullptr) { return; }
+
+    if (player->bFrozen)
+    {
+        player->HorizontalVelocityX = 0.0f;
+        player->HorizontalVelocityY = 0.0f;
+        player->gameDatas.animationNum = 0;
+        return;
+    }
+
+    // Movement Update data
+    GameData& gd = player->gameDatas;
+
+    if (!gd.isConnected) { return; }            // If Client Connection is disconnected
+    if (gd.characterState != 0) { return; }     // If Character is Dead state
+
+    // Synchronizate Character Coordination datas
+    MoveIntent input;
+    bool bJumpRequested = false;
+    bool bServerOnIce = false;
+
+    {
+        std::lock_guard<std::mutex> lock(player->MoveIntentLock);
+
+        input = player->LastMoveIntent;
+        bJumpRequested = player->LastMoveIntent.bJumpRequested;
+        player->LastMoveIntent.bJumpRequested = false;
+
+        if (player->IceContactRemainTime > 0.0f)
+        {
+            player->IceContactRemainTime -= deltaTime;
+            if (player->IceContactRemainTime < 0.0f)
+            {
+                player->IceContactRemainTime = 0.0f;
+                player->bOnIce = false;
+            }
+        }
+
+        player->bOnIce = player->IceContactRemainTime > 0.0f;
+        bServerOnIce = player->bOnIce;
+    }
+
+    if (mapType == 3)
+    {
+        UpdatePlayerVertical(player, deltaTime, bJumpRequested);
+    }
+    else if (!input.bHasClientPosition)
+    {
+        UpdatePlayerVertical(player, deltaTime, bJumpRequested);
+    }
+
+
+    // Calculate Forward and Side Vector On the basis of Client Sight
+    float moveX = 0.0f;
+    float moveY = 0.0f;
+
+    if (input.bHasInput)
+    {
+        const float yawRad = GameMath::DegreesToRadians(input.CameraDir);
+
+        const float forwardX = std::cos(yawRad);
+        const float forwardY = std::sin(yawRad);
+
+        const float rightX = -std::sin(yawRad);
+        const float rightY = std::cos(yawRad);
+
+        moveX = forwardX * input.Forward + rightX * input.Right;
+        moveY = forwardY * input.Forward + rightY * input.Right;
+
+        GameMath::Normalize2D(moveX, moveY);
+    }
+
+
+    const bool bInAir = !player->isGrounded;
+
+    const float targetVelX = moveX * gd.baseWalkSpeed;
+    const float targetVelY = moveY * gd.baseWalkSpeed;
+
+    /*const float acceleration = input.bHasInput
+        ? (bServerOnIce ? IceMoveAcceleration : NormalMoveAcceleration)
+        : (bServerOnIce ? IceBrakingDeceleration : NormalBrakingDeceleration);*/
+    const float acceleration = bInAir
+        ? (input.bHasInput ? AirMoveAcceleration : AirBrakingDeceleration)
+        : (input.bHasInput
+            ? (bServerOnIce ? IceMoveAcceleration : NormalMoveAcceleration)
+            : (bServerOnIce ? IceBrakingDeceleration : NormalBrakingDeceleration));
+
+
+    MoveVelocityToward(
+        player->HorizontalVelocityX,
+        player->HorizontalVelocityY,
+        targetVelX,
+        targetVelY,
+        acceleration * deltaTime
+    );
+
+    const float maxSpeed = gd.baseWalkSpeed * (bServerOnIce ? IceMaxSpeedMultiplier : 1.0f);
+    const float currentSpeed = GameMath::Length2D(player->HorizontalVelocityX, player->HorizontalVelocityY);
+
+    if (currentSpeed > maxSpeed)
+    {
+        const float scale = maxSpeed / currentSpeed;
+        player->HorizontalVelocityX *= scale;
+        player->HorizontalVelocityY *= scale;
+    }
+
+    const float animationSpeed =
+        GameMath::Length2D(player->HorizontalVelocityX, player->HorizontalVelocityY);
+
+    Vector3 currentPos;
+    currentPos.x = gd.x;
+    currentPos.y = gd.y;
+    currentPos.z = gd.z;
+
+    Vector3 desiredPos;
+    desiredPos.x = currentPos.x + player->HorizontalVelocityX * deltaTime;
+    desiredPos.y = currentPos.y + player->HorizontalVelocityY * deltaTime;
+    desiredPos.z = currentPos.z;
+
+    const float collisionRadius = GetCollisionRadius(gd.roleType);
+    const Vector3 resolvedPos = ResolveMovementWithCollision(currentPos, desiredPos, collisionRadius);
+
+    gd.x = resolvedPos.x;
+    gd.y = resolvedPos.y;
+    gd.z = resolvedPos.z;
+    //gd.rotate = input.CameraDir;
+
+    // Check Z axis for Reflect game z
+    if (input.bHasClientPosition)
+    {
+        const float MaxZCorrectionPerTick = 300.0f;
+        const float ClientZ = input.ClientZ;
+        const float ZDelta = ClientZ - gd.z;
+
+        if (std::abs(ZDelta) <= MaxZCorrectionPerTick)
+        {
+            gd.z = ClientZ;
+        }
+        else
+        {
+            gd.z += (ZDelta > 0.0f ? MaxZCorrectionPerTick : -MaxZCorrectionPerTick);
+        }
+
+        const bool bClientGrounded = ClientZ <= GetGroundActorZ() + GroundSnapTolerance + 5.0f;
+
+        player->isGrounded = bClientGrounded;
+
+        if (bClientGrounded)
+        {
+            player->VerticalVelocity = 0.0f;
+            player->JumpCount = 0;
+        }
+    }
+
+    gd.animationNum = animationSpeed > StopVelocityThreshold ? 1 : 0;
+}
+
+void GameLogic::UpdatePlayerVertical(Session* player, float deltaTime, bool bJumpRequested)
+{
+    if (player == nullptr) { return; }
+
+    GameData& gd = player->gameDatas;
+
+    const float GroundActorZ = FixedGroundZ + ServerCapsuleHalfHeight;
+
+    if (!player->isGrounded && gd.z <= GroundActorZ + GroundSnapTolerance)
+    {
+        gd.z = GroundActorZ;
+        player->isGrounded = true;
+        player->VerticalVelocity = 0.0f;
+        player->JumpCount = 0;
+    }
+
+    if (bJumpRequested && player->isGrounded)
+    {
+        player->VerticalVelocity = GetCurrentServerJumpZVelocity();
+        player->isGrounded = false;
+        player->JumpCount = 1;
+    }
+
+    if (!player->isGrounded)
+    {
+        player->VerticalVelocity += GetCurrentServerGravityZ() * deltaTime;
+        gd.z += player->VerticalVelocity * deltaTime;
+
+        if (gd.z <= GroundActorZ)
+        {
+            gd.z = GroundActorZ;
+            player->VerticalVelocity = 0.0f;
+            player->isGrounded = true;
+            player->JumpCount = 0;
+        }
+    }
+}
+
+float GameLogic::GetCollisionRadius(int roleType) const
+{
+    switch (roleType)
+    {
+    case 0: return 45.0f; // Striker
+    case 1: return 55.0f; // Guardian
+    case 2: return 45.0f; // Manipulator
+    default: return 50.0f;
+    }
+}
+
+bool GameLogic::CanOccupyPosition(const Vector3& pos, float radius) const
+{
+    return false;
+}
+
+Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const
+{
+    // Temporary Treat
+    return desiredPos;
+}
+
+
+
 void GameLogic::HandleAttackInput(int sessionID)
 {
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
 
     Session* attackerSession = it->second;
-    if (!attackerSession) { return; }
+    if (!attackerSession || attackerSession->bFrozen) { return; }
 
     GameData& gd = attackerSession->gameDatas;
 
     if (!gd.isConnected || gd.characterState != 0 || attackerSession->playerUID <= 0) { return; }
 
-    const int attackType = 0;
+    int attackType = 0;
+
+    ItemData* EquippedItem = nullptr;
+    if (gd.equippedItemID != -1 && ownerRoom)
+    {
+        EquippedItem = ownerRoom->GetItemData(gd.equippedItemID);
+    }
+
+    if (EquippedItem && EquippedItem->ItemKind == EItemKind::Torch)
+    {
+        attackType = 2; // Torch
+    }
+    else if (gd.equippedItemID != -1)
+    {
+        attackType = 1; // Normal item
+    }
 
     {
         std::lock_guard<std::mutex> lock(attackerSession->AttackStateLock);
@@ -554,7 +965,7 @@ void GameLogic::HandleAttackInput(int sessionID)
         }
 
         attackerSession->isAttack = true;
-        attackerSession->attackRemainTime = 2.f;
+        attackerSession->attackRemainTime = 1.8f;
         attackerSession->attackSeq++;
         attackerSession->hasAttackHit = false;
     }
@@ -683,19 +1094,19 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
     GameData& targetData = targetSession->gameDatas;
     if (!targetData.isConnected || targetData.characterState != 0) return;
 
-    float attackRange = 400.f;
+    float attackRange = 1200.f;
 
     switch (attackerData.roleType)
     {
     case Guardian:
-        attackRange = 500.f;
+        attackRange = 1500.f;
         break;
     case Striker:
     case Manipulator:
-        attackRange = 400.f;
+        attackRange = 1200.f;
         break;
     default:
-        attackRange = 400.f;
+        attackRange = 1200.f;
         break;
     }
 
@@ -762,6 +1173,25 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
         attackRange,
         damageAmount);
 
+    ItemData* EquippedItem = nullptr;
+    if (attackerData.equippedItemID != -1 && ownerRoom)
+    {
+        EquippedItem = ownerRoom->GetItemData(attackerData.equippedItemID);
+    }
+
+    const bool bUsingTorch =
+        EquippedItem &&
+        EquippedItem->ObjectType == e_ObjectType::WEAPON_ITEM &&
+        EquippedItem->ItemKind == EItemKind::Torch;
+
+    if (bUsingTorch)
+    {
+        if (targetSession->bFrozen)
+        {
+            EndFreezeOnPlayer(targetSession->sessionID);
+        }
+    }
+
     ApplyDamage(targetSession->sessionID, damageAmount);
 }
 
@@ -782,6 +1212,11 @@ void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t 
         sizeof(pkt));
 }
 
+
+// ------------------------------------
+// ---------   Map Control   ----------
+// ---------   Building Map  ----------
+// ------------------------------------
 void GameLogic::UpdateBuildingMap(float deltaTime)
 {
     // Advance the small debris spawn timer once the phase is active.
@@ -860,25 +1295,19 @@ void GameLogic::TriggerBuildingPhase3()
         PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
 }
 
-void GameLogic::StartIceMap()
+void GameLogic::StartBuildingMap()
 {
-    // Counts must match the objects placed in the client map.
-    int icicleCount = 20;    // matches client's IcicleActors array size
-    int tileCount = 30;      // matches client's FloorTiles array size
-
-    icicles.resize(icicleCount);
-    for (int i = 0; i < icicleCount; ++i) {
-        icicles[i].icicleID = i;
-        icicles[i].icicleState = EIcicleState::Idle;
-    }
-
-    floorTiles.resize(tileCount);
-    for (int i = 0; i < tileCount; ++i) {
-        floorTiles[i].tileID = i;
-        floorTiles[i].tileState = EIceFloorState::Normal;
-    }
+    // Building map: no special bootstrap is required beyond resetting phase state.
+    debrisSpawnAccumulator = 0.f;
+    nextDebrisSpawnTime = debrisPhaseConfigs[0].min_Interval;
+    bBuildingPhase2Trigger = false;
+    bBuildingPhase3Trigger = false;
 }
 
+// ------------------------------------
+// ---------   Map Control   ----------
+// ---------    Ice Cave     ----------
+// ------------------------------------
 void GameLogic::UpdateIceCaveMap(float deltaTime)
 {
     // Enter phase 2 and start periodic icicle spawning.
@@ -893,12 +1322,27 @@ void GameLogic::UpdateIceCaveMap(float deltaTime)
         EnterIcePhase3();
     }
 
+    if (roundState == ERoundState::Playing && currentMapPhase >= 1)
+    {
+        UpdateIceChillSpawner(deltaTime);
+        UpdateIceChillZones(deltaTime);
+    }
+
+    // Torch Test 
+    if (bDebugTorchThawTestEnabled)
+    {
+        ApplyDebugFreezeOnceForTorchTest();
+        UpdateTorchThaw(deltaTime);
+    }
+
+    UpdateFrozenPlayers(deltaTime);
+
     // Advance the icicle spawn timer after phase 2 begins.
     if (bIcecavePhase2Trigger) {
         icicleSpawnAccumulator += deltaTime;
         if (icicleSpawnAccumulator >= icicleSpawnInterval) {
             icicleSpawnAccumulator = 0.f;
-            TriggerRandomIcicle();
+            //TriggerRandomIcicle();
         }
     }
 
@@ -907,7 +1351,7 @@ void GameLogic::UpdateIceCaveMap(float deltaTime)
         floorBreakAccumulator += deltaTime;
         if (floorBreakAccumulator >= floorBreakInterval) {
             floorBreakAccumulator = 0.f;
-            TriggerRandomFloorTile();
+            //TriggerRandomFloorTile();
         }
     }
 
@@ -930,7 +1374,29 @@ void GameLogic::UpdateIceCaveMap(float deltaTime)
             }
         }
     }
+
+    //UpdateIceFloorStanding(deltaTime);
 }
+
+void GameLogic::StartIceMap()
+{
+    // Counts must match the objects placed in the client map.
+    int icicleCount = 20;    // matches client's IcicleActors array size
+    int tileCount = 20;      // matches client's FloorTiles array size
+
+    icicles.resize(icicleCount);
+    for (int i = 0; i < icicleCount; ++i) {
+        icicles[i].icicleID = i;
+        icicles[i].icicleState = EIcicleState::Idle;
+    }
+
+    floorTiles.resize(tileCount);
+    for (int i = 0; i < tileCount; ++i) {
+        floorTiles[i].tileID = i;
+        floorTiles[i].tileState = EIceFloorState::Normal;
+    }
+}
+
 
 void GameLogic::EnterIcePhase2()
 {
@@ -943,75 +1409,6 @@ void GameLogic::EnterIcePhase3()
     icicleSpawnInterval = 1.5f;  // matches client IcicleSpawnIntervalPhase3
     floorBreakInterval = 4.0f;   // matches client FloorBreakIntervalPhase3
     floorBreakAccumulator = 0.f;
-}
-
-void GameLogic::TriggerRandomIcicle()
-{
-    // Only idle icicles are eligible for a new warning cycle.
-    std::vector<int> candidates;
-    for (auto& ic : icicles) {
-        if (ic.icicleState == EIcicleState::Idle) {
-            candidates.push_back(ic.icicleID);
-        }
-    }
-    if (candidates.empty()) { return; }
-
-    int chosen = candidates[rand() % candidates.size()];
-    StartIcicleWarning(chosen);
-}
-
-void GameLogic::StartIcicleWarning(int icicleID)
-{
-    if (icicleID < 0 || icicleID >= (int)icicles.size()) { return; }
-    IcicleData& ic = icicles[icicleID];
-    ic.icicleState = EIcicleState::Warning;
-    ic.warningTimer = 0.f;
-
-    MapEventPacket pkt;
-    pkt.eventType = (int32_t)EMapEventType::Icicle;
-    pkt.objectIndex = icicleID;
-    pkt.eventState = 1;  // Warning
-    ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
-}
-
-void GameLogic::StartIcicleFalling(int icicleID)
-{
-    if (icicleID < 0 || icicleID >= (int)icicles.size()) { return; }
-    IcicleData& ic = icicles[icicleID];
-    ic.icicleState = EIcicleState::Falling;
-
-    MapEventPacket pkt;
-    pkt.eventType = (int32_t)EMapEventType::Icicle;
-    pkt.objectIndex = icicleID;
-    pkt.eventState = 2;  // Falling
-    ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
-}
-
-void GameLogic::BreakIcicle(int icicleID)
-{
-    if (icicleID < 0 || icicleID >= (int)icicles.size()) { return; }
-    IcicleData& ic = icicles[icicleID];
-    ic.icicleState = EIcicleState::Broken;
-
-    MapEventPacket pkt;
-    pkt.eventType = (int32_t)EMapEventType::Icicle;
-    pkt.objectIndex = icicleID;
-    pkt.eventState = 3;  // Broken
-    ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
-}
-
-void GameLogic::TriggerRandomFloorTile()
-{
-    std::vector<int> candidates;
-    for (auto& tile : floorTiles) {
-        if (tile.tileState == EIceFloorState::Normal) {
-            candidates.push_back(tile.tileID);
-        }
-    }
-    if (candidates.empty()) { return; }
-
-    int chosen = candidates[rand() % candidates.size()];
-    SetFloorCracked(chosen);
 }
 
 void GameLogic::SetFloorCracked(int tileID)
@@ -1057,101 +1454,719 @@ void GameLogic::BreakFloor(int tileID)
     ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
 }
 
-void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)
+
+void GameLogic::TriggerRandomFloorTile()
 {
-    if (player == nullptr) { return; }
-
-    // Movement Update data
-    GameData& gd = player->gameDatas;
-
-    if (!gd.isConnected) { return; }            // If Client Connection is disconnected
-    if (gd.characterState != 0) { return; }     // If Character is Dead state
-
-    // Synchronizate Character Coordination datas
-    MoveIntent input;
-    {
-        std::lock_guard<std::mutex> lock(player->MoveIntentLock);
-        input = player->LastMoveIntent;
+    std::vector<int> candidates;
+    for (auto& tile : floorTiles) {
+        if (tile.tileState == EIceFloorState::Normal) {
+            candidates.push_back(tile.tileID);
+        }
     }
+    if (candidates.empty()) { return; }
 
-    if (!input.bHasInput) {
-        gd.animationNum = 0; // Idle animation 
+    int chosen = candidates[rand() % candidates.size()];
+    SetFloorCracked(chosen);
+}
+
+void GameLogic::StartIcicleWarning(int icicleID)
+{
+    if (icicleID < 0 || icicleID >= (int)icicles.size()) { return; }
+    IcicleData& ic = icicles[icicleID];
+    ic.icicleState = EIcicleState::Warning;
+    ic.warningTimer = 0.f;
+
+    MapEventPacket pkt;
+    pkt.eventType = (int32_t)EMapEventType::Icicle;
+    pkt.objectIndex = icicleID;
+    pkt.eventState = 1;  // Warning
+    ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
+}
+
+void GameLogic::StartIcicleFalling(int icicleID)
+{
+    if (icicleID < 0 || icicleID >= (int)icicles.size()) { return; }
+    IcicleData& ic = icicles[icicleID];
+    ic.icicleState = EIcicleState::Falling;
+
+    MapEventPacket pkt;
+    pkt.eventType = (int32_t)EMapEventType::Icicle;
+    pkt.objectIndex = icicleID;
+    pkt.eventState = 2;  // Falling
+    ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
+}
+
+void GameLogic::BreakIcicle(int icicleID)
+{
+    if (icicleID < 0 || icicleID >= (int)icicles.size()) { return; }
+    IcicleData& ic = icicles[icicleID];
+    ic.icicleState = EIcicleState::Broken;
+
+    MapEventPacket pkt;
+    pkt.eventType = (int32_t)EMapEventType::Icicle;
+    pkt.objectIndex = icicleID;
+    pkt.eventState = 3;  // Broken
+    ownerRoom->BroadcastToMembers(PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
+}
+
+void GameLogic::TriggerRandomIcicle()
+{
+    // Only idle icicles are eligible for a new warning cycle.
+    std::vector<int> candidates;
+    for (auto& ic : icicles) {
+        if (ic.icicleState == EIcicleState::Idle) {
+            candidates.push_back(ic.icicleID);
+        }
+    }
+    if (candidates.empty()) { return; }
+
+    int chosen = candidates[rand() % candidates.size()];
+    StartIcicleWarning(chosen);
+}
+
+void GameLogic::UpdateIceChillSpawner(float deltaTime)
+{
+    iceChillSpawnAccumulator += deltaTime;
+
+    if (iceChillSpawnAccumulator < iceChillNextSpawnTime)
+    {
         return;
     }
 
-    // Calculate Forward and Side Vector On the basis of Client Sight
-    const float yawRad = GameMath::DegreesToRadians(input.CameraDir);
+    iceChillSpawnAccumulator = 0.f;
+    SpawnIceChillZones();
 
-    const float forwardX = std::cos(yawRad);
-    const float forwardY = std::sin(yawRad);
+    const float minInterval = currentMapPhase >= 3 ? phase3ChillMinSpawnInterval : phase2ChillMinSpawnInterval;
+    const float maxInterval = currentMapPhase >= 3 ? phase3ChillMaxSpawnInterval : phase2ChillMaxSpawnInterval;
 
-    const float rightX = -std::sin(yawRad);
-    const float rightY = std::cos(yawRad);
+    iceChillNextSpawnTime = minInterval + static_cast<float>(rand()) / RAND_MAX * (maxInterval - minInterval);
+}
 
-    float moveX = forwardX * input.Forward + rightX * input.Right;
-    float moveY = forwardY * input.Forward + rightY * input.Right;
-
-    GameMath::Normalize2D(moveX, moveY);
-
-    const float moveDistance = gd.baseWalkSpeed * deltaTime;
-
-    Vector3 currentPos;
-    currentPos.x = gd.x;
-    currentPos.y = gd.y;
-    currentPos.z = gd.z;
-
-    Vector3 desiredPos;
-    desiredPos.x = currentPos.x + moveX * moveDistance;
-    desiredPos.y = currentPos.y + moveY * moveDistance;
-    desiredPos.z = FixedGroundZ;
-
-    const float collisionRadius = GetCollisionRadius(gd.roleType);
-    const Vector3 resolvedPos = ResolveMovementWithCollision(currentPos, desiredPos, collisionRadius);
-
-    gd.x = resolvedPos.x;
-    gd.y = resolvedPos.y;
-    gd.z = resolvedPos.z;
-    //gd.rotate = input.CameraDir;
-
-    if (std::abs(moveX) > 0.001f || std::abs(moveY) > 0.001f)
+void GameLogic::UpdateIceChillZones(float deltaTime)
+{
+    for (auto zoneIt = iceChillZones.begin(); zoneIt != iceChillZones.end(); )
     {
-        LOG_INFO("[MoveStep] session=%d uid=%d hasInput=%d f=%.2f r=%.2f yaw=%.2f speed=%.1f prev=(%.1f, %.1f, %.1f) new=(%.1f, %.1f, %.1f)",
+        IceChillZoneData& zone = *zoneIt;
+
+        zone.lifeRemainTime -= deltaTime;
+        if (zone.lifeRemainTime <= 0.f)
+        {
+            DespawnIceChillZone(zone.zoneID);
+            zoneIt = iceChillZones.erase(zoneIt);
+            continue;
+        }
+
+        for (const auto& pair : players)
+        {
+            Session* player = pair.second;
+            if (!player) { continue; }
+
+            GameData& gd = player->gameDatas;
+            if (!gd.isConnected || gd.characterState != 0) { continue; }
+
+            const float dx = gd.x - zone.x;
+            const float dy = gd.y - zone.y;
+            const float dist = GameMath::Length2D(dx, dy);
+
+            const bool bInside = dist <= zone.radius;
+            if (!bInside)
+            {
+                zone.stayTimesBySessionID.erase(player->sessionID);
+                zone.triggeredSessionIDs.erase(player->sessionID);
+                continue;
+            }
+
+            if (zone.triggeredSessionIDs.find(player->sessionID) != zone.triggeredSessionIDs.end())
+            {
+                continue;
+            }
+
+            float& stayTime = zone.stayTimesBySessionID[player->sessionID];
+            stayTime += deltaTime;
+
+            LOG_INFO("[IceChill] Inside zoneID=%d session=%d uid=%d dist=%.1f stay=%.2f/%.2f player=(%.1f, %.1f) zone=(%.1f, %.1f)",
+                zone.zoneID,
+                player->sessionID,
+                player->playerUID,
+                dist,
+                stayTime,
+                zone.freezeBuildUpTime,
+                gd.x,
+                gd.y,
+                zone.x,
+                zone.y);
+
+            if (stayTime >= zone.freezeBuildUpTime)
+            {
+                ApplyFreezeToPlayer(player->sessionID, zone.freezeDuration);
+                zone.stayTimesBySessionID.erase(player->sessionID);
+                zone.triggeredSessionIDs.insert(player->sessionID);
+            }
+        }
+
+        ++zoneIt;
+    }
+}
+
+void GameLogic::SpawnIceChillZones()
+{
+    const int spawnCount = currentMapPhase >= 3 ? 2 : 1;
+
+    for (int i = 0; i < spawnCount; ++i)
+    {
+        SpawnIceChillZone();
+    }
+}
+
+void GameLogic::SpawnIceChillZone()
+{
+    IceChillZoneData zone{};
+    zone.zoneID = nextIceChillZoneID++;
+
+    zone.x = MapMinX + static_cast<float>(rand()) / RAND_MAX * (MapMaxX - MapMinX);
+    zone.y = MapMinY + static_cast<float>(rand()) / RAND_MAX * (MapMaxY - MapMinY);
+    zone.z = FixedGroundZ;
+
+    iceChillZones.push_back(zone);
+
+    if (!ownerRoom)
+    {
+        return;
+    }
+
+    LOG_INFO("[IceChill] Spawn zoneID=%d pos=(%.1f, %.1f, %.1f) radius=%.1f build=%.1f duration=%.1f",
+        zone.zoneID, zone.x, zone.y, zone.z,
+        zone.radius, zone.freezeBuildUpTime, zone.freezeDuration);
+
+    // Broadcast Object Spawn
+    SpawnObjectPacket pkt{};
+    pkt.objectType = static_cast<int32_t>(EMapEventType::IceChillZone);
+    pkt.objectID = zone.zoneID;
+    pkt.x = zone.x;
+    pkt.y = zone.y;
+    pkt.z = zone.z;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_SPAWN_OBJECT_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+void GameLogic::DespawnIceChillZone(int zoneID)
+{
+    if (!ownerRoom)
+    {
+        return;
+    }
+
+    MapEventPacket pkt{};
+    pkt.eventType = static_cast<int32_t>(EMapEventType::IceChillZone);
+    pkt.objectIndex = zoneID;
+    pkt.eventState = 0; // 0 = Despawn
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_MAPEVENT_TRIGGER_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+void GameLogic::ApplyFreezeToPlayer(int sessionID, float duration)
+{
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second) { return; }
+
+    Session* target = it->second;
+    GameData& gd = target->gameDatas;
+
+    if (!gd.isConnected || gd.characterState != 0) { return; }
+    if (target->bFrozen) { return; }
+
+    LOG_INFO("[Freeze] Apply session=%d uid=%d duration=%.2f",
+        sessionID, target->playerUID, duration);
+
+    target->bFrozen = true;
+    target->FreezeRemainTime = duration;
+    target->HorizontalVelocityX = 0.f;
+    target->HorizontalVelocityY = 0.f;
+    gd.animationNum = 0;
+
+    BroadcastFreezeState(target->playerUID, true, duration);
+}
+
+void GameLogic::EndFreezeOnPlayer(int sessionID)
+{
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second) { return; }
+
+    Session* target = it->second;
+    if (!target->bFrozen) { return; }
+
+    LOG_INFO("[Freeze] End session=%d uid=%d",
+        sessionID, target->playerUID);
+
+    target->bFrozen = false;
+    target->FreezeRemainTime = 0.f;
+
+    BroadcastFreezeState(target->playerUID, false, 0.f);
+}
+
+void GameLogic::UpdateFrozenPlayers(float deltaTime)
+{
+    for (auto& pair : players)
+    {
+        Session* player = pair.second;
+        if (!player || !player->bFrozen) { continue; }
+
+        player->FreezeRemainTime -= deltaTime;
+
+        if (player->FreezeRemainTime <= 0.f)
+        {
+            EndFreezeOnPlayer(player->sessionID);
+        }
+    }
+}
+
+void GameLogic::BroadcastFreezeState(int targetUID, bool bFrozen, float duration)
+{
+    StatusEffectPacket pkt{};
+    pkt.targetID = targetUID;
+    pkt.effectType = 0; // Freeze
+    pkt.active = bFrozen ? 1 : 0;
+    pkt.duration = duration;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_STATUS_EFFECT_BRD,
+        (const char*)&pkt,
+        sizeof(pkt)
+    );
+}
+
+static long long MakeTorchThawPairKey(int torchSessionID, int targetSessionID)
+{
+    return (static_cast<long long>(torchSessionID) << 32) |
+        static_cast<unsigned int>(targetSessionID);
+}
+
+void GameLogic::ApplyDebugFreezeOnceForTorchTest()
+{
+    if (bDebugFreezeAppliedForTorchTest)
+    {
+        return;
+    }
+
+    for (auto& pair : players)
+    {
+        Session* player = pair.second;
+        if (!player)
+        {
+            continue;
+        }
+
+        GameData& gd = player->gameDatas;
+        if (!gd.isConnected || gd.characterState != Alive)
+        {
+            continue;
+        }
+
+        ApplyFreezeToPlayer(player->sessionID, 30.f);
+        bDebugFreezeAppliedForTorchTest = true;
+
+        LOG_INFO("[TorchThawTest] Debug freeze target session=%d uid=%d",
             player->sessionID,
-            gd.userUID,
-            input.bHasInput ? 1 : 0,
-            input.Forward,
-            input.Right,
-            input.CameraDir,
-            gd.baseWalkSpeed,
-            currentPos.x, currentPos.y, currentPos.z,
-            gd.x, gd.y, gd.z);
+            player->playerUID);
 
-        gd.animationNum = 1; // Run
+        return;
     }
-    else
+}
+
+bool GameLogic::IsTorchEquipped(Session* player) const
+{
+    if (!bDebugTorchThawTestEnabled)
     {
-        gd.animationNum = 0; // Idle
+        return false;
     }
-}
 
-float GameLogic::GetCollisionRadius(int roleType) const
-{
-    switch (roleType)
+    if (!player)
     {
-    case 0: return 45.0f; // Striker
-    case 1: return 55.0f; // Guardian
-    case 2: return 45.0f; // Manipulator
-    default: return 50.0f;
+        return false;
+    }
+
+    const GameData& gd = player->gameDatas;
+    return gd.isConnected &&
+        gd.characterState == Alive &&
+        !player->bFrozen;
+}
+
+bool GameLogic::IsInTorchThawRange(Session* torchOwner, Session* frozenTarget) const
+{
+    if (!torchOwner || !frozenTarget)
+    {
+        return false;
+    }
+
+    const GameData& ownerData = torchOwner->gameDatas;
+    const GameData& targetData = frozenTarget->gameDatas;
+
+    const float dx = targetData.x - ownerData.x;
+    const float dy = targetData.y - ownerData.y;
+    const float distance = GameMath::Length2D(dx, dy);
+
+    return distance <= TorchThawRadius;
+}
+
+void GameLogic::UpdateTorchThaw(float deltaTime)
+{
+    if (deltaTime <= 0.f)
+    {
+        return;
+    }
+
+    std::unordered_set<long long> activePairs;
+
+    for (const auto& ownerPair : players)
+    {
+        Session* torchOwner = ownerPair.second;
+        if (!IsTorchEquipped(torchOwner))
+        {
+            continue;
+        }
+
+        for (const auto& targetPair : players)
+        {
+            Session* target = targetPair.second;
+            if (!target || target == torchOwner)
+            {
+                continue;
+            }
+
+            const GameData& targetData = target->gameDatas;
+            if (!targetData.isConnected || targetData.characterState != Alive || !target->bFrozen)
+            {
+                continue;
+            }
+
+            if (!IsInTorchThawRange(torchOwner, target))
+            {
+                continue;
+            }
+
+            const long long key = MakeTorchThawPairKey(torchOwner->sessionID, target->sessionID);
+            activePairs.insert(key);
+
+            float& progress = torchThawProgressByPair[key];
+            progress += deltaTime;
+
+            LOG_INFO("[TorchThaw] owner=%d target=%d progress=%.2f/%.2f",
+                torchOwner->playerUID,
+                target->playerUID,
+                progress,
+                TorchThawRequiredTime);
+
+            if (progress >= TorchThawRequiredTime)
+            {
+                EndFreezeOnPlayer(target->sessionID);
+                torchThawProgressByPair.erase(key);
+            }
+        }
+    }
+
+    for (auto it = torchThawProgressByPair.begin(); it != torchThawProgressByPair.end(); )
+    {
+        if (activePairs.find(it->first) == activePairs.end())
+        {
+            it = torchThawProgressByPair.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
     }
 }
 
-bool GameLogic::CanOccupyPosition(const Vector3& pos, float radius) const
+void GameLogic::HandleIceFloorStanding(int sessionID, int floorID, int pieceIndex)
 {
-    return false;
+    if (roundState != ERoundState::Playing)
+    {
+        return;
+    }
+
+    if (sessionID < 0)
+    {
+        return;
+    }
+
+    auto PlayerIt = players.find(sessionID);
+    if (PlayerIt == players.end() || PlayerIt->second == nullptr)
+    {
+        return;
+    }
+
+    Session* Player = PlayerIt->second;
+    
+    {
+        std::lock_guard<std::mutex> moveLock(Player->MoveIntentLock);
+        Player->bOnIce = true;
+        Player->IceContactRemainTime = 0.20f;
+    }
+
+    if (currentMapPhase < 2)
+    {
+        return;
+    }
+
+    const int tileID = pieceIndex;
+
+    std::lock_guard<std::mutex> lock(iceFloorMutex);
+
+    if (tileID < 0 || tileID >= static_cast<int>(floorTiles.size()))
+    {
+        return;
+    }
+
+    if (Player->gameDatas.characterState == 1) // 0=Alive, 1=Dead
+    {
+        return;
+    }
+
+    IceFloorTileData& tile = floorTiles[tileID];
+
+    if (tile.tileState == EIceFloorState::Broken ||
+        tile.tileState == EIceFloorState::Breaking)
+    {
+        return;
+    }
+
+    tile.standingSessionIDs.insert(sessionID);
 }
 
-Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const
+void GameLogic::UpdateIceFloorStanding(float deltaTime)
 {
-    // Temporary Treat
-    return desiredPos;
+    if (deltaTime <= 0.f)
+    {
+        return;
+    }
+
+    if (roundState != ERoundState::Playing || currentMapPhase < 2)
+    {
+        return;
+    }
+
+    const float standingBreakTime =
+        (currentMapPhase >= 3) ? 9.f : 18.f;
+
+    if (standingBreakTime <= 0.f)
+    {
+        return;
+    }
+
+    std::vector<std::pair<int, int>> pendingEvents;
+
+    {
+        std::lock_guard<std::mutex> lock(iceFloorMutex);
+
+        for (IceFloorTileData& tile : floorTiles)
+        {
+            if (tile.tileState == EIceFloorState::Broken ||
+                tile.tileState == EIceFloorState::Breaking)
+            {
+                tile.standingSessionIDs.clear();
+                continue;
+            }
+
+            const int standingCount = static_cast<int>(tile.standingSessionIDs.size());
+            if (standingCount <= 0)
+            {
+                continue;
+            }
+
+            tile.standingProgress += (deltaTime / standingBreakTime) * standingCount;
+
+            if (!tile.bCrackBroadcastedByStanding && tile.standingProgress >= 0.6f)
+            {
+                tile.bCrackBroadcastedByStanding = true;
+                tile.tileState = EIceFloorState::Cracked;
+                pendingEvents.push_back({ tile.tileID, 1 }); // Cracked
+            }
+
+            if (tile.standingProgress >= 1.f)
+            {
+                tile.tileState = EIceFloorState::Broken;
+                pendingEvents.push_back({ tile.tileID, 3 }); // Broken
+            }
+
+            tile.standingSessionIDs.clear();
+        }
+    }
+
+    for (const auto& Event : pendingEvents)
+    {
+        BroadcastFloorEvent(Event.first, Event.second);
+    }
+}
+
+void GameLogic::BroadcastFloorEvent(int pieceIndex, int eventState)
+{
+    if (!ownerRoom)
+    {
+        return;
+    }
+
+    MapEventPacket pkt{};
+    pkt.eventType = static_cast<int32_t>(EMapEventType::Floor);
+    pkt.objectIndex = pieceIndex;
+    pkt.eventState = eventState;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_MAPEVENT_TRIGGER_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+
+// ------------------------------------
+// ---------   Map Control   ----------
+// ---------  Space Station  ----------
+// ------------------------------------
+void GameLogic::UpdateSpaceStation(float deltaTime)
+{
+    if (currentMapPhase >= 2 && !bSpaceStationPhase2Trigger)
+    {
+        bSpaceStationPhase2Trigger = true;
+        EnterSpaceStationPhase2();
+    }
+
+    if (currentMapPhase >= 3 && !bSpaceStationPhase3Trigger)
+    {
+        bSpaceStationPhase3Trigger = true;
+        EnterSpaceStationPhase3();
+    }
+
+    if (currentMapPhase == 2 || currentMapPhase == 3)
+    {
+        ApplyBlackHolePull(deltaTime);
+    }
+}
+
+void GameLogic::StartSpaceStation()
+{
+    bSpaceStationPhase2Trigger = false;
+    bSpaceStationPhase3Trigger = false;
+    SpaceBlackHoles.clear();
+}
+
+void GameLogic::EnterSpaceStationPhase2()
+{
+    AddSpaceBlackHole(1, Outside1_BlackHoleCenter);
+
+    LOG_INFO("[SpaceStation] Enter Phase2 - BlackHole Pull Start");
+}
+
+void GameLogic::EnterSpaceStationPhase3()
+{
+    AddSpaceBlackHole(2, Outside2_BlackHoleCenter);
+    AddSpaceBlackHole(3, Outside3_BlackHoleCenter);
+
+    LOG_INFO("[SpaceStation] Enter Phase3 - Add BlackHole 2, 3");
+}
+
+void GameLogic::ApplyBlackHolePull(float deltaTime)
+{
+    for (auto& Pair : players)
+    {
+        Session* player = Pair.second;
+        if (!player) { continue; }
+
+        GameData& gd = player->gameDatas;
+
+        if (!gd.isConnected) { continue; }
+        if (gd.characterState != Alive) { continue; }
+
+        for (const SpaceBlackHoleData& blackHole : SpaceBlackHoles)
+        {
+            if (!blackHole.bActive)
+            {
+                continue;
+            }
+
+            float toX = blackHole.center.x - gd.x;
+            float toY = blackHole.center.y - gd.y;
+
+            const float distance = GameMath::Length2D(toX, toY);
+
+            if (distance > blackHole.pullRadius || distance < blackHole.minDistance)
+            {
+                continue;
+            }
+
+            GameMath::Normalize2D(toX, toY);
+
+            const float distanceAlpha =
+                1.0f - (std::min)(distance / blackHole.pullRadius, 1.0f);
+
+            float basePullStrength = blackHole.pullStrength;
+
+            if (currentMapPhase == 3 && distance <= 1000.0f)
+            {
+                basePullStrength = 3000.0f;
+            }
+
+            const float strengthAlpha = (std::max)(distanceAlpha, 0.25f);
+            const float finalStrength = basePullStrength * strengthAlpha;
+
+            float pullDistance = finalStrength * deltaTime;
+            pullDistance = (std::min)(pullDistance, blackHole.maxPullSpeed * deltaTime);
+
+            Vector3 currentPos{ gd.x, gd.y, gd.z };
+            Vector3 desiredPos{
+                gd.x + toX * pullDistance,
+                gd.y + toY * pullDistance,
+                gd.z
+            };
+
+            const float collisionRadius = GetCollisionRadius(gd.roleType);
+            const Vector3 resolvedPos =
+                ResolveMovementWithCollision(currentPos, desiredPos, collisionRadius);
+
+            gd.x = resolvedPos.x;
+            gd.y = resolvedPos.y;
+            gd.z = resolvedPos.z;
+        }
+    }
+}
+
+void GameLogic::AddSpaceBlackHole(int objectID, const Vector3& center)
+{
+    SpaceBlackHoleData blackHole{};
+    blackHole.objectID = objectID;
+    blackHole.center = center;
+    blackHole.pullRadius = SpaceBlackHolePullRadius;
+    blackHole.minDistance = SpaceBlackHoleMinDistance;
+    blackHole.pullStrength = SpaceBlackHolePullStrength;
+    blackHole.maxPullSpeed = SpaceBlackHoleMaxPullSpeed;
+    blackHole.bActive = true;
+
+    SpaceBlackHoles.push_back(blackHole);
+
+    BroadcastSpaceBlackHoleSpawn(blackHole);
+}
+
+void GameLogic::BroadcastSpaceBlackHoleSpawn(const SpaceBlackHoleData& blackHole)
+{
+    if (!ownerRoom) { return; }
+
+    SpawnObjectPacket pkt{};
+    pkt.objectType = static_cast<int32_t>(EMapEventType::BlackHole);
+    pkt.objectID = blackHole.objectID;
+    pkt.x = blackHole.center.x;
+    pkt.y = blackHole.center.y;
+    pkt.z = blackHole.center.z;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_SPAWN_OBJECT_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
 }

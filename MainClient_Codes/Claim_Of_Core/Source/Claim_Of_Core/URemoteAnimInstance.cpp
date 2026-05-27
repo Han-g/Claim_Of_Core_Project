@@ -36,6 +36,16 @@ void UURemoteAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 	bIsLocalCharacter = Character->IsLocallyControlled();
 
+	if (Character->IsFrozen())
+	{
+		Speed = 0.f;
+		bShouldMove = false;
+		bHasAcceleration = false;
+		Direction = 0.f;
+		bUseRunState = false;
+		return;
+	}
+
 	if (bIsLocalCharacter)
 	{
 		const FVector Velocity = Character->GetVelocity();

@@ -41,6 +41,8 @@ void PacketProcessor::InitHandler()
 	m_FuncHandlerMap[PKT_C2S_ATTACK_HIT_REPORT] = &PacketProcessor::Handle_Attack_HitReport;
 	m_FuncHandlerMap[PKT_C2S_ITEMPICKUP_KEYINPUT] = &PacketProcessor::Handle_ItemPickup_KeyInput;
 	m_FuncHandlerMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
+
+	m_FuncHandlerMap[PKT_C2S_ICE_FLOOR_STAND_REQ] = &PacketProcessor::Handle_IceFloor_StandReq;
 }
 
 void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data)
@@ -219,6 +221,13 @@ bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session,
 		session->LastMoveIntent.Right = packet.velocityX;
 		session->LastMoveIntent.Forward = packet.velocityY;
 		session->LastMoveIntent.CameraDir = packet.cameraDir;
+
+		session->LastMoveIntent.ClientX = packet.x;
+		session->LastMoveIntent.ClientY = packet.y;
+		session->LastMoveIntent.ClientZ = packet.z;
+		session->LastMoveIntent.bHasClientPosition =
+			!_isnan(packet.x) && !_isnan(packet.y) && !_isnan(packet.z);
+
 		session->LastMoveIntent.bHasInput =
 			(packet.velocityX != 0.0f || packet.velocityY != 0.0f);
 	}
@@ -243,7 +252,16 @@ bool PacketProcessor::Handle_Move_KeyInput(IOCPServer* server, Session* session,
 
 void PacketProcessor::Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	if (server == nullptr || session == nullptr) { return; }
+	if (session->playerUID <= 0) { return; }
 
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	{
+		std::lock_guard<std::mutex> lock(session->MoveIntentLock);
+		session->LastMoveIntent.bJumpRequested = true;
+	}
 }
 
 void PacketProcessor::Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)
@@ -286,4 +304,15 @@ void PacketProcessor::Handle_ItemDrop_KeyInput(IOCPServer* server, Session* sess
 	if (!logic) { return; }
 
 	logic->DropCurrentItem(session->sessionID, pkt.itemID);
+}
+
+void PacketProcessor::Handle_IceFloor_StandReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	IceFloorStandPacket pkt{};
+	if (!reader.Read(pkt)) { return; }
+
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	logic->HandleIceFloorStanding(session->sessionID, pkt.floorID, pkt.pieceIndex);
 }

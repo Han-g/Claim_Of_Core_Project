@@ -75,6 +75,8 @@ enum PacketID : uint16 {
     PKT_C2S_OBJECT_HIT_REQ = 553,
     PKT_C2S_ATTACK_HIT_REPORT = 554,
 
+    PKT_C2S_ICE_FLOOR_STAND_REQ = 555,
+
     PKT_S2C_SPAWN_ITEM_BRD = 130,
     PKT_S2C_DESPAWN_ITEM_BRD = 131,
     PKT_S2C_ITEM_OWNERSHIP_BRD = 132,
@@ -84,6 +86,7 @@ enum PacketID : uint16 {
     PKT_S2C_MAPEVENT_TRIGGER_BRD = 150,
     PKT_S2C_GAME_PHASE_CHANGE_BRD = 151,
     PKT_S2C_GAME_RESULT_BRD = 152,
+    PKT_S2C_STATUS_EFFECT_BRD = 153,
 };
 
 // ============================================================
@@ -150,10 +153,29 @@ struct FSpawnObjectPacket {
     int32_t objectID;
 };
 
+struct FIceFloorStandPacket
+{
+    int32_t FloorID;
+    int32_t PieceIndex;
+};
+
+struct FStatusEffectPacket
+{
+    int32 TargetID;
+    int32 EffectType;
+    int32 Active;
+    float Duration;
+};
+
 struct FPhaseChangePacket {
     int32_t roundState;
     int32_t mapPhase;
     float gameTime;
+
+    // Space Black Hole Coor
+    float blackHoleX = -1;
+    float blackHoleY = -1;
+    float blackHoleZ = -1;
 };
 
 struct FMovePacket {
@@ -246,6 +268,8 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnSyncAnimationReceived, const FSyncAnimati
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemOwnershipChanged, const FItemPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSnapshotReceived, const TArray<GameData>&);
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatusEffect, const FStatusEffectPacket&);
+
 // ============================================================
 // Worker Thread ↔ Main Thread Communication
 // ============================================================
@@ -296,6 +320,7 @@ enum class ENetEventType : uint8
     ObjectSpawned,
     PhaseChanged,
     ItemOwnershipChanged,
+    StatusEffect,
 };
 
 struct FNetEvent
@@ -325,4 +350,5 @@ struct FNetEvent
     FAttackActionPacket  AttackAction;
     FSyncAnimationPacket SyncAnimation;
     FItemPacket          ItemOwnership;
+    FStatusEffectPacket  StatusEffect;
 };

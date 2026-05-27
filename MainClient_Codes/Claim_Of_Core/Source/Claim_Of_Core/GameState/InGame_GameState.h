@@ -84,6 +84,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Phase")
 	int32 GetElapsedPlayTime() const;
 
+	UPROPERTY(BlueprintReadOnly, Category = "SpaceMap")
+	FVector SpaceBlackHoleLocation = FVector::ZeroVector;
+
 	void StartReady();
 	void StartRound();
 	void EndRound();

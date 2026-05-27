@@ -74,7 +74,12 @@ public:
 	int GetCurrentMemberCount();
 
 	// Find Item to Pick up the Item
-	ItemData* GetItemData(int itemID) { return &m_ItemObjects[itemID]; }
+	ItemData* GetItemData(int itemID) {
+		auto it = m_ItemObjects.find(itemID);
+		if (it == m_ItemObjects.end()) { return nullptr; }
+
+		return &it->second;
+	}
 
 	// Builds the serialized room member list used by room UI packets.
 	std::vector<RoomMemberPacket> GetMemberInfoList();
