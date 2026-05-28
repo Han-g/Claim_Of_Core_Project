@@ -1237,7 +1237,15 @@ AMyCharacter* UNetworkInstance::EnsureRemoteCharacter(const GameData& Data)
 		MoveComp->SetComponentTickEnabled(false);
 	}
 
-	NewCharacter->GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (UCapsuleComponent* Capsule = NewCharacter->GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		Capsule->SetCollisionObjectType(ECC_Pawn);
+		Capsule->SetCollisionResponseToAllChannels(ECR_Ignore);
+		Capsule->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
+		Capsule->SetGenerateOverlapEvents(true);
+	}
+
 	NewCharacter->SetNetworkPlayerUID(Data.userUID);
 	RemoteCharacters.Add(Data.userUID, NewCharacter);
 

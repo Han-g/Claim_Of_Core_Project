@@ -278,6 +278,9 @@ void PacketProcessor::Handle_Attack_HitReport(IOCPServer* server, Session* sessi
 	AttackHitReportPacket pkt{};
 	if (!reader.Read(pkt)) { return; }
 
+	LOG_INFO("[AttackHitReportRecv] session=%d seq=%u target=%d type=%d",
+		session->sessionID, pkt.attackSeq, pkt.targetID, pkt.attackType);
+
 	GameLogic* logic = GameLogicHelper(server, session);
 	if (!logic) { return; }
 

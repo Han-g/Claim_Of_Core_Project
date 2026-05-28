@@ -10,6 +10,16 @@ class AMyCharacter;
 class UAnimMontage;
 class USphereComponent;
 
+
+UENUM(BlueprintType)
+enum class EItemAnimPoseType : uint8
+{
+	None   UMETA(DisplayName = "None"),
+	Sword  UMETA(DisplayName = "Sword"),
+	Spear  UMETA(DisplayName = "Spear"),
+	Hammer UMETA(DisplayName = "Hammer")
+};
+
 UCLASS()
 class CLAIM_OF_CORE_API ABaseItem : public AActor
 {
@@ -22,6 +32,8 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
+	EItemAnimPoseType ItemAnimPoseType = EItemAnimPoseType::None;
 
 	// 아이템이 겹쳐질 때 콜리전 (픽업 범위)
 

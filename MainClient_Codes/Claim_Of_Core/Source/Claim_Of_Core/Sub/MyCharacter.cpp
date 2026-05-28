@@ -67,7 +67,7 @@ AMyCharacter::AMyCharacter()
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
 	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
-	HandCollision->SetBoxExtent(FVector(300.f, 250.f, 250.f));
+	HandCollision->SetBoxExtent(FVector(50.f, 50.f, 50.f));
 	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
 	HandCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
@@ -665,6 +665,39 @@ void AMyCharacter::ApplyRoleVisual()
 	{
 		SkelComp->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 		SkelComp->SetAnimInstanceClass(Data.AnimBPClass);
+	}
+
+	switch (RoleType)
+	{
+	case ERecRoleType::Striker:
+		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		HandCollision->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("LeftHandSocket")
+		);
+		break;
+
+	case ERecRoleType::Guardian:
+		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		HandCollision->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("RightHandSocket")
+		);
+		break;
+
+	case ERecRoleType::Manipulator:
+		GetMesh()->SetRelativeScale3D(FVector(0.6f));
+		HandCollision->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("RightHandSocket")
+		);
+		break;
+
+	default:
+		break;
 	}
 }
 
@@ -1993,32 +2026,32 @@ void AMyCharacter::EndAttack()
 
 void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSeq)
 {
-	if (IsDead() || bDeathSequenceLocked) { return; }
+	if (IsDead() || bDeathSequenceLocked) { 
+		//UE_LOG(LogTemp, Display, TEXT("Dead State"));
+		return; 
+	}
 
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 	const FRoleVisualData& Data = GetVisualData(RoleType);
 
 	if (!AnimInstance || !Data.AttackMontage)
 	{
+		//UE_LOG(LogTemp, Display, TEXT("Not Connect with Montage"));
 		return;
 	}
 
 	if (AnimInstance->Montage_IsPlaying(Data.AttackMontage))
 	{
+		//UE_LOG(LogTemp, Display, TEXT("Not is playing"));
 		return;
 	}
 
 	//HitActors.Empty();
 	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	AnimInstance->Montage_Play(Data.AttackMontage);
+	const float PlayedLength = AnimInstance->Montage_Play(Data.AttackMontage);
 
 	CurrentAttackType = AttackType;
 	CurrentAttackSeq = AttackSeq;
-
-	if (IsLocallyControlled())
-	{
-		StartAttackHitWindow(1.8f);
-	}
 
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
@@ -2390,11 +2423,23 @@ void AMyCharacter::OnAttackOverlap(
 	if (!IsLocallyControlled()) { return; }
 	if (CurrentAttackSeq == 0) { return; }
 
+	UE_LOG(LogTemp, Warning, TEXT("[ATK_OVERLAP_ENTRY] Local=%d Seq=%u Other=%s"),
+		IsLocallyControlled(),
+		CurrentAttackSeq,
+		*GetNameSafe(OtherActor));
+
 	AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor);
+
 	if (!Victim)
 	{
-		//Victim->ApplyKnockback(this, 1200.f);
-		UE_LOG(LogTemp, Error, TEXT("[Attack Trace] Check"));
+		return;
+	}
+
+	if (Victim == this || Victim->GetNetworkPlayerUID() == GetNetworkPlayerUID())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ATK_SKIP_SELF] UID=%d Actor=%s"),
+			GetNetworkPlayerUID(),
+			*GetNameSafe(Victim));
 		return;
 	}
 
@@ -2404,12 +2449,12 @@ void AMyCharacter::OnAttackOverlap(
 		return;
 	}
 
-	/*UE_LOG(LogTemp, Display,
+	UE_LOG(LogTemp, Display,
 		TEXT("[ATK_TRACE][2_Overlap] Attacker=%s UID=%d Victim=%s UID=%d"),
 		*GetName(),
 		GetNetworkPlayerUID(),
 		*Victim->GetName(),
-		Victim->GetNetworkPlayerUID());*/
+		Victim->GetNetworkPlayerUID());
 
 	HitActors.Add(Victim);
 	//Victim->ApplyHitEvent(this);
@@ -2542,7 +2587,10 @@ void AMyCharacter::AnimNotify_AttackHit()
 	if (CurrentItem)
 	{
 		CurrentItem->DoHit();
+		return;
 	}
+
+	StartAttackHitWindow(1.2f);
 }
 
 void AMyCharacter::StartAttackHitWindow(float Duration)

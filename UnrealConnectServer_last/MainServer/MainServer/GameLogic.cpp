@@ -1770,7 +1770,7 @@ void GameLogic::ApplyDebugFreezeOnceForTorchTest()
             continue;
         }
 
-        ApplyFreezeToPlayer(player->sessionID, 30.f);
+        //ApplyFreezeToPlayer(player->sessionID, 30.f);
         bDebugFreezeAppliedForTorchTest = true;
 
         LOG_INFO("[TorchThawTest] Debug freeze target session=%d uid=%d",
@@ -1794,9 +1794,29 @@ bool GameLogic::IsTorchEquipped(Session* player) const
     }
 
     const GameData& gd = player->gameDatas;
-    return gd.isConnected &&
-        gd.characterState == Alive &&
-        !player->bFrozen;
+    // Test Code :: All player has Torch
+    return gd.isConnected && gd.characterState == Alive && !player->bFrozen;
+
+    if (!gd.isConnected || gd.characterState != Alive || player->bFrozen)
+    {
+        return false;
+    }
+
+    if (gd.equippedItemID < 0)
+    {
+        return false;
+    }
+
+    ItemData* item = ownerRoom->GetItemData(gd.equippedItemID);
+    if (!item)
+    {
+        return false;
+    }
+
+    return item->bEquipped &&
+        item->ownerUID == player->playerUID &&
+        item->ObjectType == e_ObjectType::WEAPON_ITEM &&
+        item->ItemKind == EItemKind::Torch;
 }
 
 bool GameLogic::IsInTorchThawRange(Session* torchOwner, Session* frozenTarget) const
@@ -1828,6 +1848,7 @@ void GameLogic::UpdateTorchThaw(float deltaTime)
     for (const auto& ownerPair : players)
     {
         Session* torchOwner = ownerPair.second;
+        // Torch Test for end Freezen state
         if (!IsTorchEquipped(torchOwner))
         {
             continue;

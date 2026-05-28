@@ -51,7 +51,8 @@ public:
 	int32 GetMaxHP() const { return MaxHP; }
 
 	UFUNCTION(BlueprintPure, Category = "HP")
-	float GetHPPercent() const { return (MaxHP <= 0) ? 0.f : (float)CurrentHP / (float)MaxHP; }
+	float 
+		Percent() const { return (MaxHP <= 0) ? 0.f : (float)CurrentHP / (float)MaxHP; }
 
 	UFUNCTION(BlueprintPure, Category = "HP")
 	bool IsDead() const { return CurrentHP <= 0; }
