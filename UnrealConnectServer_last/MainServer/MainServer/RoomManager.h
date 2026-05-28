@@ -56,6 +56,7 @@ public:
 
 	int TeamCalculateBySlot(int roomSlot) const;
 	void SelectStage(int stageNum);
+	ItemData SpawnRandomItem(const ItemSpawnRange& range);
 	void LoadStage(int stageNum);
 
 	// Returns the spawn location used when players enter or respawn.

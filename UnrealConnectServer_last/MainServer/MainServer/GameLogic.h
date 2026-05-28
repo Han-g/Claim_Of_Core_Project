@@ -57,7 +57,12 @@ namespace GameMath {
 
 enum class EItemKind {
 	None = 0,
-	Torch = 1,
+	Sword = 1,
+	Spear = 2,
+	Hammer = 3,
+	Umbrella = 4,
+	Torch = 5,
+	Grenade = 6,
 };
 
 enum class e_ObjectType {
@@ -80,6 +85,17 @@ struct ItemData {
 
 	int ownerUID = -1;
 	bool bEquipped = false;
+};
+
+struct ItemSpawnRange
+{
+	int ObjectID;
+	EItemKind ItemKind;
+	float MinX;
+	float MaxX;
+	float MinY;
+	float MaxY;
+	float Z;
 };
 
 
@@ -325,12 +341,32 @@ public:
 	// Selects the proper attack animation for the current role.
 	void GetAttackMontageByRole(ERecRoleType InRole) const;
 
+	void ResetMapItemSpawner();
+	void UpdateMapItemSpawner(float deltaTime, EItemKind phase2SpecialItem);
+	void SpawnPhase1BasicItems();
+	void SchedulePhase2Items(EItemKind specialItem);
+	void UpdatePendingItemSpawns(float deltaTime);
+	void SpawnMapItem(EItemKind itemKind);
+	EItemKind PickRandomBasicItemKind();
+
 private:
 	float Damage = 20.f;
 	float KnockbackPower = 800.f;
 	float Range = 200.f;
 	float Radius = 80.f;
 	int ownerSessionID = -1;
+
+	struct PendingItemSpawn
+	{
+		EItemKind ItemKind = EItemKind::None;
+		float RemainTime = 0.0f;
+	};
+
+	bool bPhase1ItemsSpawned = false;
+	bool bPhase2ItemsScheduled = false;
+
+	int nextItemObjectID = 10000;
+	std::vector<PendingItemSpawn> pendingItemSpawns;
 
 
 public:

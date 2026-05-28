@@ -94,6 +94,7 @@ public:
 	void HandleAttackActionReceived(const FAttackActionPacket& Packet);
 	void HandleDamageApplied(const FDamageApplyPacket& Packet);
 	void HandleItemOwnershipChanged(const FItemPacket& Packet);
+	void HandleItemSpawned(const FItemPacket& Packet);
 	void HandleStatusUpdated(const FStatusUpdatePacket& Packet);
 	void HandleStateChanged(const FStateChangePacket& Packet);
 	void HandleRespawned(const FRespawnPacket& Packet);
@@ -169,6 +170,28 @@ private:
 	// Remote player instances indexed by userUID.
 	TMap<int32, TWeakObjectPtr<AMyCharacter>> RemoteCharacters;
 
+	// Item Spawn at Map
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> SwordItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> SpearItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> HammerItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> UmbrellaItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> TorchItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> GrenadeItemClass;
+
+	TMap<int32, TWeakObjectPtr<ABaseItem>> SpawnedItems;
+
+	TSubclassOf<ABaseItem> GetItemClassByKind(int32 ItemKind) const;
 
 	// Control Game and Map Objects
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Map", meta = (AllowPrivateAccess = "true"))

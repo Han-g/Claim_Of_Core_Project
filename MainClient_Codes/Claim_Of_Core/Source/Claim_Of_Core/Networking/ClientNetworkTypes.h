@@ -110,6 +110,17 @@ struct GameData {
     int equippedItemID = -1;
 };
 
+enum class EClientItemKind : int32
+{
+    None = 0,
+    Sword = 1,
+    Spear = 2,
+    Hammer = 3,
+    Umbrella = 4,
+    Torch = 5,
+    Grenade = 6,
+};
+
 // ============================================================
 // Wire-format Packet Structs (packed)
 // ============================================================
@@ -188,8 +199,10 @@ struct FMovePacket {
 struct FItemPacket
 {
     int32 ItemID;
+    int32 ItemKind;
     int32 OwnerUID;
     int32 bEquipped;
+
     float X, Y, Z;
 };
 
@@ -269,6 +282,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemOwnershipChanged, const FItemPacket&)
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSnapshotReceived, const TArray<GameData>&);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatusEffect, const FStatusEffectPacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemSpawned, const FItemPacket&);
 
 // ============================================================
 // Worker Thread ↔ Main Thread Communication
@@ -319,6 +333,7 @@ enum class ENetEventType : uint8
     MapEventTriggered,
     ObjectSpawned,
     PhaseChanged,
+    ItemSpawned,
     ItemOwnershipChanged,
     StatusEffect,
 };
@@ -350,5 +365,6 @@ struct FNetEvent
     FAttackActionPacket  AttackAction;
     FSyncAnimationPacket SyncAnimation;
     FItemPacket          ItemOwnership;
+    FItemPacket          ItemSpawn;
     FStatusEffectPacket  StatusEffect;
 };

@@ -84,6 +84,7 @@ void UNetworkInstance::Init()
 	Client->OnItemOwnershipChanged.AddUObject(this, &UNetworkInstance::HandleItemOwnershipChanged);
 	
 	Client->OnStatusEffect.AddUObject(this, &UNetworkInstance::HandleStatusEffect);
+	Client->OnItemSpawned.AddUObject(this, &UNetworkInstance::HandleItemSpawned);
 	
 	// Start worker thread + connect
 	Client->Start(ServerIPAddress, 9000);
@@ -828,6 +829,57 @@ void UNetworkInstance::HandleItemOwnershipChanged(const FItemPacket& Packet)
 	}
 }
 
+void UNetworkInstance::HandleItemSpawned(const FItemPacket& Packet)
+{
+	if (Packet.ItemID < 0) { return; }
+
+	if (FindItemByID(Packet.ItemID))
+	{
+		return;
+	}
+
+	TSubclassOf<ABaseItem> ItemClass = GetItemClassByKind(Packet.ItemKind);
+	if (!ItemClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[ItemSpawn] ItemClass is not set. ItemKind=%d"), Packet.ItemKind);
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World) { return; }
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+	ABaseItem* NewItem = World->SpawnActor<ABaseItem>(
+		ItemClass,
+		FVector(Packet.X, Packet.Y, Packet.Z),
+		FRotator::ZeroRotator,
+		Params
+	);
+
+	if (!NewItem) { return; }
+
+	NewItem->SetItemID(Packet.ItemID);
+	NewItem->SetOwnerCharacter(nullptr);
+	NewItem->SetActorEnableCollision(true);
+
+	if (UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewItem->GetRootComponent()))
+	{
+		Prim->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		Prim->SetCollisionResponseToAllChannels(ECR_Ignore);
+		Prim->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+		Prim->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block);
+		Prim->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+		Prim->SetGenerateOverlapEvents(true);
+		Prim->SetSimulatePhysics(true);
+		Prim->SetEnableGravity(true);
+	}
+
+	SpawnedItems.Add(Packet.ItemID, NewItem);
+}
+
 void UNetworkInstance::HandleStatusUpdated(const FStatusUpdatePacket& Packet)
 {
 	if (AMyCharacter* Character = FindCharacterByUID(Packet.TargetID))
@@ -1280,4 +1332,18 @@ ABaseItem* UNetworkInstance::FindItemByID(int32 ItemID) const
 	}
 
 	return nullptr;
+}
+
+TSubclassOf<ABaseItem> UNetworkInstance::GetItemClassByKind(int32 ItemKind) const
+{
+	switch (static_cast<EClientItemKind>(ItemKind))
+	{
+		case EClientItemKind::Sword:    return SwordItemClass;
+		case EClientItemKind::Spear:    return SpearItemClass;
+		case EClientItemKind::Hammer:   return HammerItemClass;
+		case EClientItemKind::Umbrella: return UmbrellaItemClass;
+		case EClientItemKind::Torch:    return TorchItemClass;
+		case EClientItemKind::Grenade:  return GrenadeItemClass;
+		default:                        return nullptr;
+	}
 }

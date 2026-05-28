@@ -5,6 +5,7 @@
 #include "session.h"
 
 #include <algorithm>
+#include <random>
 
 GameLogic::GameLogic() { ownerRoom = nullptr; }
 
@@ -51,8 +52,9 @@ void GameLogic::Update(float deltaTime)
         }
     }
 
+
     // Update map-specific hazard logic.
-    if (mapType == 1)       { UpdateBuildingMap(deltaTime); } 
+    if      (mapType == 1)  { UpdateBuildingMap(deltaTime); } 
     else if (mapType == 2)  { UpdateIceCaveMap(deltaTime); }
     else if (mapType == 3)  { UpdateSpaceStation(deltaTime); }
     else if (mapType == 4)  { UpdateIceCaveMap(deltaTime); }
@@ -608,6 +610,7 @@ void GameLogic::HandleItemPickup(int sessionID, int itemID)
 
         ItemPacket pkt{};
         pkt.itemID = itemID;
+        pkt.itemKind = static_cast<int32_t>(pickUpItemData->ItemKind);
         pkt.ownerUID = targetSession->playerUID;
         pkt.bEquipped = 1;
         pkt.x = pickUpItemData->x;
@@ -668,6 +671,7 @@ void GameLogic::DropCurrentItem(int sessionID, int itemID)
 
     ItemPacket pkt{};
     pkt.itemID = itemID;
+    pkt.itemKind = static_cast<int32_t>(dropItemData->ItemKind);
     pkt.ownerUID = -1;
     pkt.bEquipped = 0;
     pkt.x = dropItemData->x;
@@ -1219,6 +1223,8 @@ void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t 
 // ------------------------------------
 void GameLogic::UpdateBuildingMap(float deltaTime)
 {
+    UpdateMapItemSpawner(deltaTime, EItemKind::Umbrella);
+
     // Advance the small debris spawn timer once the phase is active.
     if (currentMapPhase >= 1) { UpdateDebrisSpawner(deltaTime); }
 
@@ -1302,6 +1308,8 @@ void GameLogic::StartBuildingMap()
     nextDebrisSpawnTime = debrisPhaseConfigs[0].min_Interval;
     bBuildingPhase2Trigger = false;
     bBuildingPhase3Trigger = false;
+
+    ResetMapItemSpawner();
 }
 
 // ------------------------------------
@@ -1310,6 +1318,8 @@ void GameLogic::StartBuildingMap()
 // ------------------------------------
 void GameLogic::UpdateIceCaveMap(float deltaTime)
 {
+    UpdateMapItemSpawner(deltaTime, EItemKind::Torch);
+
     // Enter phase 2 and start periodic icicle spawning.
     if (currentMapPhase >= 2 && !bIcecavePhase2Trigger) {
         bIcecavePhase2Trigger = true;
@@ -1395,6 +1405,8 @@ void GameLogic::StartIceMap()
         floorTiles[i].tileID = i;
         floorTiles[i].tileState = EIceFloorState::Normal;
     }
+
+    ResetMapItemSpawner();
 }
 
 
@@ -1795,7 +1807,7 @@ bool GameLogic::IsTorchEquipped(Session* player) const
 
     const GameData& gd = player->gameDatas;
     // Test Code :: All player has Torch
-    return gd.isConnected && gd.characterState == Alive && !player->bFrozen;
+    //return gd.isConnected && gd.characterState == Alive && !player->bFrozen;
 
     if (!gd.isConnected || gd.characterState != Alive || player->bFrozen)
     {
@@ -2053,6 +2065,8 @@ void GameLogic::BroadcastFloorEvent(int pieceIndex, int eventState)
 // ------------------------------------
 void GameLogic::UpdateSpaceStation(float deltaTime)
 {
+    UpdateMapItemSpawner(deltaTime, EItemKind::Grenade);
+
     if (currentMapPhase >= 2 && !bSpaceStationPhase2Trigger)
     {
         bSpaceStationPhase2Trigger = true;
@@ -2076,6 +2090,8 @@ void GameLogic::StartSpaceStation()
     bSpaceStationPhase2Trigger = false;
     bSpaceStationPhase3Trigger = false;
     SpaceBlackHoles.clear();
+
+    ResetMapItemSpawner();
 }
 
 void GameLogic::EnterSpaceStationPhase2()
@@ -2190,4 +2206,130 @@ void GameLogic::BroadcastSpaceBlackHoleSpawn(const SpaceBlackHoleData& blackHole
         reinterpret_cast<const char*>(&pkt),
         sizeof(pkt)
     );
+}
+
+static float RandomFloat(float minValue, float maxValue)
+{
+    static thread_local std::mt19937 gen{ std::random_device{}() };
+    std::uniform_real_distribution<float> dist(minValue, maxValue);
+    return dist(gen);
+}
+
+static int RandomInt(int minValue, int maxValue)
+{
+    static thread_local std::mt19937 gen{ std::random_device{}() };
+    std::uniform_int_distribution<int> dist(minValue, maxValue);
+    return dist(gen);
+}
+
+void GameLogic::ResetMapItemSpawner()
+{
+    bPhase1ItemsSpawned = false;
+    bPhase2ItemsScheduled = false;
+    pendingItemSpawns.clear();
+}
+
+void GameLogic::UpdateMapItemSpawner(float deltaTime, EItemKind phase2SpecialItem)
+{
+    if (currentMapPhase >= 1 && !bPhase1ItemsSpawned)
+    {
+        bPhase1ItemsSpawned = true;
+        SpawnPhase1BasicItems();
+    }
+
+    if (currentMapPhase >= 2 && !bPhase2ItemsScheduled)
+    {
+        bPhase2ItemsScheduled = true;
+        SchedulePhase2Items(phase2SpecialItem);
+    }
+
+    UpdatePendingItemSpawns(deltaTime);
+}
+
+void GameLogic::SpawnPhase1BasicItems()
+{
+    for (int i = 0; i < 6; ++i)
+    {
+        SpawnMapItem(PickRandomBasicItemKind());
+    }
+}
+
+void GameLogic::SchedulePhase2Items(EItemKind specialItem)
+{
+    for (int i = 0; i < 3; ++i)
+    {
+        PendingItemSpawn spawn{};
+        spawn.ItemKind = specialItem;
+        spawn.RemainTime = RandomFloat(0.0f, 25.0f);
+        pendingItemSpawns.push_back(spawn);
+    }
+
+    for (int i = 0; i < 3; ++i)
+    {
+        PendingItemSpawn spawn{};
+        spawn.ItemKind = PickRandomBasicItemKind();
+        spawn.RemainTime = RandomFloat(0.0f, 25.0f);
+        pendingItemSpawns.push_back(spawn);
+    }
+}
+
+void GameLogic::UpdatePendingItemSpawns(float deltaTime)
+{
+    for (auto it = pendingItemSpawns.begin(); it != pendingItemSpawns.end(); )
+    {
+        it->RemainTime -= deltaTime;
+
+        if (it->RemainTime <= 0.0f)
+        {
+            SpawnMapItem(it->ItemKind);
+            it = pendingItemSpawns.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+void GameLogic::SpawnMapItem(EItemKind itemKind)
+{
+    if (!ownerRoom) { return; }
+
+    ItemSpawnRange range{};
+    range.ObjectID = nextItemObjectID++;
+    range.ItemKind = itemKind;
+    range.MinX = MapMinX;
+    range.MaxX = MapMaxX;
+    range.MinY = MapMinY;
+    range.MaxY = MapMaxY;
+    range.Z = 2500.0f;
+
+    ItemData item = ownerRoom->SpawnRandomItem(range);
+
+    ItemPacket pkt{};
+    pkt.itemID = item.ObjectID;
+    pkt.itemKind = static_cast<int32_t>(item.ItemKind);
+    pkt.ownerUID = -1;
+    pkt.bEquipped = 0;
+    pkt.x = item.x;
+    pkt.y = item.y;
+    pkt.z = item.z;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_SPAWN_ITEM_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+EItemKind GameLogic::PickRandomBasicItemKind()
+{
+    static const EItemKind basicItems[] =
+    {
+        EItemKind::Sword,
+        EItemKind::Spear,
+        EItemKind::Hammer
+    };
+
+    return basicItems[RandomInt(0, 2)];
 }

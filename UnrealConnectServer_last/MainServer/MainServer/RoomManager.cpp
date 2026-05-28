@@ -197,6 +197,28 @@ void Room::SelectStage(int stageNum)
     selectedMapType = stageNum;
 }
 
+ItemData Room::SpawnRandomItem(const ItemSpawnRange& range)
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    std::uniform_real_distribution<float> distX(range.MinX, range.MaxX);
+    std::uniform_real_distribution<float> distY(range.MinY, range.MaxY);
+
+    ItemData item{};
+    item.ObjectID = range.ObjectID;
+    item.ObjectType = e_ObjectType::WEAPON_ITEM;
+    item.ItemKind = range.ItemKind;
+    item.x = distX(gen);
+    item.y = distY(gen);
+    item.z = range.Z;
+    item.ownerUID = -1;
+    item.bEquipped = false;
+
+    m_ItemObjects[item.ObjectID] = item;
+    return item;
+}
+
 void Room::LoadStage(int stageNum)
 {
     m_ItemObjects.clear();

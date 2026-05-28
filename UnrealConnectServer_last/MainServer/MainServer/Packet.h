@@ -370,8 +370,10 @@ struct AttackPacket {
 
 struct ItemPacket {
     int32_t itemID;
+    int32_t itemKind;
     int32_t ownerUID;
     int32_t bEquipped;
+
     float x, y, z;
 };
 

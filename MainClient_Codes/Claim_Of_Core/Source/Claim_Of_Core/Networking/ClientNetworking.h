@@ -50,29 +50,30 @@ public:
     void SendJumpInput();
 
     // Delegates (broadcast on game thread only)
-    FOnConnectedDelegate OnConnected;
-    FOnConnectFailedDelegate OnConnectFailed;
-    FOnDisconnectDelegate OnDisconnected;
-    FOnLoginResultDelegate OnLoginResult;
+    FOnConnectedDelegate      OnConnected;
+    FOnConnectFailedDelegate  OnConnectFailed;
+    FOnDisconnectDelegate     OnDisconnected;
+    FOnLoginResultDelegate    OnLoginResult;
     FOnRegisterResultDelegate OnRegisterResult;
-    FOnRoomListUpdated OnRoomListUpdated;
-    FOnRoomEntered OnRoomEnterResult;
-    FOnMapSelected OnMapSelected;
-    FOnGameStartDelegate OnGameStart;
+    FOnRoomListUpdated        OnRoomListUpdated;
+    FOnRoomEntered            OnRoomEnterResult;
+    FOnMapSelected            OnMapSelected;
+    FOnGameStartDelegate      OnGameStart;
 
-    FOnDamageApplied OnDamageApplied;
-    FOnStatusUpdated OnStatusUpdated;
-    FOnStateChanged OnStateChanged;
-    FOnRespawned OnRespawned;
-    FOnRoleChanged OnRoleChanged;
-    FOnGameTimeSynced OnGameTimeSynced;
-    FOnPhaseChanged OnPhaseChanged;
-    FOnMapEventTriggered OnMapEventTriggered;
-    FOnObjectSpawned OnObjectSpawned;
-    FOnAttackActionReceived OnAttackAction;
-    FOnSyncAnimationReceived OnSyncAnimation;
-    FOnSnapshotReceived OnSnapshotReceived;
-    FOnItemOwnershipChanged OnItemOwnershipChanged;
+    FOnDamageApplied          OnDamageApplied;
+    FOnStatusUpdated          OnStatusUpdated;
+    FOnStateChanged           OnStateChanged;
+    FOnRespawned              OnRespawned;
+    FOnRoleChanged            OnRoleChanged;
+    FOnGameTimeSynced         OnGameTimeSynced;
+    FOnPhaseChanged           OnPhaseChanged;
+    FOnMapEventTriggered      OnMapEventTriggered;
+    FOnItemSpawned            OnItemSpawned;
+    FOnObjectSpawned          OnObjectSpawned;
+    FOnAttackActionReceived   OnAttackAction;
+    FOnSyncAnimationReceived  OnSyncAnimation;
+    FOnSnapshotReceived       OnSnapshotReceived;
+    FOnItemOwnershipChanged   OnItemOwnershipChanged;
 
     FOnStatusEffect OnStatusEffect;
 

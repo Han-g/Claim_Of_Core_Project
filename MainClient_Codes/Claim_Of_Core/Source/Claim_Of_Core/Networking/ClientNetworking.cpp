@@ -180,6 +180,10 @@ void ClientNetworking::PumpEvents()
             OnItemOwnershipChanged.Broadcast(Evt.ItemOwnership);
             break;
 
+        case ENetEventType::ItemSpawned:
+            OnItemSpawned.Broadcast(Evt.ItemSpawn);
+            break;
+
         case ENetEventType::StateChange:
             UE_LOG(LogTemp, Display, TEXT("State Change received"));
             OnStateChanged.Broadcast(Evt.StateChange);
@@ -371,6 +375,7 @@ void ClientNetworking::ItemPickupRequest(int32 ItemID)
 {
     FItemPacket Packet{};
     Packet.ItemID = ItemID;
+    Packet.ItemKind = 0;
     Packet.OwnerUID = -1;
     Packet.bEquipped = 0;
     Packet.X = 0.f;
