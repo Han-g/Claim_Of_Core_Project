@@ -72,7 +72,7 @@ void Room::InitCharacter(Session* member, GameLogic* logic)
 
     gd.x = spawn.x;
     gd.y = spawn.y;
-    gd.z = logic->GetGroundActorZ(); //spawn.z;
+    gd.z = spawn.z;//logic->GetGroundActorZ(); //
     gd.rotate = GetSpawnYawBySlot(slot);
 
     member->VerticalVelocity = 0.0f;

@@ -19,7 +19,28 @@ void AGlassBreakController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	PrepareGlassActors();
+	FindGlassActorsByTag();
+
+	for (AActor* Actor : FoundGlassActors)
+	{
+		UStaticMeshComponent* Mesh = GetStaticMeshComponentFromActor(Actor);
+		if (!IsValid(Mesh))
+		{
+			continue;
+		}
+
+		Mesh->SetSimulatePhysics(false);
+		Mesh->SetEnableGravity(false);
+		Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[GlassBreakController] Temporarily disabled glass actors. Count=%d"),
+		FoundGlassActors.Num());
+
+	return;
+
+	//PrepareGlassActors();
 }
 
 
