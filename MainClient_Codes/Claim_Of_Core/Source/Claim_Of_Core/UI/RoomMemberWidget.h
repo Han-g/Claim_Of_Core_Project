@@ -20,7 +20,7 @@ class CLAIM_OF_CORE_API URoomMemberWidget : public UUserWidget
 
 public:
 	void SetEmptyMember();
-	void SetMemberInfo(const FString& playerName, bool bIsReady);
+	void SetMemberInfo(const FString& playerName, bool bIsReady, int32 RoleType, bool bCanSelect);
 
 protected:
 	virtual void NativeConstruct() override;
@@ -45,6 +45,10 @@ protected:
 	int32 SelectedRoleType = -1;
 
 private:
+	bool bCanSelectRole = false;
+
+	void SetRoleButtonsEnabled(bool bEnabled);
+
 	UFUNCTION()
 	void OnStrikerClicked();
 
@@ -55,4 +59,6 @@ private:
 	void OnManipulatorClicked();
 
 	void HandleRoleSelected(int32 InRoleType);
+
+	void UpdateRoleButtonColors();
 };

@@ -311,7 +311,7 @@ private:
 	int32 CurrentHP = 100;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Role")
-	float BaseWalkSpeed = 2000.f;
+	float BaseWalkSpeed = 1500.f;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Role")
 	int32 BaseJumpMaxCount = 1;

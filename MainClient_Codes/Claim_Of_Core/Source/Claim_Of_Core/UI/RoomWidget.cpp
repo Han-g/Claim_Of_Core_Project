@@ -20,6 +20,9 @@ void URoomWidget::UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList)
 {
 	if (!MemberList || !MemberWidgetClass) { return; }
 
+	UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance());
+	const int32 LocalUID = GI ? GI->GetPlayerUID() : -1;
+
 	MemberList->ClearChildren();
 
 	for (int32 i = 0; i < 6; ++i)
@@ -27,7 +30,11 @@ void URoomWidget::UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList)
 		URoomMemberWidget* NewMember = CreateWidget<URoomMemberWidget>(GetWorld(), MemberWidgetClass);
 		if (NewMember)
 		{
-			if (i < PlayerList.Num()) { NewMember->SetMemberInfo(PlayerList[i].PlayerName, PlayerList[i].bIsReady); }
+			if (i < PlayerList.Num()) {
+				const bool bCanSelect = PlayerList[i].userUID == LocalUID;
+
+				NewMember->SetMemberInfo(PlayerList[i].PlayerName, PlayerList[i].bIsReady, PlayerList[i].RoleType, bCanSelect);
+			}
 			else { NewMember->SetEmptyMember(); }
 
 			UUniformGridSlot* GridSlot = MemberList->AddChildToUniformGrid(NewMember);

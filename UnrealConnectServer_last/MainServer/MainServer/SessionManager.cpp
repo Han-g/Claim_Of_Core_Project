@@ -93,6 +93,15 @@ void SessionManager::DisconnectClient(int clientID)
     {
         std::lock_guard<std::mutex> lock(m_SessionLock);
 
+        if (session->playerUID > 0)
+        {
+            auto it = m_LoggedInUsers.find(session->playerUID);
+            if (it != m_LoggedInUsers.end() && it->second == clientID)
+            {
+                m_LoggedInUsers.erase(it);
+            }
+        }
+
         session->roomID = -1;
         session->isReady = false;
         session->playerUID = -1;
@@ -116,4 +125,24 @@ Session* SessionManager::GetSession(int sessionID)
     if (!session->isConnected) { return nullptr; }
 
     return session;
+}
+
+bool SessionManager::TryBindLoggedInUser(int userUID, int sessionID)
+{
+    std::lock_guard<std::mutex> lock(m_SessionLock);
+
+    auto it = m_LoggedInUsers.find(userUID);
+    if (it != m_LoggedInUsers.end())
+    {
+        int oldSessionID = it->second;
+        if (oldSessionID >= 0 && oldSessionID < MAXCLIENT && m_Sessions[oldSessionID]->isConnected)
+        {
+            return false;
+        }
+
+        m_LoggedInUsers.erase(it);
+    }
+
+    m_LoggedInUsers[userUID] = sessionID;
+    return true;
 }

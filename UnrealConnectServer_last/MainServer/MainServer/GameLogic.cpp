@@ -1385,7 +1385,7 @@ void GameLogic::UpdateIceCaveMap(float deltaTime)
         }
     }
 
-    //UpdateIceFloorStanding(deltaTime);
+    UpdateIceFloorStanding(deltaTime);
 }
 
 void GameLogic::StartIceMap()
@@ -2208,6 +2208,11 @@ void GameLogic::BroadcastSpaceBlackHoleSpawn(const SpaceBlackHoleData& blackHole
     );
 }
 
+
+// ------------------------------------
+// ---------   Map Control   ----------
+// -------  Common Map Logics  --------
+// ------------------------------------
 static float RandomFloat(float minValue, float maxValue)
 {
     static thread_local std::mt19937 gen{ std::random_device{}() };

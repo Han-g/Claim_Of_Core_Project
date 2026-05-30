@@ -306,8 +306,8 @@ private:
 
 	float ServerGravityZ = -1200.f;
 	float ServerJumpZVelocity = 1000.0f;
-	float SpaceServerGravityZ = -490.0f;      // -980 * 0.5
-	float SpaceServerJumpZVelocity = 1500.0f;
+	float SpaceServerGravityZ = -735.0f;      // -980 * 0.5
+	float SpaceServerJumpZVelocity = 1200.0f;
 	float ServerCapsuleHalfHeight = 475.0f;
 	float GroundSnapTolerance = 2.0f;
 
@@ -544,9 +544,9 @@ private:
 	std::vector<SpaceBlackHoleData> SpaceBlackHoles;
 
 	Vector3 SpaceBlackHoleCenter = { 0.f, 0.f, 500.f };
-	Vector3 Outside1_BlackHoleCenter = {  10000.f,      0.f, 500.f };
-	Vector3 Outside2_BlackHoleCenter = { -10000.f,      0.f, 500.f };
-	Vector3 Outside3_BlackHoleCenter = {      0.f, -10000.f, 500.f };
+	Vector3 Outside1_BlackHoleCenter = {  11000.f,      0.f, 1000.f };
+	Vector3 Outside2_BlackHoleCenter = { -11000.f,      0.f, 1000.f };
+	Vector3 Outside3_BlackHoleCenter = {      0.f, -11000.f, 1000.f };
 
 	float SpaceBlackHolePullRadius   = 12000.f;
 	float SpaceBlackHoleMinDistance  =  150.f;

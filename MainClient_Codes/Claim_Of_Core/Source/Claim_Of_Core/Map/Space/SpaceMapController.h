@@ -7,6 +7,7 @@
 #include "SpaceMapController.generated.h"
 
 class ABlackHoleActor;
+class AGlassBreakController;
 
 UCLASS()
 class CLAIM_OF_CORE_API ASpaceMapController : public AActor
@@ -21,6 +22,7 @@ public:
 
 	void HandleRoundStateChanged(ERoundState OldState, ERoundState NewState);
 	void HandlePhaseChanged(EMapPhase OldPhase, EMapPhase NewPhase);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -29,10 +31,10 @@ protected:
 	EMapPhase  CurrentPhase = EMapPhase::Phase1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpaceMap|LowGravity")
-	float LowGravityScale = 0.5f;
+	float LowGravityScale = 0.75f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpaceMap|LowGravity")
-	float LowGravityJumpZVelocity = 1500.f;
+	float LowGravityJumpZVelocity = 1200.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpaceMap|LowGravity")
 	float LowGravityAirControl = 0.6f;
@@ -54,6 +56,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpaceMap|Phase2")
 	TObjectPtr<ABlackHoleActor> BlackHoleActor = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "SpaceMap|Glass")
+	TObjectPtr<AGlassBreakController> GlassBreakController = nullptr;
 
 	UPROPERTY()
 	TObjectPtr<AInGame_GameState> CachedGameState = nullptr;

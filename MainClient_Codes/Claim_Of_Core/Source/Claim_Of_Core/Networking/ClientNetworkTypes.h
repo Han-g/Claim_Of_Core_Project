@@ -145,6 +145,8 @@ struct FRoomMemberPacketData {
     wchar_t PlayerName[20];
     bool isReady;
     bool isHost;
+    int32 userUID;
+    int roleType;
 };
 
 struct FGamedataPacket {
@@ -236,6 +238,7 @@ USTRUCT(BlueprintType)
 struct FRoomInfoData
 {
     GENERATED_BODY()
+
     UPROPERTY(BlueprintReadOnly)
     int32 RoomID = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -250,8 +253,12 @@ USTRUCT()
 struct FRoomMemberInfo
 {
     GENERATED_BODY()
+
     FString PlayerName;
     bool bIsReady = false;
+    bool bIsHost = false;
+    int32 userUID;
+    int32 RoleType = -1;
 };
 
 // ============================================================

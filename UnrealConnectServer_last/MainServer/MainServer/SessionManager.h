@@ -6,6 +6,7 @@
 #include <vector>
 #include <queue>
 #include <mutex>
+#include <unordered_map>
 
 #define MAXCLIENT 3000
 
@@ -26,6 +27,8 @@ public:
 	// Returns the active session pointer when the slot is connected.
 	Session* GetSession(int sessionID);
 
+	bool TryBindLoggedInUser(int userUID, int sessionID);
+
 private:
 	SessionManager() {}
 	~SessionManager() {
@@ -36,6 +39,7 @@ private:
 	}
 
 private:
+	std::unordered_map<int, int> m_LoggedInUsers;
 	std::vector<Session*> m_Sessions;
 	std::queue<int> m_FreeSessionQueue;
 	std::mutex m_SessionLock;

@@ -1,8 +1,11 @@
 ﻿#include "SpaceMapController.h"
 
 #include "BlackHoleActor.h"
+#include "GlassBreakController.h"
+
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
+
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -105,6 +108,11 @@ void ASpaceMapController::BeginPlay()
 
 	InitializeGameState();
 	SyncFromGameState();
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[SpaceMapController] BeginPlay. GlassBreakController=%s BlackHoleActor=%s"),
+		IsValid(GlassBreakController) ? *GlassBreakController->GetName() : TEXT("NULL"),
+		IsValid(BlackHoleActor) ? *BlackHoleActor->GetName() : TEXT("NULL"));
 }
 
 void ASpaceMapController::StartSpaceMap()
@@ -153,6 +161,11 @@ void ASpaceMapController::EnterPhase1()
 
 	UE_LOG(LogTemp, Warning, TEXT("[SpaceMapController] Enter Phase1"));
 
+	if (IsValid(GlassBreakController))
+	{
+		GlassBreakController->ResetGlassActors();
+	}
+
 	if (IsValid(BlackHoleActor))
 	{
 		// Phase1부터 블랙홀은 보이게 함
@@ -174,6 +187,17 @@ void ASpaceMapController::EnterPhase2()
 
 	UE_LOG(LogTemp, Warning, TEXT("[SpaceMapController] Enter Phase2"));
 
+	if (IsValid(GlassBreakController))
+	{
+		GlassBreakController->BreakPhase2GlassActors();
+	}
+	else 
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[SpaceMapController] Phase2 GlassBreakController=%s"),
+			IsValid(GlassBreakController) ? *GlassBreakController->GetName() : TEXT("NULL"));
+	}
+
 	if (IsValid(BlackHoleActor))
 	{
 		// Phase2부터 실제로 끌어당김 시작
@@ -193,6 +217,17 @@ void ASpaceMapController::EnterPhase3()
 	CurrentPhase = EMapPhase::Phase3;
 
 	UE_LOG(LogTemp, Warning, TEXT("[SpaceMapController] Enter Phase3"));
+
+	if (IsValid(GlassBreakController))
+	{
+		GlassBreakController->BreakPhase3GlassActors();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[SpaceMapController] Phase2 GlassBreakController=%s"),
+			IsValid(GlassBreakController) ? *GlassBreakController->GetName() : TEXT("NULL"));
+	}
 
 	if (IsValid(BlackHoleActor))
 	{

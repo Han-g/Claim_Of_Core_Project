@@ -9,6 +9,8 @@ void URoomMemberWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
+    UpdateRoleButtonColors();
+
     if (StrikerButton)
     {
         StrikerButton->OnClicked.RemoveDynamic(this, &URoomMemberWidget::OnStrikerClicked);
@@ -50,6 +52,10 @@ void URoomMemberWidget::NativeDestruct()
 
 void URoomMemberWidget::SetEmptyMember()
 {
+    SelectedRoleType = -1;
+    UpdateRoleButtonColors();
+    SetRoleButtonsEnabled(false);
+
 	if (PlayerName) {
 		PlayerName->SetText(FText::FromString(TEXT("Empty Player")));
 	}
@@ -58,14 +64,29 @@ void URoomMemberWidget::SetEmptyMember()
 	}
 }
 
-void URoomMemberWidget::SetMemberInfo(const FString& playerName, bool bIsReady)
+void URoomMemberWidget::SetMemberInfo(const FString& playerName, bool bIsReady, int32 RoleType, bool bCanSelect)
 {
+    SelectedRoleType = RoleType;
+
 	if (PlayerName) {
 		PlayerName->SetText(FText::FromString(playerName));
 	}
+
 	if (PlayerState) {
 		PlayerState->SetText(FText::FromString(bIsReady ? TEXT("READY") : TEXT("WAITING")));
 	}
+
+    SetRoleButtonsEnabled(bCanSelect);
+    UpdateRoleButtonColors();
+}
+
+void URoomMemberWidget::SetRoleButtonsEnabled(bool bEnabled)
+{
+    bCanSelectRole = bEnabled;
+
+    if (StrikerButton) { StrikerButton->SetIsEnabled(bEnabled); }
+    if (GuardianButton) { GuardianButton->SetIsEnabled(bEnabled); }
+    if (ManipulatorButton) { ManipulatorButton->SetIsEnabled(bEnabled); }
 }
 
 void URoomMemberWidget::OnStrikerClicked()
@@ -85,12 +106,39 @@ void URoomMemberWidget::OnManipulatorClicked()
 
 void URoomMemberWidget::HandleRoleSelected(int32 InRoleType)
 {
+    if (!bCanSelectRole)
+    {
+        return;
+    }
+
     SelectedRoleType = InRoleType;
+    UpdateRoleButtonColors();
 
     UE_LOG(LogTemp, Display, TEXT("[RoomMemberWidget] Role button clicked: %d"), SelectedRoleType);
 
     if (UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance()))
     {
         GI->SelectCharacterAndReady(InRoleType);
+    }
+}
+
+void URoomMemberWidget::UpdateRoleButtonColors()
+{
+    const FLinearColor NormalColor = FLinearColor(0.08f, 0.08f, 0.08f, 1.0f);
+    const FLinearColor SelectedColor = FLinearColor(0.1f, 0.45f, 1.0f, 1.0f);
+
+    if (StrikerButton)
+    {
+        StrikerButton->SetBackgroundColor(SelectedRoleType == 0 ? SelectedColor : NormalColor);
+    }
+
+    if (GuardianButton)
+    {
+        GuardianButton->SetBackgroundColor(SelectedRoleType == 1 ? SelectedColor : NormalColor);
+    }
+
+    if (ManipulatorButton)
+    {
+        ManipulatorButton->SetBackgroundColor(SelectedRoleType == 2 ? SelectedColor : NormalColor);
     }
 }

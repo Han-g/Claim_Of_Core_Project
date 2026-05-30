@@ -432,6 +432,15 @@ void IOCPServer::DBWorkerThread()
 			// Validate credentials and transition the session to the lobby on success.
 			if (m_DB->CheckLogin(data.UserID, data.UserPW, userUID)) {
 				//LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
+				if (!m_SessionManager->TryBindLoggedInUser(userUID, data.SessionIndex))
+				{
+					LOG_INFO("[%d] Duplicate Login Blocked! [UID: %d]", data.SessionIndex, userUID);
+
+					ErrorCodePacket failPacket;
+					failPacket.ErrorCode = 6; // duplicate login
+					SendPacket(data.SessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
+					break;
+				}
 
 				// Cache player identity data on the session object.
 				Session* loginSession = m_SessionManager->GetSession(data.SessionIndex);

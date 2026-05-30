@@ -188,6 +188,12 @@ int32 UNetworkInstance::GetPlayerUID() const { return Client.IsValid() ? Client-
 
 void UNetworkInstance::SelectCharacterAndReady(int32 SelectedRoleType)
 {
+	if (SelectedRoleType < 0 || SelectedRoleType > 2)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[CharacterSelect] Invalid role: %d"), SelectedRoleType);
+		return;
+	}
+
 	CachedSelectedRoleType = SelectedRoleType;
 
 	UE_LOG(LogTemp, Display, TEXT("[CharacterSelect] Role=%d clicked"), SelectedRoleType);
@@ -198,14 +204,14 @@ void UNetworkInstance::SelectCharacterAndReady(int32 SelectedRoleType)
 		return;
 	}
 
-	if (bReadySent)
-	{
-		UE_LOG(LogTemp, Display, TEXT("[CharacterSelect] Ready already sent for this room"));
-		return;
-	}
+	Client->CharacterSelectRequest(CachedSelectedRoleType);
 
-	RequestReady();
-	bReadySent = true;
+	if (!bReadySent)
+	{
+		//RequestReady();
+		Client->ReadyToggleRequest();
+		bReadySent = true;
+	}
 
 	UE_LOG(LogTemp, Display, TEXT("[CharacterSelect] Ready request sent"));
 }

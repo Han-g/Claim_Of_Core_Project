@@ -377,6 +377,9 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
             FRoomMemberInfo MInfo;
             MInfo.PlayerName = FString(MemberData.PlayerName);
             MInfo.bIsReady = MemberData.isReady;
+            MInfo.bIsHost = MemberData.isHost;
+            MInfo.userUID = MemberData.userUID;
+            MInfo.RoleType = MemberData.roleType;
             Evt.MemberList.Add(MInfo);
         }
         PushEvent(MoveTemp(Evt));
@@ -406,6 +409,9 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
             FRoomMemberInfo MInfo;
             MInfo.PlayerName = FString(MemberData.PlayerName);
             MInfo.bIsReady = MemberData.isReady;
+            MInfo.bIsHost = MemberData.isHost;
+            MInfo.userUID = MemberData.userUID;
+            MInfo.RoleType = MemberData.roleType;
             Evt.MemberList.Add(MInfo);
         }
         PushEvent(MoveTemp(Evt));

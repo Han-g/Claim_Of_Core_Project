@@ -495,6 +495,9 @@ std::vector<RoomMemberPacket> Room::GetMemberInfoList()
         }
 
         info.isReady = member->isReady ? 1 : 0;
+        info.isHost = IsOwner(member->sessionID) ? 1 : 0;
+        info.userUID = member->playerUID;
+        info.roleType = member->gameDatas.roleType;
 
         result.push_back(info);
     }

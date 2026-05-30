@@ -234,6 +234,8 @@ struct RoomMemberPacket {
     WCHAR PlayerName[20];
     bool isReady;
     bool isHost;
+    int userUID;
+    int roleType;
 };
 
 struct GameDataPacket {
