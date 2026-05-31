@@ -48,6 +48,9 @@ void ATorchItem::DoHit()
 		Params
 	);
 
+	// COC_DEBUG_HITBOX Torch draw call
+	DrawDebugHitBox(Center, Radius, bHit);
+
 	if (!bHit)
 	{
 		return;
@@ -62,7 +65,6 @@ void ATorchItem::DoHit()
 		}
 
 		ApplyBurn(Target);
-		TryStartThaw(Target);
 		BP_OnTorchHitTarget(Target);
 	}
 }
@@ -123,47 +125,59 @@ void ATorchItem::UpdateBurns(float DeltaTime)
 	}
 }
 
-void ATorchItem::TryStartThaw(AMyCharacter* Target)
-{
-	if (!IsValidThawTarget(Target))
-	{
-		return;
-	}
-
-	if (CurrentThawTarget != Target)
-	{
-		CurrentThawTarget = Target;
-		ThawProgress = 0.f;
-	}
-}
-
 void ATorchItem::UpdateThaw(float DeltaTime)
 {
-	if (!CurrentThawTarget)
+	if (DeltaTime <= 0.f)
 	{
 		return;
 	}
 
-	if (DeltaTime <= 0.f || !IsValidThawTarget(CurrentThawTarget))
+	if (!OwnerCharacter || OwnerCharacter->IsDead())
 	{
 		CancelThaw();
 		return;
 	}
 
-	ThawProgress += DeltaTime;
-	if (ThawProgress >= ThawRequiredTime)
+	TArray<AMyCharacter*> ThawTargets;
+	CollectThawTargetsInRange(ThawTargets);
+
+	TSet<AMyCharacter*> ThawTargetSet;
+	for (AMyCharacter* Target : ThawTargets)
 	{
-		AMyCharacter* ThawedTarget = CurrentThawTarget;
-		ThawedTarget->EndFreeze();
-		BP_OnUnfreezeTarget(ThawedTarget);
-		CancelThaw();
+		ThawTargetSet.Add(Target);
+	}
+
+	for (auto It = ActiveThawProgresses.CreateIterator(); It; ++It)
+	{
+		AMyCharacter* Target = It.Key();
+		if (!ThawTargetSet.Contains(Target) || !IsValidThawTarget(Target))
+		{
+			It.RemoveCurrent();
+		}
+	}
+
+	for (AMyCharacter* Target : ThawTargets)
+	{
+		if (!IsValidThawTarget(Target))
+		{
+			continue;
+		}
+
+		float& ThawProgress = ActiveThawProgresses.FindOrAdd(Target);
+		ThawProgress += DeltaTime;
+
+		if (ThawProgress >= ThawRequiredTime)
+		{
+			Target->EndFreeze();
+			BP_OnUnfreezeTarget(Target);
+			ActiveThawProgresses.Remove(Target);
+		}
 	}
 }
 
 void ATorchItem::CancelThaw()
 {
-	CurrentThawTarget = nullptr;
-	ThawProgress = 0.f;
+	ActiveThawProgresses.Empty();
 }
 
 bool ATorchItem::IsValidThawTarget(AMyCharacter* Target) const
@@ -172,18 +186,54 @@ bool ATorchItem::IsValidThawTarget(AMyCharacter* Target) const
 		!OwnerCharacter->IsDead() &&
 		Target &&
 		!Target->IsDead() &&
-		Target->IsFrozen() &&
-		IsTargetInTorchRange(Target);
+		Target->IsFrozen();
 }
 
-bool ATorchItem::IsTargetInTorchRange(AMyCharacter* Target) const
+void ATorchItem::CollectThawTargetsInRange(TArray<AMyCharacter*>& OutTargets) const
 {
-	if (!OwnerCharacter || !Target)
+	OutTargets.Reset();
+
+	if (!GetWorld())
 	{
-		return false;
+		return;
 	}
 
-	const FVector Center = OwnerCharacter->GetActorLocation() + OwnerCharacter->GetActorForwardVector() * Range;
-	const float AllowedRange = Radius + ThawRangeBuffer;
-	return FVector::DistSquared(Target->GetActorLocation(), Center) <= FMath::Square(AllowedRange);
+	TArray<FOverlapResult> Overlaps;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+	if (OwnerCharacter)
+	{
+		Params.AddIgnoredActor(OwnerCharacter);
+	}
+
+	const bool bHit = GetWorld()->OverlapMultiByChannel(
+		Overlaps,
+		GetActorLocation(),
+		FQuat::Identity,
+		ECC_Pawn,
+		FCollisionShape::MakeSphere(ThawRadius),
+		Params
+	);
+
+	if (!bHit)
+	{
+		return;
+	}
+
+	TSet<AMyCharacter*> UniqueTargets;
+
+	for (const FOverlapResult& Result : Overlaps)
+	{
+		AMyCharacter* Target = Cast<AMyCharacter>(Result.GetActor());
+		if (!IsValidThawTarget(Target))
+		{
+			continue;
+		}
+
+		if (!UniqueTargets.Contains(Target))
+		{
+			UniqueTargets.Add(Target);
+			OutTargets.Add(Target);
+		}
+	}
 }

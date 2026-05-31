@@ -6,6 +6,7 @@
 
 class AMyCharacter;
 class UDecalComponent;
+class UMaterialInstanceDynamic;
 class UNiagaraComponent;
 class UNiagaraSystem;
 class USphereComponent;
@@ -47,7 +48,7 @@ protected:
 	float FreezeBuildUpTime = 2.5f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill")
-	float ZoneLifeTime = 5.f;
+	float ZoneLifeTime = 10.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill|Visual")
 	TObjectPtr<UStaticMesh> ChillMesh;
@@ -59,7 +60,16 @@ protected:
 	TObjectPtr<UMaterialInterface> ChillDecalMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill|Visual")
+	FLinearColor ChillDecalTintColor = FLinearColor(1.f, 0.f, 0.f, 0.35f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill|Visual", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float ChillDecalOpacity = 0.35f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Chill|Visual")
 	TObjectPtr<UNiagaraSystem> ChillVisualEffect;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> ChillDecalMaterialInstance;
 
 	UPROPERTY()
 	TMap<TObjectPtr<AMyCharacter>, float> CharacterStayTimes;

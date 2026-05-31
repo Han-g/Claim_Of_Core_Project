@@ -219,6 +219,14 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Combat")
 	float BaseAttackKnockbackPower = 1200.f;
 
+	// COC_DEBUG_HITBOX_BEGIN Character properties
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Debug")
+	bool bDrawDebugAttackHitBox = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Debug")
+	float DebugAttackHitBoxLifeTime = 1.5f;
+	// COC_DEBUG_HITBOX_END Character properties
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
 	FRoleVisualData StrikerVisual;
 
@@ -487,6 +495,8 @@ private:
 	void ApplyRoleVisual();
 	void ApplyRoleSkillState();
 	void UpdateFrozenOverlay();
+	// COC_DEBUG_HITBOX Character function
+	void DrawDebugHandHitBox(float LifeTime) const;
 	const FRoleVisualData& GetVisualData(ERecRoleType InRole) const;
 
 	void SetCharacterState(ERecCharacterState NewState);

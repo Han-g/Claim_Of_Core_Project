@@ -37,23 +37,17 @@ protected:
 	float ThawRequiredTime = 1.5f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Torch|Thaw")
-	float ThawRangeBuffer = 0.f;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Torch|Thaw")
-	TObjectPtr<AMyCharacter> CurrentThawTarget = nullptr;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Torch|Thaw")
-	float ThawProgress = 0.f;
+	float ThawRadius = 220.f;
 
 	TMap<AMyCharacter*, FTorchBurnState> ActiveBurns;
+	TMap<AMyCharacter*, float> ActiveThawProgresses;
 
 	void ApplyBurn(AMyCharacter* Target);
 	void UpdateBurns(float DeltaTime);
-	void TryStartThaw(AMyCharacter* Target);
 	void UpdateThaw(float DeltaTime);
 	void CancelThaw();
 	bool IsValidThawTarget(AMyCharacter* Target) const;
-	bool IsTargetInTorchRange(AMyCharacter* Target) const;
+	void CollectThawTargetsInRange(TArray<AMyCharacter*>& OutTargets) const;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Torch")
 	void BP_OnTorchHitTarget(AActor* Target);

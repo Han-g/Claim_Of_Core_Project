@@ -3,6 +3,7 @@
 #include "Components/DecalComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "NiagaraComponent.h"
 #include "../../Sub/MyCharacter.h"
 
@@ -34,7 +35,7 @@ AIceChillZone::AIceChillZone()
 
 	ChillEffectComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("ChillEffect"));
 	ChillEffectComponent->SetupAttachment(Root);
-	ChillEffectComponent->SetAutoActivate(true);
+	ChillEffectComponent->SetAutoActivate(false);
 }
 
 void AIceChillZone::BeginPlay()
@@ -131,12 +132,37 @@ void AIceChillZone::ApplyVisualSettings()
 		ChillDecalComponent->DecalSize = FVector(128.f, Radius, Radius);
 		if (ChillDecalMaterial)
 		{
-			ChillDecalComponent->SetDecalMaterial(ChillDecalMaterial);
+			ChillDecalMaterialInstance = UMaterialInstanceDynamic::Create(ChillDecalMaterial, this);
+			if (ChillDecalMaterialInstance)
+			{
+				const FLinearColor DecalColor(
+					ChillDecalTintColor.R,
+					ChillDecalTintColor.G,
+					ChillDecalTintColor.B,
+					ChillDecalOpacity);
+
+				ChillDecalMaterialInstance->SetVectorParameterValue(TEXT("BaseColor"), DecalColor);
+				ChillDecalMaterialInstance->SetVectorParameterValue(TEXT("Color"), DecalColor);
+				ChillDecalMaterialInstance->SetVectorParameterValue(TEXT("TintColor"), DecalColor);
+				ChillDecalMaterialInstance->SetVectorParameterValue(TEXT("DecalColor"), DecalColor);
+				ChillDecalMaterialInstance->SetScalarParameterValue(TEXT("Opacity"), ChillDecalOpacity);
+				ChillDecalMaterialInstance->SetScalarParameterValue(TEXT("Alpha"), ChillDecalOpacity);
+
+				ChillDecalComponent->SetDecalMaterial(ChillDecalMaterialInstance);
+			}
 		}
 	}
 
-	if (ChillEffectComponent && ChillVisualEffect)
+	if (ChillEffectComponent)
 	{
-		ChillEffectComponent->SetAsset(ChillVisualEffect);
+		if (ChillVisualEffect)
+		{
+			ChillEffectComponent->SetAsset(ChillVisualEffect);
+		}
+
+		if (ChillEffectComponent->GetAsset())
+		{
+			ChillEffectComponent->Activate(true);
+		}
 	}
 }

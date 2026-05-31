@@ -24,10 +24,12 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
+#include "DrawDebugHelpers.h"
 
 #include "ClientNetworking.h"
 #include "BaseItem.h"
 #include "../Map/IceCave/IceFloorTile.h"
+#include "../Map/SkyIsland/SkyCloudPlatform.h"
 
 AMyCharacter::AMyCharacter()
 {
@@ -1753,6 +1755,8 @@ void AMyCharacter::Attack()
 		//NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
 		NetworkInstance->RequestAttackInput(0);
 	}
+
+	PlayAttackMontageFromServer(0);
 	/*if (!IsValid(Controller))
 	{
 		return;
@@ -2227,6 +2231,9 @@ void AMyCharacter::StartAttackHitWindow(float Duration)
 		HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
 
+	// COC_DEBUG_HITBOX Character draw call
+	DrawDebugHandHitBox(Duration);
+
 	GetWorldTimerManager().ClearTimer(AttackTimer);
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
@@ -2236,6 +2243,28 @@ void AMyCharacter::StartAttackHitWindow(float Duration)
 		false
 	);
 }
+
+// COC_DEBUG_HITBOX_BEGIN Character draw helper
+void AMyCharacter::DrawDebugHandHitBox(float LifeTime) const
+{
+	if (!bDrawDebugAttackHitBox || !HandCollision || !GetWorld())
+	{
+		return;
+	}
+
+	DrawDebugBox(
+		GetWorld(),
+		HandCollision->GetComponentLocation(),
+		HandCollision->GetScaledBoxExtent(),
+		HandCollision->GetComponentQuat(),
+		FColor::Yellow,
+		false,
+		LifeTime > 0.f ? LifeTime : DebugAttackHitBoxLifeTime,
+		0,
+		2.f
+	);
+}
+// COC_DEBUG_HITBOX_END Character draw helper
 
 void AMyCharacter::CheckIceFloor()
 {
@@ -2273,6 +2302,14 @@ void AMyCharacter::CheckIceFloor()
 	else
 	{
 		SetIceMovement(false);
+	}
+
+	if (bHit && Hit.GetActor() && Hit.GetActor()->ActorHasTag(TEXT("CloudPlatform")))
+	{
+		if (ASkyCloudPlatform* CloudPlatform = Cast<ASkyCloudPlatform>(Hit.GetActor()))
+		{
+			CloudPlatform->NotifyPlayerStanding(this);
+		}
 	}
 }
 

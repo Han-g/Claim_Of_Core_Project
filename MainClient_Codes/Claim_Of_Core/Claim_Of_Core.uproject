@@ -64,10 +64,6 @@
 			"Enabled": false
 		},
 		{
-			"Name": "Fab",
-			"Enabled": false
-		},
-		{
 			"Name": "InterchangeTests",
 			"Enabled": false
 		},

@@ -136,6 +136,9 @@ void ABaseItem::DoHit()
 		Params
 	);
 
+	// COC_DEBUG_HITBOX BaseItem draw call
+	DrawDebugHitBox(Center, Radius, bHit);
+
 	if (!bHit) return;
 
 	for (auto& Result : Overlaps)
@@ -180,6 +183,33 @@ void ABaseItem::ApplyKnockback(ACharacter* Target)
 
 	Target->LaunchCharacter(LaunchVel, true, true);
 }
+
+
+// COC_DEBUG_HITBOX_BEGIN BaseItem draw helper
+void ABaseItem::DrawDebugHitBox(const FVector& Center, float InRadius, bool bHit) const
+{
+	// COC_DEBUG_HITBOX Shared character/item debug toggle
+	const bool bOwnerDebugEnabled = OwnerCharacter && OwnerCharacter->bDrawDebugAttackHitBox;
+	if ((!bDrawDebugHitBox && !bOwnerDebugEnabled) || !GetWorld())
+	{
+		return;
+	}
+
+	const float LifeTime = bDrawDebugHitBox ? DebugHitBoxLifeTime : OwnerCharacter->DebugAttackHitBoxLifeTime;
+	DrawDebugSphere(
+		GetWorld(),
+		Center,
+		InRadius,
+		24,
+		bHit ? FColor::Green : FColor::Red,
+		false,
+		LifeTime,
+		0,
+		2.f
+	);
+}
+
+// COC_DEBUG_HITBOX_END BaseItem draw helper
 
 void ABaseItem::OnStartUse()
 {

@@ -62,10 +62,18 @@ public:
 	float KnockbackPower = 800.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
-	float Range = 200.f;
+	float Range = 320.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
-	float Radius = 80.f;
+	float Radius = 180.f;
+	// COC_DEBUG_HITBOX_BEGIN BaseItem properties
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Debug")
+	bool bDrawDebugHitBox = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Debug")
+	float DebugHitBoxLifeTime = 1.5f;
+	// COC_DEBUG_HITBOX_END BaseItem properties
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
 	FTransform StrikerAttachOffset = FTransform::Identity;
@@ -109,4 +117,6 @@ protected:
 
 	void ApplyDamage(AActor* Target);
 	void ApplyKnockback(ACharacter* Target);
+	// COC_DEBUG_HITBOX BaseItem function
+	void DrawDebugHitBox(const FVector& Center, float InRadius, bool bHit) const;
 };

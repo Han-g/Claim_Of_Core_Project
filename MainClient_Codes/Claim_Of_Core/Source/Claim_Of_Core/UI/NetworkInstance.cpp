@@ -45,7 +45,7 @@ void UNetworkInstance::Init()
 	if (GConfig) {
 		GConfig->GetString(
 			TEXT("ServerSettings"),
-			TEXT("ServerIP"),
+			TEXT("LocalServerIP"),
 			ServerIPAddress,
 			GGameIni
 		);
