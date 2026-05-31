@@ -809,6 +809,7 @@ void UNetworkInstance::HandleItemOwnershipChanged(const FItemPacket& Packet)
 		AMyCharacter* OwnerCharacter = FindCharacterByUID(Packet.OwnerUID);
 		if (!OwnerCharacter) { return; }
 
+		UE_LOG(LogTemp, Display, TEXT("[Weapon Ani] Equiped"));
 		OwnerCharacter->ApplyEquipItemVisual(Item);
 	}
 	else

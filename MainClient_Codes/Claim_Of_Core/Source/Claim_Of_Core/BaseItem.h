@@ -14,10 +14,13 @@ class USphereComponent;
 UENUM(BlueprintType)
 enum class EItemAnimPoseType : uint8
 {
-	None   UMETA(DisplayName = "None"),
-	Sword  UMETA(DisplayName = "Sword"),
-	Spear  UMETA(DisplayName = "Spear"),
-	Hammer UMETA(DisplayName = "Hammer")
+	None	 UMETA(DisplayName = "None"),
+	Sword	 UMETA(DisplayName = "Sword"),
+	Spear	 UMETA(DisplayName = "Spear"),
+	Hammer	 UMETA(DisplayName = "Hammer"),
+	Umbrella UMETA(DisplayName = "Umbrella"),
+	Torch	 UMETA(DisplayName = "Torch"),
+	Grenade  UMETA(DisplayName = "Grenade"),
 };
 
 UCLASS()

@@ -2034,13 +2034,22 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 	const FRoleVisualData& Data = GetVisualData(RoleType);
 
-	if (!AnimInstance || !Data.AttackMontage)
+	UAnimMontage* AttackMontage = Data.AttackMontage;
+	if (CurrentItem)
+	{
+		if (UAnimMontage* ItemMontage = CurrentItem->GetAttackMontageByRole(RoleType))
+		{
+			AttackMontage = ItemMontage;
+		}
+	}
+
+	if (!AnimInstance || !AttackMontage)
 	{
 		//UE_LOG(LogTemp, Display, TEXT("Not Connect with Montage"));
 		return;
 	}
 
-	if (AnimInstance->Montage_IsPlaying(Data.AttackMontage))
+	if (AnimInstance->Montage_IsPlaying(AttackMontage))
 	{
 		//UE_LOG(LogTemp, Display, TEXT("Not is playing"));
 		return;
@@ -2048,7 +2057,7 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 
 	//HitActors.Empty();
 	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	const float PlayedLength = AnimInstance->Montage_Play(Data.AttackMontage);
+	const float PlayedLength = AnimInstance->Montage_Play(AttackMontage);
 
 	CurrentAttackType = AttackType;
 	CurrentAttackSeq = AttackSeq;
@@ -2533,6 +2542,13 @@ void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
 	if (!Item) { return; }
 
 	if (CurrentItem == Item) { return; }
+	UE_LOG(LogTemp, Warning,
+		TEXT("[EquipVisual] Character=%s UID=%d CurrentItem=%s ItemID=%d PoseType=%d"),
+		*GetNameSafe(this),
+		GetNetworkPlayerUID(),
+		*GetNameSafe(CurrentItem),
+		CurrentItem ? CurrentItem->GetItemID() : -1,
+		CurrentItem ? static_cast<int32>(CurrentItem->ItemAnimPoseType) : -1);
 
 	if (CurrentItem && CurrentItem != Item) { return; }
 

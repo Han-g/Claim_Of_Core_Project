@@ -781,7 +781,7 @@ void RoomManager::GameStart(Session* client)
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(0, static_cast<int>(AvailableMaps.size()) - 1);
 
-    const int selected = 2;//AvailableMaps[dist(gen)];
+    const int selected = 3;//AvailableMaps[dist(gen)];
     room->SelectStage(selected);
     room->LoadStage(selected);
     room->BroadcastToMembers(
