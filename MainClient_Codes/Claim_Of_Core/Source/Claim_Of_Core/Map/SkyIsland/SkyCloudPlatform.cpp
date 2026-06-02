@@ -34,6 +34,9 @@ void ASkyCloudPlatform::BeginPlay()
 	InitializeGameState();
 	Tags.Add(TEXT("CloudPlatform"));
 	InitialScale = GetActorScale3D();
+	InitialLocation = GetActorLocation();
+	MotionElapsed = bRandomizeMotionPhase ? FMath::FRandRange(0.f, 2.f * PI) : MotionPhaseOffset;
+	LandingBounceElapsed = LandingBounceDuration;
 
 	OriginalMaterials.Empty();
 	if (CloudMeshComponent)
@@ -63,6 +66,8 @@ void ASkyCloudPlatform::Tick(float DeltaTime)
 	}
 
 	InitializeGameState();
+	UpdateCloudMotion(DeltaTime);
+	UpdateLandingBounce(DeltaTime);
 
 	if (bPlatformVisible)
 	{
@@ -82,6 +87,16 @@ void ASkyCloudPlatform::NotifyPlayerStanding(AMyCharacter* StandingCharacter)
 	}
 
 	StandingCharacters.Add(StandingCharacter);
+}
+
+void ASkyCloudPlatform::NotifyPlayerLanded(AMyCharacter* LandingCharacter)
+{
+	if (!bPlatformVisible || !LandingCharacter || LandingCharacter->IsDead())
+	{
+		return;
+	}
+
+	TriggerLandingBounce();
 }
 
 void ASkyCloudPlatform::InitializeGameState()
@@ -202,7 +217,8 @@ void ASkyCloudPlatform::ApplyPlatformEnabled(bool bEnabled)
 
 void ASkyCloudPlatform::ApplyStableVisual()
 {
-	SetActorScale3D(InitialScale);
+	VisualScaleMultiplier = 1.f;
+	ApplyVisualScale();
 
 	if (!CloudMeshComponent)
 	{
@@ -223,7 +239,8 @@ void ASkyCloudPlatform::ApplyStableVisual()
 
 void ASkyCloudPlatform::ApplyWarningVisual()
 {
-	SetActorScale3D(InitialScale * WarningScaleMultiplier);
+	VisualScaleMultiplier = WarningScaleMultiplier;
+	ApplyVisualScale();
 
 	if (CloudMeshComponent && WarningMaterial)
 	{
@@ -284,6 +301,65 @@ void ASkyCloudPlatform::ApplyInitialCycleOffset()
 		HidePlatform();
 		HiddenElapsed = WrappedOffset - CurrentVisibleDuration;
 	}
+}
+
+void ASkyCloudPlatform::UpdateCloudMotion(float DeltaTime)
+{
+	if (!bUseCloudMotion)
+	{
+		return;
+	}
+
+	MotionElapsed += DeltaTime * MotionSpeed;
+
+	const FVector MotionOffset(
+		FMath::Sin(MotionElapsed) * MotionAmplitude.X,
+		FMath::Cos(MotionElapsed * 0.73f) * MotionAmplitude.Y,
+		FMath::Sin(MotionElapsed * 1.31f) * MotionAmplitude.Z);
+
+	SetActorLocation(InitialLocation + MotionOffset);
+}
+
+void ASkyCloudPlatform::UpdateLandingBounce(float DeltaTime)
+{
+	if (LandingBounceElapsed >= LandingBounceDuration)
+	{
+		return;
+	}
+
+	LandingBounceElapsed = FMath::Min(LandingBounceElapsed + DeltaTime, LandingBounceDuration);
+	ApplyVisualScale();
+}
+
+void ASkyCloudPlatform::TriggerLandingBounce()
+{
+	if (LandingBounceDuration <= 0.f || LandingBounceElapsed < LandingBounceDuration)
+	{
+		return;
+	}
+
+	LandingBounceElapsed = 0.f;
+	ApplyVisualScale();
+}
+
+void ASkyCloudPlatform::ApplyVisualScale()
+{
+	const float BounceAlpha = LandingBounceDuration > 0.f
+		? FMath::Clamp(LandingBounceElapsed / LandingBounceDuration, 0.f, 1.f)
+		: 1.f;
+
+	const float BounceAmount = FMath::Sin(BounceAlpha * PI);
+	const FVector BounceScale(
+		1.f + LandingBounceSpreadScale * BounceAmount,
+		1.f + LandingBounceSpreadScale * BounceAmount,
+		1.f - LandingBounceSquashScale * BounceAmount);
+
+	FVector TargetScale = InitialScale * VisualScaleMultiplier;
+	TargetScale.X *= BounceScale.X;
+	TargetScale.Y *= BounceScale.Y;
+	TargetScale.Z *= BounceScale.Z;
+
+	SetActorScale3D(TargetScale);
 }
 
 int32 ASkyCloudPlatform::GetStandingPlayerCount() const

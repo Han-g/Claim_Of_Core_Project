@@ -18,6 +18,7 @@ class UBoxComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
 class UMaterialInterface;
+class UNiagaraSystem;
 class ABaseItem;
 class FLifetimeProperty;
 
@@ -123,6 +124,7 @@ protected:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	virtual void Jump() override;
+	virtual void Landed(const FHitResult& Hit) override;
 
 	virtual float TakeDamage(
 		float DamageAmount,
@@ -218,6 +220,15 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Combat")
 	float BaseAttackKnockbackPower = 1200.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	TObjectPtr<UNiagaraSystem> HitNiagaraSystem;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	FVector HitNiagaraRelativeLocation = FVector(0.f, 0.f, 120.f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	FVector HitNiagaraScale = FVector(1.f);
 
 	// COC_DEBUG_HITBOX_BEGIN Character properties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat|Debug")
@@ -402,6 +413,24 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
 	FLinearColor LowHPSceneTint = FLinearColor(1.18f, 0.78f, 0.78f, 1.0f);
 
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashDuration = 0.18f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashBlendWeight = 0.85f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashVignetteIntensity = 0.85f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	FLinearColor DamageFlashSceneTint = FLinearColor(1.35f, 0.25f, 0.25f, 1.0f);
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
+	bool bDamageFlashActive = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
+	float DamageFlashElapsed = 0.0f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
 	float DeathCameraTargetArmLength = 650.f;
 
@@ -479,6 +508,7 @@ private:
 	void SetCurrentHP(int32 NewHP);
 	void UpdateHPText();
 	void UpdateRoleText();
+	void PlayHitNiagaraFX();
 
 	static FString RoleTypeToString(ERecRoleType InType);
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);
@@ -514,6 +544,8 @@ private:
 	void UpdateLocalPostProcessEffects();
 	void UpdateLowHPEffectState();
 	void UpdateLowHPPulseEffect(float DeltaTime);
+	void StartDamageFlash();
+	void UpdateDamageFlashEffect(float DeltaTime);
 
 	void StartDeathCameraShake();
 	void UpdateDeathCameraShake(float DeltaTime);

@@ -22,6 +22,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CloudPlatform")
 	void NotifyPlayerStanding(AMyCharacter* StandingCharacter);
 
+	UFUNCTION(BlueprintCallable, Category = "CloudPlatform")
+	void NotifyPlayerLanded(AMyCharacter* LandingCharacter);
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -69,6 +72,30 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Visual")
 	float WarningScaleMultiplier = 0.92f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Motion")
+	bool bUseCloudMotion = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Motion")
+	FVector MotionAmplitude = FVector(120.f, 80.f, 16.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Motion")
+	float MotionSpeed = 0.55f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Motion")
+	float MotionPhaseOffset = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Motion")
+	bool bRandomizeMotionPhase = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Landing")
+	float LandingBounceDuration = 0.8f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Landing")
+	float LandingBounceSpreadScale = 0.01f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|Landing")
+	float LandingBounceSquashScale = 0.025f;
+
 	UPROPERTY()
 	TObjectPtr<AInGame_GameState> CachedGameState;
 
@@ -77,9 +104,13 @@ protected:
 
 	TSet<TWeakObjectPtr<AMyCharacter>> StandingCharacters;
 	FVector InitialScale = FVector::OneVector;
+	FVector InitialLocation = FVector::ZeroVector;
 	float VisibleElapsed = 0.f;
 	float HiddenElapsed = 0.f;
 	float StandingProgress = 0.f;
+	float MotionElapsed = 0.f;
+	float LandingBounceElapsed = 0.f;
+	float VisualScaleMultiplier = 1.f;
 	bool bPlatformVisible = true;
 	bool bWarningActive = false;
 
@@ -94,5 +125,9 @@ protected:
 	void ApplyWarningVisual();
 	float GetCurrentVisibleDuration() const;
 	void ApplyInitialCycleOffset();
+	void UpdateCloudMotion(float DeltaTime);
+	void UpdateLandingBounce(float DeltaTime);
+	void TriggerLandingBounce();
+	void ApplyVisualScale();
 	int32 GetStandingPlayerCount() const;
 };

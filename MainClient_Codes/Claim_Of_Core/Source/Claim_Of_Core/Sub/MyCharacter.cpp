@@ -23,6 +23,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
 
@@ -214,6 +215,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 
 	UpdateLowHPPulseEffect(DeltaTime);
+	UpdateDamageFlashEffect(DeltaTime);
 	UpdateDeathCameraShake(DeltaTime);
 	UpdateDeathCameraPullback(DeltaTime);
 
@@ -289,6 +291,24 @@ void AMyCharacter::UpdateRoleText()
 	}
 
 	RoleTextComponent->SetText(FText::FromString(Str));
+}
+
+void AMyCharacter::PlayHitNiagaraFX()
+{
+	if (!HitNiagaraSystem || !GetWorld())
+	{
+		return;
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+		GetWorld(),
+		HitNiagaraSystem,
+		GetActorLocation() + HitNiagaraRelativeLocation,
+		GetActorRotation(),
+		HitNiagaraScale,
+		true,
+		true
+	);
 }
 
 float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
@@ -1075,6 +1095,21 @@ void AMyCharacter::Jump()
 	Super::Jump();
 }
 
+void AMyCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (IsDead() || !Hit.GetActor() || !Hit.GetActor()->ActorHasTag(TEXT("CloudPlatform")))
+	{
+		return;
+	}
+
+	if (ASkyCloudPlatform* CloudPlatform = Cast<ASkyCloudPlatform>(Hit.GetActor()))
+	{
+		CloudPlatform->NotifyPlayerLanded(this);
+	}
+}
+
 void AMyCharacter::SelfDamagePressed()
 {
 	if (!IsLocallyControlled())
@@ -1188,6 +1223,55 @@ void AMyCharacter::UpdateLowHPPulseEffect(float DeltaTime)
 
 	FollowCamera->PostProcessSettings.VignetteIntensity = DynamicVignette;
 	FollowCamera->PostProcessSettings.SceneColorTint = LowHPSceneTint;
+}
+
+void AMyCharacter::StartDamageFlash()
+{
+	if (!IsLocallyControlled() || !FollowCamera || bDeathSequenceLocked || IsDead())
+	{
+		return;
+	}
+
+	bDamageFlashActive = true;
+	DamageFlashElapsed = 0.0f;
+	UpdateDamageFlashEffect(0.0f);
+}
+
+void AMyCharacter::UpdateDamageFlashEffect(float DeltaTime)
+{
+	if (!bDamageFlashActive)
+	{
+		return;
+	}
+
+	if (!IsLocallyControlled() || !FollowCamera || bDeathSequenceLocked || IsDead())
+	{
+		bDamageFlashActive = false;
+		UpdateLocalPostProcessEffects();
+		return;
+	}
+
+	DamageFlashElapsed += DeltaTime;
+
+	const float Duration = FMath::Max(DamageFlashDuration, KINDA_SMALL_NUMBER);
+	const float Alpha = 1.0f - FMath::Clamp(DamageFlashElapsed / Duration, 0.0f, 1.0f);
+
+	if (Alpha <= 0.0f)
+	{
+		bDamageFlashActive = false;
+		DamageFlashElapsed = 0.0f;
+		UpdateLocalPostProcessEffects();
+		return;
+	}
+
+	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
+	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
+	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
+
+	FollowCamera->PostProcessBlendWeight = DamageFlashBlendWeight * Alpha;
+	FollowCamera->PostProcessSettings.ColorSaturation = FVector4(1.f, 1.f, 1.f, 1.f);
+	FollowCamera->PostProcessSettings.VignetteIntensity = DamageFlashVignetteIntensity * Alpha;
+	FollowCamera->PostProcessSettings.SceneColorTint = FMath::Lerp(FLinearColor::White, DamageFlashSceneTint, Alpha);
 }
 
 void AMyCharacter::StartDeathCameraShake()
@@ -1842,7 +1926,14 @@ void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)
 
 void AMyCharacter::SetHPFromNetwork(int32 InHP)
 {
+	const int32 OldHP = CurrentHP;
 	SetCurrentHP(InHP);
+
+	if (InHP < OldHP && !IsDead())
+	{
+		PlayHitNiagaraFX();
+		StartDamageFlash();
+	}
 }
 
 void AMyCharacter::SetStateFromNetwork(int32 InState)
@@ -1987,6 +2078,8 @@ void AMyCharacter::UnlockAfterInitialSnapshot()
 void AMyCharacter::KnockbackTest()
 {
 	ApplyKnockback(this, 1200.f);
+	PlayHitNiagaraFX();
+	StartDamageFlash();
 }
 
 void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
