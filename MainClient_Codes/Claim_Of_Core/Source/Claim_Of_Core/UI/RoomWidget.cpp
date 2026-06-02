@@ -30,12 +30,31 @@ void URoomWidget::UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList)
 		URoomMemberWidget* NewMember = CreateWidget<URoomMemberWidget>(GetWorld(), MemberWidgetClass);
 		if (NewMember)
 		{
-			if (i < PlayerList.Num()) {
-				const bool bCanSelect = PlayerList[i].userUID == LocalUID;
+			NewMember->SetSlotIndex(i);
+			NewMember->OnSlotClicked.AddDynamic(this, &URoomWidget::OnMemberSlotClicked);
 
-				NewMember->SetMemberInfo(PlayerList[i].PlayerName, PlayerList[i].bIsReady, PlayerList[i].RoleType, bCanSelect);
+			const FRoomMemberInfo* SlotMember = PlayerList.FindByPredicate(
+				[i](const FRoomMemberInfo& Info)
+				{
+					return Info.roomSlot == i;
+				}
+			);
+
+			if (SlotMember)
+			{
+				const bool bCanSelect = SlotMember->userUID == LocalUID;
+
+				NewMember->SetMemberInfo(
+					SlotMember->playerName,
+					SlotMember->bIsReady,
+					SlotMember->roleType,
+					bCanSelect
+				);
 			}
-			else { NewMember->SetEmptyMember(); }
+			else
+			{
+				NewMember->SetEmptyMember();
+			}
 
 			UUniformGridSlot* GridSlot = MemberList->AddChildToUniformGrid(NewMember);
 
@@ -65,4 +84,15 @@ void URoomWidget::OnStartButtonClicked()
 		// Start Condition Check
 		GI->RequestGameStart(); 
 	}
+}
+
+void URoomWidget::OnMemberSlotClicked(int32 SlotIndex)
+{
+	UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance());
+	if (!GI)
+	{
+		return;
+	}
+
+	GI->RequestRoomSlotSelect(SlotIndex);
 }

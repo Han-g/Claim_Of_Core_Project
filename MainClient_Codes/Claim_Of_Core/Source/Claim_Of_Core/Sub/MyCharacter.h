@@ -285,6 +285,9 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
 	ABaseItem* CurrentItem = nullptr;
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
+	FVector CurrentItemAttachBaseScale = FVector::OneVector;
+
 	UFUNCTION(BlueprintCallable, Category = "Item")
 	void SetOverlappingItem(ABaseItem* Item);
 
@@ -296,12 +299,16 @@ public:
 
 	void ApplyEquipItemVisual(ABaseItem* Item);
 	void ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocation);
+	void RefreshCurrentItemAttachOffset();
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void StartAttackHitWindow(float Duration = 0.2f);
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ReportAttackHitToServer(AMyCharacter* Victim);
 
 private:
 	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")

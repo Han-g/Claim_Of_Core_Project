@@ -57,6 +57,7 @@ enum PacketID : uint16 {
     PKT_C2S_CHARACTER_SELECT_REQ = 508,
     PKT_C2S_GAME_START_REQ = 509,
     PKT_C2S_READY_REQ = 510,
+    PKT_C2S_ROOM_SLOT_SELECT_REQ = 511,
 
     // [ InGame Sync / Combat Packets ]
     PKT_C2S_MOVE_KEYINPUT = 520,
@@ -86,7 +87,9 @@ enum PacketID : uint16 {
     PKT_S2C_MAPEVENT_TRIGGER_BRD = 150,
     PKT_S2C_GAME_PHASE_CHANGE_BRD = 151,
     PKT_S2C_GAME_RESULT_BRD = 152,
-    PKT_S2C_STATUS_EFFECT_BRD = 153,
+    PKT_S2C_STATUS_EFFECT_BRD = 153, 
+    PKT_S2C_ROUND_PREPARE_BRD = 154,
+    PKT_S2C_MATCH_END_BRD = 155,
 };
 
 // ============================================================
@@ -145,8 +148,23 @@ struct FRoomMemberPacketData {
     wchar_t PlayerName[20];
     bool isReady;
     bool isHost;
-    int32 userUID;
+    int32_t userUID;
+    int32_t roomSlot;
     int roleType;
+};
+
+struct FRoomSlotSelectPacket
+{
+    int32 targetSlot;
+};
+
+struct FRoundPreparePacket
+{
+    int32_t currentRound;
+    int32_t maxRound;
+    int32_t team1Score;
+    int32_t team2Score;
+    float mapSelectTime;
 };
 
 struct FGamedataPacket {
@@ -254,11 +272,12 @@ struct FRoomMemberInfo
 {
     GENERATED_BODY()
 
-    FString PlayerName;
+    FString playerName;
     bool bIsReady = false;
     bool bIsHost = false;
     int32 userUID;
-    int32 RoleType = -1;
+    int32 roomSlot;
+    int32 roleType = -1;
 };
 
 // ============================================================
@@ -280,6 +299,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnStateChanged, const FStateChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRespawned, const FRespawnPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleChanged, const FRoleChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameTimeSynced, float);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundPrepare, const FRoundPreparePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, const FPhaseChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapEventTriggered, const FMapEventPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnObjectSpawned, const FSpawnObjectPacket&);
@@ -290,6 +310,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnSnapshotReceived, const TArray<GameData>&
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatusEffect, const FStatusEffectPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemSpawned, const FItemPacket&);
+DECLARE_MULTICAST_DELEGATE(FOnMatchEnd);
 
 // ============================================================
 // Worker Thread ↔ Main Thread Communication
@@ -324,7 +345,8 @@ enum class ENetEventType : uint8
     RegisterResult,
     RoomListUpdated,
     RoomEntered,
-    RoomInfoUpdated,
+    RoomInfoUpdated, 
+    RoundPrepare,
     MapSelected,
     GameStart,
     SnapshotReceived,
@@ -343,6 +365,7 @@ enum class ENetEventType : uint8
     ItemSpawned,
     ItemOwnershipChanged,
     StatusEffect,
+    MatchEnd,
 };
 
 struct FNetEvent
@@ -365,6 +388,7 @@ struct FNetEvent
     FStatusUpdatePacket  StatusUpdate;
     FStateChangePacket   StateChange;
     FRespawnPacket       Respawn;
+    FRoundPreparePacket  RoundPrepare;
     FRoleChangePacket    RoleChange;
     FPhaseChangePacket   PhaseChange;
     FMapEventPacket      MapEvent;

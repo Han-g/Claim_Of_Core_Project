@@ -54,10 +54,14 @@ public:
 	// Transfers host ownership to the next member or clears it when the room is empty.
 	void TransferOwnership();
 
+	bool ChangeMemberSlot(Session* member, int targetSlot);
+
 	int TeamCalculateBySlot(int roomSlot) const;
 	void SelectStage(int stageNum);
 	ItemData SpawnRandomItem(const ItemSpawnRange& range);
 	void LoadStage(int stageNum);
+
+	void InitRoundCharacters(GameLogic* logic);
 
 	// Returns the spawn location used when players enter or respawn.
 	Vector3 GetRespawnLocation(int slot);
@@ -81,6 +85,10 @@ public:
 
 		return &it->second;
 	}
+
+	// Return to Lobby when End Game
+	void ReturnMembersToLobby();
+
 
 	// Builds the serialized room member list used by room UI packets.
 	std::vector<RoomMemberPacket> GetMemberInfoList();

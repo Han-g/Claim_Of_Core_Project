@@ -375,11 +375,12 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
             CurrentOffset += sizeof(FRoomMemberPacketData);
 
             FRoomMemberInfo MInfo;
-            MInfo.PlayerName = FString(MemberData.PlayerName);
+            MInfo.playerName = FString(MemberData.PlayerName);
             MInfo.bIsReady = MemberData.isReady;
             MInfo.bIsHost = MemberData.isHost;
             MInfo.userUID = MemberData.userUID;
-            MInfo.RoleType = MemberData.roleType;
+            MInfo.roomSlot = MemberData.roomSlot;
+            MInfo.roleType = MemberData.roleType;
             Evt.MemberList.Add(MInfo);
         }
         PushEvent(MoveTemp(Evt));
@@ -407,13 +408,27 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
             CurrentOffset += sizeof(FRoomMemberPacketData);
 
             FRoomMemberInfo MInfo;
-            MInfo.PlayerName = FString(MemberData.PlayerName);
+            MInfo.playerName = FString(MemberData.PlayerName);
             MInfo.bIsReady = MemberData.isReady;
             MInfo.bIsHost = MemberData.isHost;
             MInfo.userUID = MemberData.userUID;
-            MInfo.RoleType = MemberData.roleType;
+            MInfo.roomSlot = MemberData.roomSlot;
+            MInfo.roleType = MemberData.roleType;
             Evt.MemberList.Add(MInfo);
         }
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
+    case PKT_S2C_ROUND_PREPARE_BRD:
+    {
+        if (PayloadSize < sizeof(FRoundPreparePacket)) { break; }
+
+        FRoundPreparePacket Packet{};
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FRoundPreparePacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::RoundPrepare;
+        Evt.RoundPrepare = Packet;
         PushEvent(MoveTemp(Evt));
         break;
     }
@@ -652,6 +667,13 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
     case PKT_S2C_GAME_RESULT_BRD:
     {
 
+        break;
+    }
+    case PKT_S2C_MATCH_END_BRD:
+    {
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::MatchEnd;
+        PushEvent(MoveTemp(Evt));
         break;
     }
     default:

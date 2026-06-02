@@ -51,6 +51,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Network|Room")
 	void SelectCharacterAndReady(int32 SelectedRoleType);
 
+	UFUNCTION(BlueprintCallable, Category = "Network|Room")
+	void RequestRoomSlotSelect(int32 SlotIndex);
+
 	UFUNCTION(BlueprintCallable, Category = "Network|UI")
 
 	void ShowLoginHUD();
@@ -81,6 +84,7 @@ public:
 	void HandleRoomListUpdate(const TArray<FRoomInfoData>& RoomList);
 	void HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMemberInfo>& playerList);
 	void HandleGameStart();
+	void HandleMatchEnd();
 
 	// Server Setting Packet
 	void HandleConnected();
@@ -88,6 +92,7 @@ public:
 	void HandleDisconnected();
 
 	// Game Logic Packet
+	void HandleRoundPrepare(const FRoundPreparePacket& Packet);
 	void HandleMapSelected(int32 MapType);
 	void HandleSnapshotReceived(const TArray<GameData>& SnapshotList);
 
@@ -121,6 +126,12 @@ private:
 	TSubclassOf<URoomWidget> RoomWidgetClass;
 	UPROPERTY()
 	URoomWidget* RoomWidgetInstance;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UUserWidget> RoundPrepareWidgetClass;
+
+	UPROPERTY()
+	UUserWidget* RoundPrepareWidgetInstance = nullptr;
 
 	// Getter Function For Server Connection
 	UPROPERTY(Config)

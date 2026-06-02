@@ -31,6 +31,7 @@ private:
 	static void Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Slot_ChangeReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Character_SelectReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader);

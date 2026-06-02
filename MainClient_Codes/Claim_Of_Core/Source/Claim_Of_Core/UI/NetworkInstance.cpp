@@ -20,6 +20,7 @@
 #include "DrawDebugHelpers.h"
 
 #include "GameState/InGame_GameState.h"
+#include "UI/URoundPrepareWidget.h"
 
 UNetworkInstance::UNetworkInstance()
 {
@@ -69,7 +70,9 @@ void UNetworkInstance::Init()
 	Client->OnLoginResult.AddUObject(this, &UNetworkInstance::HandleLoginResult);
 	Client->OnRegisterResult.AddUObject(this, &UNetworkInstance::HandleRegisterResult);
 	Client->OnGameStart.AddUObject(this, &UNetworkInstance::HandleGameStart);
+	Client->OnMatchEnd.AddUObject(this, &UNetworkInstance::HandleMatchEnd);
 
+	Client->OnRoundPrepare.AddUObject(this, &UNetworkInstance::HandleRoundPrepare);
 	Client->OnMapSelected.AddUObject(this, &UNetworkInstance::HandleMapSelected);
 	Client->OnSnapshotReceived.AddUObject(this, &UNetworkInstance::HandleSnapshotReceived);
 	Client->OnAttackAction.AddUObject(this, &UNetworkInstance::HandleAttackActionReceived);
@@ -119,7 +122,7 @@ void UNetworkInstance::StartClientOnlyTestFlow()
 
 	TArray<FRoomMemberInfo> FakeList;
 	FRoomMemberInfo MyInfo;
-	MyInfo.PlayerName = TEXT("LocalTestPlayer");
+	MyInfo.playerName = TEXT("LocalTestPlayer");
 	MyInfo.bIsReady = false;
 	FakeList.Add(MyInfo);
 
@@ -214,6 +217,21 @@ void UNetworkInstance::SelectCharacterAndReady(int32 SelectedRoleType)
 	}
 
 	UE_LOG(LogTemp, Display, TEXT("[CharacterSelect] Ready request sent"));
+}
+
+void UNetworkInstance::RequestRoomSlotSelect(int32 SlotIndex)
+{
+	if (SlotIndex < 0 || SlotIndex >= 6)
+	{
+		return;
+	}
+
+	if (!Client.IsValid())
+	{
+		return;
+	}
+
+	Client->RoomSlotSelectRequest(SlotIndex);
 }
 
 void UNetworkInstance::ShowLoginHUD()
@@ -550,6 +568,20 @@ void UNetworkInstance::HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMe
 
 	if (RoomWidgetInstance)
 	{
+		if (Client.IsValid())
+		{
+			const int32 LocalUID = Client->ClientPlayerData.userUID;
+
+			for (const FRoomMemberInfo& Member : playerList)
+			{
+				if (Member.userUID == LocalUID)
+				{
+					bReadySent = Member.bIsReady;
+					CachedSelectedRoleType = Member.roleType;
+					break;
+				}
+			}
+		}
 		RoomWidgetInstance->UpdateMemberList(playerList);
 	}
 }
@@ -607,6 +639,53 @@ void UNetworkInstance::HandleGameStart()
 	}
 }
 
+void UNetworkInstance::HandleMatchEnd()
+{
+	if (RoundPrepareWidgetInstance)
+	{
+		RoundPrepareWidgetInstance->RemoveFromParent();
+		RoundPrepareWidgetInstance = nullptr;
+	}
+
+	if (RoomWidgetInstance)
+	{
+		RoomWidgetInstance->RemoveFromParent();
+		RoomWidgetInstance = nullptr;
+	}
+
+	if (LobbyWidgetInstance)
+	{
+		LobbyWidgetInstance->RemoveFromParent();
+		LobbyWidgetInstance = nullptr;
+	}
+
+	bHasPendingSnapshot = false;
+	PendingSnapshotList.Empty();
+	bLocalInitialTransformApplied = false;
+	bPendingInitialSpawnLock = false;
+	bLocalSpawnLockApplied = false;
+
+	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Game/UI/GameLobby")));
+
+	if (LobbyWidgetClass)
+	{
+		LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
+		if (LobbyWidgetInstance)
+		{
+			LobbyWidgetInstance->AddToViewport();
+
+			if (APlayerController* PC = GetFirstLocalPlayerController())
+			{
+				PC->SetShowMouseCursor(true);
+
+				FInputModeUIOnly InputMode;
+				InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+				PC->SetInputMode(InputMode);
+			}
+		}
+	}
+}
+
 void UNetworkInstance::HandleConnected()
 {
 	UE_LOG(LogTemp, Display, TEXT("Connected to server! Showing login HUD."));
@@ -626,6 +705,45 @@ void UNetworkInstance::HandleDisconnected()
 	if (Client.IsValid())
 	{
 		Client->RequestReconnect();
+	}
+}
+
+void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
+{
+	if (RoundPrepareWidgetInstance)
+	{
+		RoundPrepareWidgetInstance->RemoveFromParent();
+		RoundPrepareWidgetInstance = nullptr;
+	}
+
+	if (!RoundPrepareWidgetClass)
+	{
+		return;
+	}
+
+	RoundPrepareWidgetInstance = CreateWidget<UUserWidget>(this, RoundPrepareWidgetClass);
+	if (!RoundPrepareWidgetInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RoundPrepareWidgetInstance create failed"));
+		return;
+	}
+
+	RoundPrepareWidgetInstance->AddToViewport();
+
+	if (URoundPrepareWidget* Widget = Cast<URoundPrepareWidget>(RoundPrepareWidgetInstance))
+	{
+		Widget->SetRoundPrepareInfo(
+			Packet.currentRound,
+			Packet.maxRound,
+			Packet.team1Score,
+			Packet.team2Score,
+			Packet.mapSelectTime
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RoundPrepareWidget cast failed. Class=%s"),
+			*RoundPrepareWidgetInstance->GetClass()->GetName());
 	}
 }
 
@@ -659,6 +777,10 @@ void UNetworkInstance::HandleMapSelected(int32 MapType)
 		break;
 	}
 
+	if (URoundPrepareWidget* Widget = Cast<URoundPrepareWidget>(RoundPrepareWidgetInstance))
+	{
+		Widget->SetSelectedMap(MapType);
+	}
 	UE_LOG(LogTemp, Display, TEXT("Selected InGameLevel: %s"), *InGameLevel.ToString());
 }
 
@@ -939,6 +1061,12 @@ void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
             GS->ApplyNetworkPhaseState(Packet);
         }
     }
+
+	if (Packet.roundState == 1 && RoundPrepareWidgetInstance)
+	{
+		RoundPrepareWidgetInstance->RemoveFromParent();
+		RoundPrepareWidgetInstance = nullptr;
+	}
 
     UE_LOG(LogTemp, Display,
         TEXT("[NetworkPhase] RoundState=%d Phase=%d GameTime=%.2f"),

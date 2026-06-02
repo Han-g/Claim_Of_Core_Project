@@ -140,6 +140,7 @@ enum PacketID {
     PKT_C2S_CHARACTER_SELECT_REQ = 508,     // Client -> Server: character (role) selection request
     PKT_C2S_GAME_START_REQ = 509,           // Client (host) -> Server: game-start request
     PKT_C2S_READY_REQ = 510,
+    PKT_C2S_ROOM_SLOT_SELECT_REQ = 511,
 
     // ------------------------------------------
     // [ InGame Sync / Combat Packets ]
@@ -176,6 +177,8 @@ enum PacketID {
     PKT_S2C_GAME_PHASE_CHANGE_BRD = 151,    // Phase transition (Waiting -> Playing -> Finished, etc.)
     PKT_S2C_GAME_RESULT_BRD = 152,          // End-of-game result: win/loss + kills/deaths
     PKT_S2C_STATUS_EFFECT_BRD = 153,
+    PKT_S2C_ROUND_PREPARE_BRD = 154,
+    PKT_S2C_MATCH_END_BRD = 155,
 };
 
 struct PacketHeader {
@@ -235,7 +238,22 @@ struct RoomMemberPacket {
     bool isReady;
     bool isHost;
     int userUID;
+    int roomSlot;
     int roleType;
+};
+
+struct RoomSlotSelectPacket
+{
+    int32_t targetSlot;
+};
+
+struct RoundPreparePacket
+{
+    int32_t currentRound;
+    int32_t maxRound;
+    int32_t team1Score;
+    int32_t team2Score;
+    float mapSelectTime;
 };
 
 struct GameDataPacket {

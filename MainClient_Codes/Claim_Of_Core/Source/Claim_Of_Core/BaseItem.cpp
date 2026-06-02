@@ -87,6 +87,17 @@ UAnimMontage* ABaseItem::GetAttackMontageByRole(ERecRoleType InRole) const
 	}
 }
 
+FTransform ABaseItem::GetAttachOffsetByRole(ERecRoleType InRole) const
+{
+	switch (InRole)
+	{
+	case ERecRoleType::Striker:     return StrikerAttachOffset;
+	case ERecRoleType::Guardian:    return GuardianAttachOffset;
+	case ERecRoleType::Manipulator: return ManipulatorAttachOffset;
+	default:                        return FTransform::Identity;
+	}
+}
+
 void ABaseItem::StartUse()
 {
 	if (!OwnerCharacter) return;
@@ -97,19 +108,44 @@ void ABaseItem::StartUse()
 
 void ABaseItem::DoHit()
 {
-
 	if (!OwnerCharacter) return;
 
-	FVector Start = OwnerCharacter->GetActorLocation();
-	FVector Forward = OwnerCharacter->GetActorForwardVector();
-	FVector Center = Start + Forward * Range;
 
-	TArray<FOverlapResult> Overlaps;
+	FVector Start = OwnerCharacter->GetActorLocation();
+	Start.Z += 80.0f;
+
+	const FVector Forward = OwnerCharacter->GetActorForwardVector();
+	const FVector Center = Start + Forward * (Range * 0.5f);
+	const FVector End = Start + Forward * Range;
+
+	TArray<FHitResult> Hits;
+
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(WeaponHitSweep), false);
+	Params.AddIgnoredActor(OwnerCharacter);
+	Params.AddIgnoredActor(this);
+
+	FCollisionObjectQueryParams ObjectParams;
+	ObjectParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	const FCollisionShape Shape = FCollisionShape::MakeSphere(Radius);
+
+	const bool bHit = GetWorld()->SweepMultiByObjectType(
+		Hits,
+		Start,
+		End,
+		FQuat::Identity,
+		ObjectParams,
+		Shape,
+		Params
+	);
+
+	/*TArray<FOverlapResult> Overlaps;
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(OwnerCharacter);
 	Params.AddIgnoredActor(this);
 
-	FCollisionShape Shape = FCollisionShape::MakeSphere(Radius);
+	FCollisionShape Shape = FCollisionShape::MakeSphere(Radius * 0.5f);
+
 
 	bool bHit = GetWorld()->OverlapMultiByChannel(
 		Overlaps,
@@ -118,23 +154,57 @@ void ABaseItem::DoHit()
 		ECC_Pawn,
 		Shape,
 		Params
-	);
+	);*/
 
-	if (!bHit) return;
+	/*DrawDebugSphere(
+		GetWorld(),
+		Center,
+		Radius,
+		24,
+		bHit ? FColor::Green : FColor::Red,
+		false,
+		1.0f,
+		0,
+		2.0f
+	);*/
 
-	for (auto& Result : Overlaps)
+	if (!bHit) { return; }
+
+	for (const FHitResult& Hit : Hits)
 	{
-		AActor* Target = Result.GetActor();
-		if (!Target) continue;
-
-		ApplyDamage(Target);
-
-		if (ACharacter* HitCharacter = Cast<ACharacter>(Target))
+		AActor* Target = Hit.GetActor();
+		if (!Target)
 		{
-			ApplyKnockback(HitCharacter);
+			continue;
 		}
 
+		UE_LOG(LogTemp, Warning,
+			TEXT("[ITEM_SWEEP_RAW] Target=%s Class=%s"),
+			*GetNameSafe(Target),
+			*GetNameSafe(Target->GetClass()));
+
+		AMyCharacter* Victim = Cast<AMyCharacter>(Target);
+		if (!Victim || Victim->IsDead())
+		{
+			UE_LOG(LogTemp, Warning,
+				TEXT("[ITEM_SWEEP_SKIP] Target=%s Victim=%s IsDead=%d"),
+				*GetNameSafe(Target),
+				*GetNameSafe(Victim),
+				Victim ? Victim->IsDead() : -1);
+			continue;
+		}
+
+		OwnerCharacter->ReportAttackHitToServer(Victim);
 		OnHitTarget(Target);
+
+		/*DrawDebugPoint(
+			GetWorld(),
+			Hit.ImpactPoint,
+			16.0f,
+			FColor::Yellow,
+			false,
+			1.0f
+		);*/
 	}
 }
 

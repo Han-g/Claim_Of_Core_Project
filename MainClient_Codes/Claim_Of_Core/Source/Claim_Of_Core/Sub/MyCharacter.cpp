@@ -699,6 +699,8 @@ void AMyCharacter::ApplyRoleVisual()
 	default:
 		break;
 	}
+
+	RefreshCurrentItemAttachOffset();
 }
 
 void AMyCharacter::ApplyRoleSkillState()
@@ -2055,12 +2057,18 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 		return;
 	}
 
-	//HitActors.Empty();
-	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	const float PlayedLength = AnimInstance->Montage_Play(AttackMontage);
 
 	CurrentAttackType = AttackType;
 	CurrentAttackSeq = AttackSeq;
+	HitActors.Empty();
+
+	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	const float PlayedLength = AnimInstance->Montage_Play(AttackMontage);
+	if (PlayedLength <= 0.f)
+	{
+		CurrentAttackSeq = 0;
+		return;
+	}
 
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
@@ -2429,10 +2437,10 @@ void AMyCharacter::OnAttackOverlap(
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
-	if (!IsLocallyControlled()) { return; }
-	if (CurrentAttackSeq == 0) { return; }
+	AMyCharacter* Victim = Cast<AMyCharacter>(OtherActor);
+	ReportAttackHitToServer(Victim);
 
-	UE_LOG(LogTemp, Warning, TEXT("[ATK_OVERLAP_ENTRY] Local=%d Seq=%u Other=%s"),
+	/*UE_LOG(LogTemp, Warning, TEXT("[ATK_OVERLAP_ENTRY] Local=%d Seq=%u Other=%s"),
 		IsLocallyControlled(),
 		CurrentAttackSeq,
 		*GetNameSafe(OtherActor));
@@ -2475,7 +2483,7 @@ void AMyCharacter::OnAttackOverlap(
 			Victim->GetNetworkPlayerUID(),
 			CurrentAttackType
 		);
-	}
+	}*/
 }
 
 void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
@@ -2537,11 +2545,28 @@ void AMyCharacter::DropCurrentItem()
 	CurrentItem = nullptr;*/
 }
 
+void AMyCharacter::RefreshCurrentItemAttachOffset()
+{
+	if (!CurrentItem)
+	{
+		return;
+	}
+
+	const FTransform AttachOffset = CurrentItem->GetAttachOffsetByRole(RoleType);
+	CurrentItem->SetActorRelativeLocation(AttachOffset.GetLocation());
+	CurrentItem->SetActorRelativeRotation(AttachOffset.GetRotation());
+	CurrentItem->SetActorRelativeScale3D(CurrentItemAttachBaseScale * AttachOffset.GetScale3D());
+}
+
 void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
 {
 	if (!Item) { return; }
 
-	if (CurrentItem == Item) { return; }
+	if (CurrentItem == Item)
+	{
+		RefreshCurrentItemAttachOffset();
+		return;
+	}
 	UE_LOG(LogTemp, Warning,
 		TEXT("[EquipVisual] Character=%s UID=%d CurrentItem=%s ItemID=%d PoseType=%d"),
 		*GetNameSafe(this),
@@ -2553,6 +2578,7 @@ void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
 	if (CurrentItem && CurrentItem != Item) { return; }
 
 	CurrentItem = Item;
+	CurrentItemAttachBaseScale = CurrentItem->GetActorScale3D();
 
 	if (OverlappingItem == Item)
 	{
@@ -2575,6 +2601,7 @@ void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			TEXT("RightHandSocket")
 		);
+		RefreshCurrentItemAttachOffset();
 	}
 }
 
@@ -2582,11 +2609,22 @@ void AMyCharacter::ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocat
 {
 	if (!Item) { return; }
 
-	if (CurrentItem == Item) { CurrentItem = nullptr; }
+	const bool bWasCurrentItem = (CurrentItem == Item);
+	const FVector DropItemBaseScale = CurrentItemAttachBaseScale;
+
+	if (bWasCurrentItem)
+	{
+		CurrentItemAttachBaseScale = FVector::OneVector;
+		CurrentItem = nullptr;
+	}
 
 	if (OverlappingItem == Item) { OverlappingItem = nullptr; }
 
 	Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	if (bWasCurrentItem)
+	{
+		Item->SetActorScale3D(DropItemBaseScale);
+	}
 	Item->SetOwnerCharacter(nullptr);
 	Item->SetActorLocation(DropLocation);
 	Item->SetActorEnableCollision(true);
@@ -2600,6 +2638,11 @@ void AMyCharacter::ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocat
 
 void AMyCharacter::AnimNotify_AttackHit()
 {
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
 	if (CurrentItem)
 	{
 		CurrentItem->DoHit();
@@ -2626,4 +2669,34 @@ void AMyCharacter::StartAttackHitWindow(float Duration)
 		Duration,
 		false
 	);
+}
+
+void AMyCharacter::ReportAttackHitToServer(AMyCharacter* Victim)
+{
+	if (!IsLocallyControlled()) { UE_LOG(LogTemp, Warning, TEXT("[HIT_REPORT_SKIP] Not local")); return; }
+	if (CurrentAttackSeq == 0) { UE_LOG(LogTemp, Warning, TEXT("[HIT_REPORT_SKIP] Seq zero")); return; }
+	if (!Victim || Victim->IsDead()) { UE_LOG(LogTemp, Warning, TEXT("[HIT_REPORT_SKIP] Invalid victim")); return; }
+	if (Victim == this || Victim->GetNetworkPlayerUID() == GetNetworkPlayerUID())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[HIT_REPORT_SKIP] Self or same UID VictimUID=%d OwnerUID=%d"),
+			Victim ? Victim->GetNetworkPlayerUID() : -999,
+			GetNetworkPlayerUID());
+		return;
+	}
+	if (HitActors.Contains(Victim)) { return; }
+
+	const int32 VictimUID = Victim->GetNetworkPlayerUID();
+	if (VictimUID <= 0) { return; }
+
+	if (HitActors.Contains(Victim)) { return; }
+	HitActors.Add(Victim);
+
+	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
+	{
+		NetworkInstance->RequestAttackHitReport(
+			CurrentAttackSeq,
+			Victim->GetNetworkPlayerUID(),
+			CurrentAttackType
+		);
+	}
 }

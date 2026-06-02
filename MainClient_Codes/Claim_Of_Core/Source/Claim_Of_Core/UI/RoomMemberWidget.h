@@ -13,6 +13,9 @@
 /**
  *
  */
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoomMemberSlotClicked, int32, SlotIndex);
+
 UCLASS()
 class CLAIM_OF_CORE_API URoomMemberWidget : public UUserWidget
 {
@@ -22,9 +25,15 @@ public:
 	void SetEmptyMember();
 	void SetMemberInfo(const FString& playerName, bool bIsReady, int32 RoleType, bool bCanSelect);
 
+	void SetSlotIndex(int32 InSlotIndex);
+
+	UPROPERTY(BlueprintAssignable, Category = "Room")
+	FOnRoomMemberSlotClicked OnSlotClicked;
 protected:
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+
+	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 
 	UPROPERTY(meta = (BindWidget))
 	class UTextBlock* PlayerName;
@@ -45,6 +54,7 @@ protected:
 	int32 SelectedRoleType = -1;
 
 private:
+	int32 SlotIndex = -1;
 	bool bCanSelectRole = false;
 
 	void SetRoleButtonsEnabled(bool bEnabled);

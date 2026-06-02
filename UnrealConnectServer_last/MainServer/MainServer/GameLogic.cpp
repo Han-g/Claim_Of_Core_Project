@@ -13,8 +13,6 @@ GameLogic::~GameLogic() { }
 
 void GameLogic::Update(float deltaTime)
 {
-    if (roundState != ERoundState::Playing) { return; }
-
     elapsedTime += deltaTime;
 
     // Advance the shared one-second round timer.
@@ -23,6 +21,32 @@ void GameLogic::Update(float deltaTime)
         timeAccumlator -= 1.f;
         CountdownTick();
     }
+
+    // Map Select
+    if (matchFlowState == EMatchFlow::RoundFinish)
+    {
+        matchFlowRemainTime -= deltaTime;
+        if (matchFlowRemainTime <= 0.0f)
+        {
+            BeginNextRoundOrEndMatch();
+        }
+        return;
+    }
+
+    if (matchFlowState == EMatchFlow::MapSelectedWait)
+    {
+        matchFlowRemainTime -= deltaTime;
+        if (matchFlowRemainTime <= 0.0f)
+        {
+            matchFlowState = EMatchFlow::RoundPlaying;
+
+            ownerRoom->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
+            ownerRoom->BeginDeferredRoundStart(roundStartDelay);
+        }
+        return;
+    }
+
+    if (roundState != ERoundState::Playing) { return; }
     
     // Adapt Player Movement
     for (auto& Pair : players)
@@ -217,6 +241,172 @@ int GameLogic::CalculateWinnerTeam()
     return -1; // draw
 }
 
+void GameLogic::StartMatch()
+{
+    team1Score = 0;
+    team2Score = 0;
+    currentRound = 0;
+    roundCount = 0;
+
+    selectedMapType = 0;
+    currentMapPhase = 0;
+    currentGameTime = 0;
+    timeAccumlator = 0.0f;
+    elapsedTime = 0.0f;
+
+    roundState = ERoundState::Waiting;
+    matchFlowState = EMatchFlow::Robby;
+
+    BeginRoundPrepare();
+}
+
+void GameLogic::BeginRoundPrepare()
+{
+    if (currentRound >= maxRound)
+    {
+        EndMatch();
+        return;
+    }
+
+    ++currentRound;
+    roundCount = currentRound;
+
+    selectedMapType = 0;
+    currentMapPhase = 0;
+    roundState = ERoundState::Waiting;
+
+    matchFlowState = EMatchFlow::MapSelectedWait;
+    matchFlowRemainTime = mapSelectTime;
+
+    if (!TrySelectMap())
+    {
+        EndMatch();
+        return;
+    }
+
+    mapType = selectedMapType;
+
+    ownerRoom->SelectStage(selectedMapType);
+    ownerRoom->LoadStage(selectedMapType);
+
+    ownerRoom->InitRoundCharacters(this);
+
+    RoundPreparePacket pkt{};
+    pkt.currentRound = currentRound;
+    pkt.maxRound = maxRound;
+    pkt.team1Score = team1Score;
+    pkt.team2Score = team2Score;
+    pkt.mapSelectTime = mapSelectTime;
+
+    ownerRoom->BroadcastToMembers(PKT_S2C_ROUND_PREPARE_BRD,
+        reinterpret_cast<const char*>(&pkt), sizeof(pkt));
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_MAP_SELECT_NOTICE,
+        reinterpret_cast<const char*>(&selectedMapType),
+        sizeof(selectedMapType)
+    );
+}
+
+void GameLogic::SetAvailableMaps(const std::vector<int>& maps)
+{
+    availableMaps = maps;
+    remainingMaps = maps;
+}
+
+bool GameLogic::TrySelectMap()
+{
+    //if (matchFlowState != EMatchFlow::MapSelecting) { return false; }
+
+    if (availableMaps.empty())
+    {
+        LOG_ERROR("[MapSelect] AvailableMaps is empty");
+        return false;
+    }
+
+    if (remainingMaps.empty())
+    {
+        remainingMaps = availableMaps;
+    }
+
+    const int index = rand() % static_cast<int>(remainingMaps.size());
+    selectedMapType = remainingMaps[index];
+
+    remainingMaps.erase(remainingMaps.begin() + index);
+
+    return true;
+}
+
+void GameLogic::FinishMapSelection()
+{
+    if (matchFlowState != EMatchFlow::MapSelecting)
+    {
+        return;
+    }
+
+    if (selectedMapType < 1) {
+        if (!TrySelectMap()) {
+            return;
+        }
+    }
+
+    mapType = selectedMapType;
+
+    ownerRoom->SelectStage(selectedMapType);
+    ownerRoom->LoadStage(selectedMapType);
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_MAP_SELECT_NOTICE,
+        reinterpret_cast<const char*>(&selectedMapType),
+        sizeof(selectedMapType)
+    );
+
+    /*matchFlowState = EMatchFlow::RoundPlaying;
+    ownerRoom->BeginDeferredRoundStart(roundStartDelay);*/
+    matchFlowState = EMatchFlow::MapSelectedWait;
+    matchFlowRemainTime = roundStartDelay;
+}
+
+void GameLogic::BeginNextRoundOrEndMatch()
+{
+    if (team1Score >= requiredWinScore || team2Score >= requiredWinScore)
+    {
+        EndMatch();
+        return;
+    }
+
+    if (currentRound >= maxRound)
+    {
+        EndMatch();
+        return;
+    }
+
+    BeginRoundPrepare();
+}
+
+void GameLogic::EndMatch()
+{
+    if (!ownerRoom)
+    {
+        return;
+    }
+
+    matchFlowState = EMatchFlow::MatchFinish;
+    roundState = ERoundState::Finished;
+
+    ownerRoom->BroadcastToMembers(PKT_S2C_MATCH_END_BRD, nullptr, 0);
+
+    LOG_INFO("[MatchEnd] round=%d/%d finalScore=%d:%d",
+        currentRound,
+        maxRound,
+        team1Score,
+        team2Score
+    );
+
+    ownerRoom->ReturnMembersToLobby();
+    ownerRoom->SetState(ERoomState::FINISHED);
+}
+
 
 
 void GameLogic::BroadcastGameTime(float currentTime)
@@ -402,6 +592,21 @@ void GameLogic::EndGameRoundWithResult(int winnerTeamID, int endReason)
     if (roundState == ERoundState::Finished) { return; }
 
     roundState = ERoundState::Finished;
+    matchFlowState = EMatchFlow::RoundFinish;
+    matchFlowRemainTime = resultRemainTime;
+
+    // Match Logic
+    if      (winnerTeamID == 0) { team1Score++; }
+    else if (winnerTeamID == 1) { team2Score++; }
+    else { LOG_ERROR("InValid Winner Team"); }
+
+    /*if (currentRound == maxRound) {
+        EndMatch();
+    }
+    else if (currentRound < maxRound) {
+        BeginRoundPrepare();
+    }
+    else {  LOG_ERROR("InValid Round"); }*/
 
     PhaseChangePacket phasePkt{};
     phasePkt.roundState = Finished;
@@ -421,8 +626,8 @@ void GameLogic::EndGameRoundWithResult(int winnerTeamID, int endReason)
 
     finishPkt.result.winnerTeamID = winnerTeamID;
     finishPkt.result.endReason = endReason;
-    finishPkt.result.team1Score = 0;
-    finishPkt.result.team2Score = 0;
+    finishPkt.result.team1Score = team1Score;
+    finishPkt.result.team2Score = team2Score;
 
     BroadcastRoundResult(finishPkt);
 }
@@ -2325,6 +2530,13 @@ void GameLogic::SpawnMapItem(EItemKind itemKind)
         reinterpret_cast<const char*>(&pkt),
         sizeof(pkt)
     );
+
+    LOG_INFO("[ItemSpawn] id=%d kind=%d pos=(%.1f, %.1f, %.1f)",
+        pkt.itemID,
+        pkt.itemKind,
+        pkt.x,
+        pkt.y,
+        pkt.z);
 }
 
 EItemKind GameLogic::PickRandomBasicItemKind()

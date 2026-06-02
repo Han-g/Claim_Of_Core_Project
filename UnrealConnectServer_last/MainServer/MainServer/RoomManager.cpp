@@ -40,7 +40,7 @@ void Room::InitGameLogic(GameLogic* logic)
             //// Reset spawn-related player data to default values until map-specific spawn points are wired in.
             pd.x = 0; pd.y = 0; pd.z = 0;*/
 
-            InitCharacter(member, logic);
+            //InitCharacter(member, logic);
         }
     }
 
@@ -180,6 +180,27 @@ void Room::TransferOwnership()
     LOG_INFO("Room [%d] New owner = Session [%d]", m_roomID, m_OwnerSessionID);
 }
 
+bool Room::ChangeMemberSlot(Session* member, int targetSlot)
+{
+    std::lock_guard<std::mutex> lock(m_RoomLock);
+
+    if (!member) return false;
+    if (targetSlot < 0 || targetSlot >= MaxMember) return false;
+    if (UsedSlots[targetSlot]) return false;
+
+    const int oldSlot = member->roomSlot;
+    if (oldSlot >= 0 && oldSlot < MaxMember)
+    {
+        UsedSlots[oldSlot] = false;
+    }
+
+    UsedSlots[targetSlot] = true;
+    member->roomSlot = targetSlot;
+    member->teamID = TeamCalculateBySlot(targetSlot);
+
+    return true;
+}
+
 int Room::TeamCalculateBySlot(int roomSlot) const
 {
     if (roomSlot >= 0 && roomSlot < 3) { return 0; }
@@ -269,6 +290,19 @@ void Room::LoadStage(int stageNum)
         torch.bEquipped = false;
 
         m_ItemObjects[torch.ObjectID] = torch;
+    }
+}
+
+void Room::InitRoundCharacters(GameLogic* logic)
+{
+    std::lock_guard<std::mutex> lock(m_RoomLock);
+
+    for (Session* member : m_Members)
+    {
+        if (!member) { continue; }
+
+        logic->players[member->sessionID] = member;
+        InitCharacter(member, logic);
     }
 }
 
@@ -477,6 +511,29 @@ int Room::GetCurrentMemberCount()
     return static_cast<int>(m_Members.size());
 }
 
+void Room::ReturnMembersToLobby()
+{
+    std::lock_guard<std::mutex> lock(m_RoomLock);
+
+    for (Session* member : m_Members)
+    {
+        if (!member) { continue; }
+
+        SessionManager::GetInstance()->SetState(member->sessionID, ESessionState::LOBBY);
+        member->roomID = -1;
+        member->isReady = false;
+        member->roomSlot = -1;
+    }
+
+    m_Members.clear();
+    m_OwnerSessionID = -1;
+
+    for (int i = 0; i < MaxMember; ++i)
+    {
+        UsedSlots[i] = false;
+    }
+}
+
 std::vector<RoomMemberPacket> Room::GetMemberInfoList()
 {
     std::lock_guard<std::mutex> lock(m_RoomLock);
@@ -497,6 +554,7 @@ std::vector<RoomMemberPacket> Room::GetMemberInfoList()
         info.isReady = member->isReady ? 1 : 0;
         info.isHost = IsOwner(member->sessionID) ? 1 : 0;
         info.userUID = member->playerUID;
+        info.roomSlot = member->roomSlot;
         info.roleType = member->gameDatas.roleType;
 
         result.push_back(info);
@@ -774,34 +832,39 @@ void RoomManager::GameStart(Session* client)
 
     // Switch the room into PLAYING state.
     room->SetState(ERoomState::PLAYING);
-    // 1: Building, 2: IceCave, 3: Space, 4: SkyIsland, 5: Jungle
-    std::vector<int> AvailableMaps = { 1, 2, 3, /*4, 5*/ }; 
+    
+    std::vector<int> AvailableMaps = { 1, 2, 3, /*4, 5*/ }; // 1: Building, 2: IceCave, 3: Space, 4: SkyIsland, 5: Jungle
 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(0, static_cast<int>(AvailableMaps.size()) - 1);
 
-    const int selected = 3;//AvailableMaps[dist(gen)];
-    room->SelectStage(selected);
-    room->LoadStage(selected);
-    room->BroadcastToMembers(
-        PKT_S2C_MAP_SELECT_NOTICE,
-        reinterpret_cast<const char*>(&selected),
-        sizeof(int)
-    );
+    //const int selected = 1;//AvailableMaps[dist(gen)];
+    //room->SelectStage(selected);
+    //room->LoadStage(selected);
+    //room->BroadcastToMembers(
+    //    PKT_S2C_MAP_SELECT_NOTICE,
+    //    reinterpret_cast<const char*>(&selected),
+    //    sizeof(int)
+    //);
+
+    //room->BeginDeferredRoundStart(3.0f);
 
     GameLogic* logic = new GameLogic();
     logic->ownerRoom = room;
+    logic->SetAvailableMaps(AvailableMaps);
+
     room->InitGameLogic(logic);
 
     // Set Player Data Init
     //room->InitCharacter(client, logic);
 
     // Broadcast the game-start event to every room member.
-    room->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
-    room->BeginDeferredRoundStart(3.0f);
+    //room->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
+    //room->BeginDeferredRoundStart(3.0f);
 
     LOG_INFO("Game Started! Room [%d]", client->roomID);
+    logic->StartMatch();
 }
 
 void RoomManager::UpdateRooms(float deltaTime)
@@ -818,10 +881,18 @@ void RoomManager::UpdateRooms(float deltaTime)
     for (int roomID : activeRoomIDs) {
         Room* room = GetRoom(roomID); // Re-resolve the room because it may have been destroyed after the ID snapshot was built.
 
-        if (room != nullptr) {
+        if (room != nullptr)
+        {
             room->UpdateGameLogic(deltaTime);
 
-            if (!room->BroadcastGameDatas()) {
+            if (room->GetState() == ERoomState::FINISHED)
+            {
+                DestroyRoom(roomID);
+                continue;
+            }
+
+            if (!room->BroadcastGameDatas())
+            {
                 DestroyRoom(roomID);
             }
         }

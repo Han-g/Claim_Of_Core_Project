@@ -148,6 +148,10 @@ void ClientNetworking::PumpEvents()
             OnRoomEnterResult.Broadcast(true, Evt.MemberList);
             break;
 
+        case ENetEventType::RoundPrepare:
+            OnRoundPrepare.Broadcast(Evt.RoundPrepare);
+            break;
+
         case ENetEventType::MapSelected:
             UE_LOG(LogTemp, Display, TEXT("Map selected from server: %d"), Evt.SelectedMapType);
             OnMapSelected.Broadcast(Evt.SelectedMapType);
@@ -156,6 +160,10 @@ void ClientNetworking::PumpEvents()
         case ENetEventType::GameStart:
             UE_LOG(LogTemp, Display, TEXT("Game Start!"));
             OnGameStart.Broadcast();
+            break;
+
+        case ENetEventType::MatchEnd:
+            OnMatchEnd.Broadcast();
             break;
 
         case ENetEventType::SnapshotReceived:
@@ -359,6 +367,17 @@ void ClientNetworking::JoinRoomRequest(int32 RoomID)
     TArray<uint8> Payload;
     Payload.Append((uint8*)&RoomID, sizeof(int32));
     EnqueueSendCommand(PKT_C2S_ROOM_JOIN_REQ, Payload);
+}
+
+void ClientNetworking::RoomSlotSelectRequest(int32 SlotIndex)
+{
+    FRoomSlotSelectPacket Packet{};
+    Packet.targetSlot = SlotIndex;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FRoomSlotSelectPacket));
+
+    EnqueueSendCommand(PKT_C2S_ROOM_SLOT_SELECT_REQ, Payload);
 }
 
 void ClientNetworking::ReadyToggleRequest()

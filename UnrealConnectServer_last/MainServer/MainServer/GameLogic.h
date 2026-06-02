@@ -15,6 +15,7 @@ struct RoundChangePacket;
 enum ERecCharacterState { Alive, Dead };
 enum ERecRoleType { Striker, Guardian, Manipulator };
 enum ERoundState { Waiting, Playing, Finished };
+enum EMatchFlow { Robby, MapSelecting, MapSelectedWait, RoundPlaying, RoundFinish, MatchFinish };
 
 namespace GameMath {
 	constexpr float PI = 3.141592f;
@@ -236,7 +237,43 @@ private:
 	int currentGameTime = 0;
 	
 
+	// ------------------------------------
+	// ---------   Match State   ----------
+	// ------------------------------------
+public:
+	void StartMatch();
+	void BeginRoundPrepare();
+	void SetAvailableMaps(const std::vector<int>& maps);
+	bool TrySelectMap();
+	void FinishMapSelection();
+	void BeginNextRoundOrEndMatch();
+	void EndMatch();
+
 private:
+	int maxRound = 3;
+	int currentRound = 0;
+
+	std::vector<int> availableMaps;
+	std::vector<int> remainingMaps;
+
+	int team1Score = 0;
+	int team2Score = 0;
+	int requiredWinScore = (maxRound / 2) + 1;
+
+	EMatchFlow matchFlowState = EMatchFlow::Robby;
+
+	int selectedMapType = 0;
+
+	float matchFlowRemainTime = 0.0f;
+	float mapSelectTime = 10.0f;
+
+private:
+	// ------------------------------------
+	// --------   InGame State   ----------
+	// ------------------------------------
+	float roundStartDelay = 1.0f;
+	float resultRemainTime = 5.0f;
+
 	float elapsedTime = 0.f;
 	float timeAccumlator = 0.f;
 	int currentMapPhase = 0;

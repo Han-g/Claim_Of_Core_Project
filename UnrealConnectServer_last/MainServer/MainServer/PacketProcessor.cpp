@@ -30,6 +30,7 @@ void PacketProcessor::InitHandler()
 
 	m_FuncHandlerMap[PKT_C2S_ROOM_CREATE_REQ] = &PacketProcessor::Handle_Room_CreateReq;
 	m_FuncHandlerMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
+	m_FuncHandlerMap[PKT_C2S_ROOM_SLOT_SELECT_REQ] = &PacketProcessor::Handle_Slot_ChangeReq;
 
 	m_FuncHandlerMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
 	m_FuncHandlerMap[PKT_C2S_CHARACTER_SELECT_REQ] = &PacketProcessor::Handle_Character_SelectReq;
@@ -126,6 +127,33 @@ void PacketProcessor::Handle_Room_JoinReq(IOCPServer* server, Session* session, 
 void PacketProcessor::Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
 
+}
+
+void PacketProcessor::Handle_Slot_ChangeReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	if (server == nullptr || session == nullptr) { return; }
+
+	RoomSlotSelectPacket packet{};
+	if (!reader.Read(packet))
+	{
+		return;
+	}
+
+	if (session->roomID < 0) { return; }
+
+	Room* room = RoomManager::GetInstance()->GetRoom(session->roomID);
+	if (!room) { return; }
+
+	if (room->GetState() != ERoomState::WAITING) { return; }
+
+	if (!room->ChangeMemberSlot(session, packet.targetSlot))
+	{
+		return;
+	}
+
+	session->isReady = false;
+
+	server->BroadcastRoomInfo(session);
 }
 
 void PacketProcessor::Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader)

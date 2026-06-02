@@ -26,6 +26,13 @@ class CLAIM_OF_CORE_API URoomWidget : public UUserWidget
 public:
 	void UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList);
 
+private:
+	UFUNCTION()
+	void OnStartButtonClicked();
+
+	UFUNCTION()
+	void OnMemberSlotClicked(int32 SlotIndex);
+
 protected:
 	virtual void NativeConstruct() override;
 
@@ -41,8 +48,4 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "UI")
 	TSubclassOf<class URoomMemberWidget> MemberWidgetClass;
-
-private:
-	UFUNCTION()
-	void OnStartButtonClicked();
 };

@@ -50,6 +50,17 @@ void URoomMemberWidget::NativeDestruct()
     Super::NativeDestruct();
 }
 
+FReply URoomMemberWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && SlotIndex >= 0)
+    {
+        OnSlotClicked.Broadcast(SlotIndex);
+        return FReply::Handled();
+    }
+
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
 void URoomMemberWidget::SetEmptyMember()
 {
     SelectedRoleType = -1;
@@ -78,6 +89,11 @@ void URoomMemberWidget::SetMemberInfo(const FString& playerName, bool bIsReady, 
 
     SetRoleButtonsEnabled(bCanSelect);
     UpdateRoleButtonColors();
+}
+
+void URoomMemberWidget::SetSlotIndex(int32 InSlotIndex)
+{
+    SlotIndex = InSlotIndex;
 }
 
 void URoomMemberWidget::SetRoleButtonsEnabled(bool bEnabled)

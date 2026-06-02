@@ -39,6 +39,7 @@ public:
     void CreateRoomRequest();
     void CharacterSelectRequest(int32 RoleType);
     void JoinRoomRequest(int32 RoomID);
+    void RoomSlotSelectRequest(int32 SlotIndex);
     void ReadyToggleRequest();
     void GameStartRequest();
     void ItemPickupRequest(int32 ItemID);
@@ -57,8 +58,10 @@ public:
     FOnRegisterResultDelegate OnRegisterResult;
     FOnRoomListUpdated        OnRoomListUpdated;
     FOnRoomEntered            OnRoomEnterResult;
+    FOnRoundPrepare           OnRoundPrepare;
     FOnMapSelected            OnMapSelected;
     FOnGameStartDelegate      OnGameStart;
+    FOnMatchEnd               OnMatchEnd;
 
     FOnDamageApplied          OnDamageApplied;
     FOnStatusUpdated          OnStatusUpdated;
