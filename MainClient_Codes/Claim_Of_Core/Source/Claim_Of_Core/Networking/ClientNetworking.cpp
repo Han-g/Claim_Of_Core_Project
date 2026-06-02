@@ -353,6 +353,11 @@ void ClientNetworking::CreateRoomRequest()
     EnqueueSendCommand(PKT_C2S_ROOM_CREATE_REQ);
 }
 
+void ClientNetworking::LeaveRoomRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ROOM_LEAVE_REQ);
+}
+
 void ClientNetworking::CharacterSelectRequest(int32 RoleType)
 {
     TArray<uint8> Payload;

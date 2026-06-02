@@ -57,10 +57,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Network|UI")
 
 	void ShowLoginHUD();
+
+	virtual void LoadComplete(const float LoadTime, const FString& MapName) override;
+
+	void ShowLobbyHUD();
+
+	bool bPendingReturnToLobby = false;
+
 	void TryLogin(FString ID, FString PW);
 	void TryRegister(FString ID, FString PW);
 	void CreateRoom();
 	void JoinRoom(int32 RoomID);
+	void RequestLeaveRoom();
 	void RequestCharacterSelect();
 	void RequestReady();
 	void RequestGameStart();

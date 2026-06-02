@@ -37,11 +37,13 @@ public:
     void LoginAccess(FString& ID, FString& PW);
     void RegisterRequest(FString& ID, FString& PW);
     void CreateRoomRequest();
+    void LeaveRoomRequest();
     void CharacterSelectRequest(int32 RoleType);
     void JoinRoomRequest(int32 RoomID);
     void RoomSlotSelectRequest(int32 SlotIndex);
     void ReadyToggleRequest();
     void GameStartRequest();
+
     void ItemPickupRequest(int32 ItemID);
     void ItemDropRequest(int32 ItemID);
     void AttackHitReportRequest(uint32 AttackSeq, int32 TargetID, int32 AttackType);

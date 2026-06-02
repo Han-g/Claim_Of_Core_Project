@@ -310,6 +310,56 @@ void UNetworkInstance::ShowLoginHUD()
 	}
 }
 
+void UNetworkInstance::LoadComplete(const float LoadTime, const FString& MapName)
+{
+	Super::LoadComplete(LoadTime, MapName);
+
+	if (!bPendingReturnToLobby)
+	{
+		return;
+	}
+
+	if (!MapName.Contains(TEXT("GameLobby")))
+	{
+		return;
+	}
+
+	bPendingReturnToLobby = false;
+	ShowLobbyHUD();
+}
+
+void UNetworkInstance::ShowLobbyHUD()
+{
+	if (!LobbyWidgetClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("LobbyWidgetClass is Not Assignment, Check Blueprint."));
+		return;
+	}
+
+	if (LobbyWidgetInstance)
+	{
+		LobbyWidgetInstance->RemoveFromParent();
+		LobbyWidgetInstance = nullptr;
+	}
+
+	LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
+	if (!LobbyWidgetInstance)
+	{
+		return;
+	}
+
+	LobbyWidgetInstance->AddToViewport();
+
+	if (APlayerController* PC = GetFirstLocalPlayerController())
+	{
+		PC->SetShowMouseCursor(true);
+
+		FInputModeUIOnly InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		PC->SetInputMode(InputMode);
+	}
+}
+
 void UNetworkInstance::TryLogin(FString ID, FString PW)
 {
 	if (Client.IsValid()) {
@@ -336,6 +386,25 @@ void UNetworkInstance::JoinRoom(int32 RoomID)
 	if (Client.IsValid()) {
 		Client->JoinRoomRequest(RoomID);
 	}
+}
+
+void UNetworkInstance::RequestLeaveRoom()
+{
+	if (Client.IsValid())
+	{
+		Client->LeaveRoomRequest();
+	}
+
+	bReadySent = false;
+	CachedSelectedRoleType = -1;
+
+	if (RoomWidgetInstance)
+	{
+		RoomWidgetInstance->RemoveFromParent();
+		RoomWidgetInstance = nullptr;
+	}
+
+	ShowLobbyHUD();
 }
 
 void UNetworkInstance::RequestCharacterSelect()
@@ -480,7 +549,8 @@ void UNetworkInstance::HandleLoginResult(bool bSuccess)
 		}
 
 		if (LobbyWidgetClass && !LobbyWidgetInstance) {
-			LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
+			//LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
+			ShowLobbyHUD();
 
 			if (LobbyWidgetInstance) {
 				LobbyWidgetInstance->AddToViewport();
@@ -665,9 +735,10 @@ void UNetworkInstance::HandleMatchEnd()
 	bPendingInitialSpawnLock = false;
 	bLocalSpawnLockApplied = false;
 
+	bPendingReturnToLobby = true;
 	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Game/UI/GameLobby")));
 
-	if (LobbyWidgetClass)
+	/*if (LobbyWidgetClass)
 	{
 		LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
 		if (LobbyWidgetInstance)
@@ -683,7 +754,7 @@ void UNetworkInstance::HandleMatchEnd()
 				PC->SetInputMode(InputMode);
 			}
 		}
-	}
+	}*/
 }
 
 void UNetworkInstance::HandleConnected()

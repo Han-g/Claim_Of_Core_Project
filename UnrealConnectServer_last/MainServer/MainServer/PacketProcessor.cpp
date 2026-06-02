@@ -30,6 +30,7 @@ void PacketProcessor::InitHandler()
 
 	m_FuncHandlerMap[PKT_C2S_ROOM_CREATE_REQ] = &PacketProcessor::Handle_Room_CreateReq;
 	m_FuncHandlerMap[PKT_C2S_ROOM_JOIN_REQ] = &PacketProcessor::Handle_Room_JoinReq;
+	m_FuncHandlerMap[PKT_C2S_ROOM_LEAVE_REQ] = &PacketProcessor::Handle_Room_RemoveReq;
 	m_FuncHandlerMap[PKT_C2S_ROOM_SLOT_SELECT_REQ] = &PacketProcessor::Handle_Slot_ChangeReq;
 
 	m_FuncHandlerMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
@@ -126,7 +127,9 @@ void PacketProcessor::Handle_Room_JoinReq(IOCPServer* server, Session* session, 
 
 void PacketProcessor::Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
+	if (!server || !session) { return; }
 
+	RoomManager::GetInstance()->LeaveRoom(session);
 }
 
 void PacketProcessor::Handle_Slot_ChangeReq(IOCPServer* server, Session* session, PacketReader& reader)

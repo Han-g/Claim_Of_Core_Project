@@ -13,6 +13,10 @@ void URoomWidget::NativeConstruct()
 	if (StartButton) {
 		StartButton->OnClicked.AddDynamic(this, &URoomWidget::OnStartButtonClicked);
 	}
+
+	if (ExitButton) {
+		ExitButton->OnClicked.AddDynamic(this, &URoomWidget::OnExitButtonClicked);
+	}
 }
 
 
@@ -69,9 +73,29 @@ void URoomWidget::UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList)
 		}
 	}
 
+	bool bLocalIsHost = false;
+
+	for (const FRoomMemberInfo& Member : PlayerList) {
+		if (Member.userUID == LocalUID) {
+			bLocalIsHost = Member.bIsHost;
+			break;
+		}
+	}
+
+	if (StartButton) { StartButton->SetIsEnabled(bLocalIsHost); }
+
 	if (MemberCount) {
 		FString CountStr = FString::Printf(TEXT("%d / 6"), FMath::Min(PlayerList.Num(), 6));
 		MemberCount->SetText(FText::FromString(CountStr));
+	}
+}
+
+void URoomWidget::OnExitButtonClicked()
+{
+	UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance());
+	if (GI)
+	{
+		GI->RequestLeaveRoom();
 	}
 }
 

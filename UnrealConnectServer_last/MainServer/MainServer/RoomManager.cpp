@@ -648,6 +648,10 @@ void RoomManager::LeaveRoom(Session* client)
 
             SessionManager::GetInstance()->SetState(client->sessionID, ESessionState::LOBBY);
             client->roomID = -1;
+            client->isReady = false;
+            client->roomSlot = -1;
+            client->teamID = -1;
+            client->gameDatas.roleType = -1;
 
             if (room->IsEmpty()) {
                 delete room;
@@ -755,6 +759,17 @@ bool RoomManager::JoinRoom(Session* client, int roomID)
         LOG_ERROR("Room [%d] does not exist", roomID);
         return false;
     }
+
+    if (room->GetState() != ERoomState::WAITING)
+    {
+        LOG_WARN("JoinRoom failed - Room [%d] is not waiting", roomID);
+
+        ErrorCodePacket failPacket{};
+        failPacket.ErrorCode = 3; // Room error
+        m_Server->SendPacket(client->sessionID, PKT_S2C_ERROR, (char*)&failPacket, sizeof(failPacket));
+
+        return false;
+    }
     
     if (!room->addMember(client)) {
         LOG_ERROR("Room is full");
@@ -839,29 +854,13 @@ void RoomManager::GameStart(Session* client)
     std::mt19937 gen(rd());
     std::uniform_int_distribution<int> dist(0, static_cast<int>(AvailableMaps.size()) - 1);
 
-    //const int selected = 1;//AvailableMaps[dist(gen)];
-    //room->SelectStage(selected);
-    //room->LoadStage(selected);
-    //room->BroadcastToMembers(
-    //    PKT_S2C_MAP_SELECT_NOTICE,
-    //    reinterpret_cast<const char*>(&selected),
-    //    sizeof(int)
-    //);
-
-    //room->BeginDeferredRoundStart(3.0f);
-
     GameLogic* logic = new GameLogic();
     logic->ownerRoom = room;
     logic->SetAvailableMaps(AvailableMaps);
 
+    room->SetState(ERoomState::PLAYING);
     room->InitGameLogic(logic);
-
-    // Set Player Data Init
-    //room->InitCharacter(client, logic);
-
-    // Broadcast the game-start event to every room member.
-    //room->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
-    //room->BeginDeferredRoundStart(3.0f);
+    m_Server->BroadcastRoomList();
 
     LOG_INFO("Game Started! Room [%d]", client->roomID);
     logic->StartMatch();

@@ -28,6 +28,9 @@ public:
 
 private:
 	UFUNCTION()
+	void OnExitButtonClicked();
+
+	UFUNCTION()
 	void OnStartButtonClicked();
 
 	UFUNCTION()
@@ -41,6 +44,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	class UTextBlock* MemberCount;
+
+	UPROPERTY(meta = (BindWidget))
+	class UButton* ExitButton;
 
 
 	UPROPERTY(meta = (BindWidget))

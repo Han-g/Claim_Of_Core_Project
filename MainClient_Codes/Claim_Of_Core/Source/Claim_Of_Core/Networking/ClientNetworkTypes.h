@@ -58,6 +58,7 @@ enum PacketID : uint16 {
     PKT_C2S_GAME_START_REQ = 509,
     PKT_C2S_READY_REQ = 510,
     PKT_C2S_ROOM_SLOT_SELECT_REQ = 511,
+    PKT_C2S_ROOM_LEAVE_REQ = 512,
 
     // [ InGame Sync / Combat Packets ]
     PKT_C2S_MOVE_KEYINPUT = 520,
