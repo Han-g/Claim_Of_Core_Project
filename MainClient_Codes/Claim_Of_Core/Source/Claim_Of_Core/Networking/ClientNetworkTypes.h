@@ -99,10 +99,11 @@ struct GameData {
     float rotate = 0;
     float baseWalkSpeed = 500.f;
 
-    int characterState = -1;    // 0=Alive, 1=Dead
-    int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
+	int characterState = -1;    // 0=Alive, 1=Dead
+	int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
+	int teamType = -1;          // -1=None, 0=Red, 1=Blue
 
-    int animationNum = 0;
+	int animationNum = 0;
 };
 
 // ============================================================

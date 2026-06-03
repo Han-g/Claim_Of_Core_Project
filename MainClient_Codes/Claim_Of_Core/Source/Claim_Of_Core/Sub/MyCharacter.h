@@ -18,6 +18,7 @@ class UBoxComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
 class UMaterialInterface;
+class UMaterialInstanceDynamic;
 class UNiagaraSystem;
 class USoundBase;
 class ABaseItem;
@@ -36,6 +37,14 @@ enum class ERecRoleType : uint8
 	Striker     UMETA(DisplayName = "Striker"),
 	Guardian    UMETA(DisplayName = "Guardian"),
 	Manipulator UMETA(DisplayName = "Manipulator"),
+};
+
+UENUM(BlueprintType)
+enum class ERecTeamType : uint8
+{
+	None = 255 UMETA(DisplayName = "None"),
+	Red = 0 UMETA(DisplayName = "Red"),
+	Blue = 1 UMETA(DisplayName = "Blue"),
 };
 
 UENUM(BlueprintType)
@@ -110,6 +119,7 @@ public:
 	void PlayAttackMontageFromServer(int32 AttackType);
 
 	void SetRoleFromNetwork(int32 InRoleType);
+	void SetTeamFromNetwork(int32 InTeamType);
 	void SetHPFromNetwork(int32 InHP);
 	void SetStateFromNetwork(int32 InState);
 	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
@@ -186,6 +196,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Role")
 	ERecRoleType GetRoleType() const { return RoleType; }
 
+	UFUNCTION(BlueprintPure, Category = "Team")
+	ERecTeamType GetTeamType() const { return TeamType; }
+
+	UFUNCTION(BlueprintPure, Category = "Team")
+	bool IsSameTeam(AMyCharacter* OtherCharacter) const;
+
 	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
 	void ActivateRoleSkill();
 
@@ -209,6 +225,9 @@ public:
 
 	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
 	ERecRoleType RoleType = ERecRoleType::Manipulator;
+
+	UPROPERTY(ReplicatedUsing = OnRep_TeamType, EditAnywhere, BlueprintReadOnly, Category = "Team")
+	ERecTeamType TeamType = ERecTeamType::None;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
 	ERecCharacterState CharacterState = ERecCharacterState::Alive;
@@ -437,6 +456,27 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
 	FLinearColor DamageFlashSceneTint = FLinearColor(1.35f, 0.25f, 0.25f, 1.0f);
 
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	TObjectPtr<UMaterialInterface> TeamOutlinePostProcessMaterial;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	FLinearColor RedTeamOutlineColor = FLinearColor(1.0f, 0.02f, 0.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	FLinearColor BlueTeamOutlineColor = FLinearColor(0.0f, 0.28f, 1.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	float TeamOutlineThickness = 4.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Team|Debug")
+	bool bUseDebugTeamType = false;
+
+	UPROPERTY(EditAnywhere, Category = "Team|Debug")
+	ERecTeamType DebugTeamType = ERecTeamType::Red;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> TeamOutlinePostProcessMID;
+
 	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
 	bool bDamageFlashActive = false;
 
@@ -510,6 +550,9 @@ private:
 	void OnRep_RoleType();
 
 	UFUNCTION()
+	void OnRep_TeamType();
+
+	UFUNCTION()
 	void OnRep_RoleSkillActive();
 
 	float CurrentCoolTime = 0.0f;
@@ -526,6 +569,7 @@ private:
 	void PlayBasicAttackMissSound();
 
 	static FString RoleTypeToString(ERecRoleType InType);
+	static FString TeamTypeToString(ERecTeamType InType);
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);
 	float GetDamageCoefficient() const { return AttackDamage; }
 	float GetKnockbackCoefficient() const { return KnockbackCoefficient; }
@@ -538,6 +582,8 @@ private:
 
 	void ApplyRoleStats();
 	void ApplyRoleVisual();
+	void ApplyTeamVisual();
+	void UpdateTeamOutlinePostProcess();
 	void ApplyRoleSkillState();
 	void UpdateFrozenOverlay();
 	// COC_DEBUG_HITBOX Character function

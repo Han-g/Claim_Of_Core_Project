@@ -587,6 +587,7 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 
 			LocalCharacter->SetNetworkPlayerUID(LocalUID);
 			LocalCharacter->SetRoleFromNetwork(Data.roleType);
+			LocalCharacter->SetTeamFromNetwork(Data.teamType);
 			LocalCharacter->SetHPFromNetwork(Data.currentHP);
 			LocalCharacter->SetStateFromNetwork(Data.characterState);
 			
@@ -620,6 +621,7 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 
 			RemoteCharacter->SetNetworkPlayerUID(Data.userUID);
 			RemoteCharacter->SetRoleFromNetwork(Data.roleType);
+			RemoteCharacter->SetTeamFromNetwork(Data.teamType);
 			RemoteCharacter->SetHPFromNetwork(Data.currentHP);
 			RemoteCharacter->SetStateFromNetwork(Data.characterState);
 			RemoteCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);

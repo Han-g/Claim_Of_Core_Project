@@ -64,6 +64,11 @@ void ATorchItem::DoHit()
 			continue;
 		}
 
+		if (OwnerCharacter->IsSameTeam(Target))
+		{
+			continue;
+		}
+
 		ApplyBurn(Target);
 		BP_OnTorchHitTarget(Target);
 	}

@@ -21,6 +21,7 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -117,6 +118,7 @@ AMyCharacter::AMyCharacter()
 	CurrentHP = MaxHP;
 	CharacterState = ERecCharacterState::Alive;
 	RoleType = ERecRoleType::Manipulator;
+	TeamType = ERecTeamType::Red;
 }
 
 void AMyCharacter::BeginPlay()
@@ -142,8 +144,15 @@ void AMyCharacter::BeginPlay()
 	InitialActorScale3D = GetActorScale3D();
 	BaseJumpMaxCount = JumpMaxCount;
 
+	if (bUseDebugTeamType && TeamType == ERecTeamType::None)
+	{
+		TeamType = DebugTeamType;
+	}
+
 	ApplyRoleStats();
 	ApplyRoleVisual();
+	ApplyTeamVisual();
+	UpdateTeamOutlinePostProcess();
 	ApplyRoleSkillState();
 
 	UpdateHPText();
@@ -254,6 +263,13 @@ void AMyCharacter::OnRep_RoleType()
 	UpdateRoleText();
 }
 
+void AMyCharacter::OnRep_TeamType()
+{
+	ApplyTeamVisual();
+	UpdateTeamOutlinePostProcess();
+	UpdateRoleText();
+}
+
 void AMyCharacter::OnRep_RoleSkillActive()
 {
 	ApplyRoleStats();
@@ -284,7 +300,7 @@ void AMyCharacter::UpdateRoleText()
 		return;
 	}
 
-	FString Str = FString::Printf(TEXT("Role: %s"), *RoleTypeToString(RoleType));
+	FString Str = FString::Printf(TEXT("Role: %s\nTeam: %s"), *RoleTypeToString(RoleType), *TeamTypeToString(TeamType));
 
 	if (bRoleSkillActive)
 	{
@@ -427,6 +443,14 @@ bool AMyCharacter::CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) c
 	}
 }
 
+bool AMyCharacter::IsSameTeam(AMyCharacter* OtherCharacter) const
+{
+	return OtherCharacter &&
+		TeamType != ERecTeamType::None &&
+		OtherCharacter->TeamType != ERecTeamType::None &&
+		TeamType == OtherCharacter->TeamType;
+}
+
 const FRoleVisualData& AMyCharacter::GetVisualData(ERecRoleType InRole) const
 {
 	switch (InRole)
@@ -436,6 +460,54 @@ const FRoleVisualData& AMyCharacter::GetVisualData(ERecRoleType InRole) const
 	case ERecRoleType::Manipulator: return ManipulatorVisual;
 	default:                        return StrikerVisual;
 	}
+}
+
+void AMyCharacter::ApplyTeamVisual()
+{
+	const int32 StencilValue = TeamType == ERecTeamType::Red ? 1 : TeamType == ERecTeamType::Blue ? 2 : 0;
+	const bool bEnableOutline = StencilValue > 0;
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetRenderCustomDepth(bEnableOutline);
+		MeshComp->SetCustomDepthStencilValue(StencilValue);
+	}
+
+	if (FrozenOverlayMeshComponent)
+	{
+		FrozenOverlayMeshComponent->SetRenderCustomDepth(bEnableOutline);
+		FrozenOverlayMeshComponent->SetCustomDepthStencilValue(StencilValue);
+	}
+}
+
+void AMyCharacter::UpdateTeamOutlinePostProcess()
+{
+	if (!IsLocallyControlled() || !FollowCamera || !TeamOutlinePostProcessMaterial)
+	{
+		return;
+	}
+
+	if (!TeamOutlinePostProcessMID)
+	{
+		TeamOutlinePostProcessMID = UMaterialInstanceDynamic::Create(TeamOutlinePostProcessMaterial, this);
+		if (!TeamOutlinePostProcessMID)
+		{
+			return;
+		}
+
+		FollowCamera->PostProcessSettings.AddBlendable(TeamOutlinePostProcessMID, 1.0f);
+	}
+
+	TeamOutlinePostProcessMID->SetVectorParameterValue(TEXT("RedTeamColor"), RedTeamOutlineColor);
+	TeamOutlinePostProcessMID->SetVectorParameterValue(TEXT("BlueTeamColor"), BlueTeamOutlineColor);
+	TeamOutlinePostProcessMID->SetVectorParameterValue(TEXT("TeamRedColor"), RedTeamOutlineColor);
+	TeamOutlinePostProcessMID->SetVectorParameterValue(TEXT("TeamBlueColor"), BlueTeamOutlineColor);
+	TeamOutlinePostProcessMID->SetScalarParameterValue(TEXT("OutlineThickness"), TeamOutlineThickness);
+	TeamOutlinePostProcessMID->SetScalarParameterValue(TEXT("Thickness"), TeamOutlineThickness);
+	TeamOutlinePostProcessMID->SetScalarParameterValue(
+		TEXT("LocalTeamStencil"),
+		TeamType == ERecTeamType::Red ? 1.0f : TeamType == ERecTeamType::Blue ? 2.0f : 0.0f
+	);
 }
 
 void AMyCharacter::ApplyRoleStats()
@@ -594,6 +666,7 @@ void AMyCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	DOREPLIFETIME(AMyCharacter, CurrentHP);
 	DOREPLIFETIME(AMyCharacter, CharacterState);
 	DOREPLIFETIME(AMyCharacter, RoleType);
+	DOREPLIFETIME(AMyCharacter, TeamType);
 	DOREPLIFETIME(AMyCharacter, bRoleSkillActive);
 }
 
@@ -605,6 +678,16 @@ FString AMyCharacter::RoleTypeToString(ERecRoleType InType)
 	case ERecRoleType::Guardian:    return TEXT("Guardian");
 	case ERecRoleType::Manipulator: return TEXT("Manipulator");
 	default:                        return TEXT("Striker");
+	}
+}
+
+FString AMyCharacter::TeamTypeToString(ERecTeamType InType)
+{
+	switch (InType)
+	{
+	case ERecTeamType::Red:  return TEXT("Red");
+	case ERecTeamType::Blue: return TEXT("Blue");
+	default:                 return TEXT("None");
 	}
 }
 
@@ -893,6 +976,11 @@ float AMyCharacter::TakeDamage(
 
 	if (AttackerCharacter)
 	{
+		if (IsSameTeam(AttackerCharacter))
+		{
+			return 0.f;
+		}
+
 		FinalDamage *= AttackerCharacter->GetOutgoingDamageMultiplier();
 	}
 
@@ -1170,7 +1258,7 @@ void AMyCharacter::UpdateLocalPostProcessEffects()
 	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = false;
 	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = false;
 	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = false;
-	FollowCamera->PostProcessBlendWeight = 0.0f;
+	FollowCamera->PostProcessBlendWeight = TeamOutlinePostProcessMID ? 1.0f : 0.0f;
 
 	if (bDeathSequenceLocked)
 	{
@@ -1187,7 +1275,7 @@ void AMyCharacter::UpdateLocalPostProcessEffects()
 		FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
 		FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
 
-		FollowCamera->PostProcessBlendWeight = LowHPPostProcessBlendWeight;
+		FollowCamera->PostProcessBlendWeight = TeamOutlinePostProcessMID ? 1.0f : LowHPPostProcessBlendWeight;
 		FollowCamera->PostProcessSettings.ColorSaturation =
 			FVector4(LowHPSaturation, LowHPSaturation, LowHPSaturation, 1.f);
 
@@ -1242,7 +1330,7 @@ void AMyCharacter::UpdateLowHPPulseEffect(float DeltaTime)
 	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
 	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
 
-	FollowCamera->PostProcessBlendWeight = DynamicBlend;
+	FollowCamera->PostProcessBlendWeight = TeamOutlinePostProcessMID ? 1.0f : DynamicBlend;
 	FollowCamera->PostProcessSettings.ColorSaturation =
 		FVector4(LowHPSaturation, LowHPSaturation, LowHPSaturation, 1.f);
 
@@ -1293,7 +1381,7 @@ void AMyCharacter::UpdateDamageFlashEffect(float DeltaTime)
 	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
 	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
 
-	FollowCamera->PostProcessBlendWeight = DamageFlashBlendWeight * Alpha;
+	FollowCamera->PostProcessBlendWeight = TeamOutlinePostProcessMID ? 1.0f : DamageFlashBlendWeight * Alpha;
 	FollowCamera->PostProcessSettings.ColorSaturation = FVector4(1.f, 1.f, 1.f, 1.f);
 	FollowCamera->PostProcessSettings.VignetteIntensity = DamageFlashVignetteIntensity * Alpha;
 	FollowCamera->PostProcessSettings.SceneColorTint = FMath::Lerp(FLinearColor::White, DamageFlashSceneTint, Alpha);
@@ -1956,6 +2044,30 @@ void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)
 	UpdateRoleText();
 }
 
+void AMyCharacter::SetTeamFromNetwork(int32 InTeamType)
+{
+	ERecTeamType NewTeamType = ERecTeamType::None;
+
+	if (InTeamType == 0)
+	{
+		NewTeamType = ERecTeamType::Red;
+	}
+	else if (InTeamType == 1)
+	{
+		NewTeamType = ERecTeamType::Blue;
+	}
+
+	if (TeamType == NewTeamType)
+	{
+		return;
+	}
+
+	TeamType = NewTeamType;
+	ApplyTeamVisual();
+	UpdateTeamOutlinePostProcess();
+	UpdateRoleText();
+}
+
 void AMyCharacter::SetHPFromNetwork(int32 InHP)
 {
 	const int32 OldHP = CurrentHP;
@@ -2121,6 +2233,14 @@ void AMyCharacter::ApplyKnockback(AActor* Attacker, float KnockbackStrength)
 		return;
 	}
 
+	if (AMyCharacter* AttackerCharacter = Cast<AMyCharacter>(Attacker))
+	{
+		if (IsSameTeam(AttackerCharacter))
+		{
+			return;
+		}
+	}
+
 	if (!CanReceiveStatusEffect(ERecStatusEffectType::Knockback))
 	{
 		return;
@@ -2142,6 +2262,11 @@ void AMyCharacter::ApplyHitEvent(AActor* Attacker)
 	if (!Player) return;
 
 	if (!Player || IsDead())
+	{
+		return;
+	}
+
+	if (IsSameTeam(Player))
 	{
 		return;
 	}
@@ -2241,6 +2366,11 @@ void AMyCharacter::OnAttackOverlap(
 	}
 
 	if (Victim == this)
+	{
+		return;
+	}
+
+	if (IsSameTeam(Victim))
 	{
 		return;
 	}

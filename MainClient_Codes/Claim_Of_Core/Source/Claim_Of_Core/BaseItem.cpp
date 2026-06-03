@@ -152,6 +152,14 @@ void ABaseItem::DoHit()
 		AActor* Target = Result.GetActor();
 		if (!Target) continue;
 
+		if (AMyCharacter* TargetCharacter = Cast<AMyCharacter>(Target))
+		{
+			if (OwnerCharacter->IsSameTeam(TargetCharacter))
+			{
+				continue;
+			}
+		}
+
 		ApplyDamage(Target);
 
 		if (ACharacter* HitCharacter = Cast<ACharacter>(Target))
