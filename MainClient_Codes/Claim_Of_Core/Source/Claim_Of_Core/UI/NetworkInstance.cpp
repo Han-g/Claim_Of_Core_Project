@@ -923,14 +923,6 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			
 			const FVector After = RemoteCharacter->GetActorLocation();
 
-			/*UE_LOG(LogTemp, Display,
-				TEXT("[RemoteSnapshotIn] UID=%d Snapshot=(%.1f, %.1f, %.1f) Before=(%.1f, %.1f, %.1f) After=(%.1f, %.1f, %.1f) Anim=%d"),
-				Data.userUID,
-				Data.x, Data.y, Data.z,
-				Before.X, Before.Y, Before.Z,
-				After.X, After.Y, After.Z,
-				Data.animationNum);*/
-
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
 		}
 	}
@@ -976,7 +968,15 @@ void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket& Packet)
 
 	if(AMyCharacter * Character = FindCharacterByUID(Packet.TargetID))
 	{
-		Character->SetHPFromNetwork(Packet.RemainHP);
+		const int32 OldHP = Character->GetCurrentHP();
+		const bool bDamaged = Packet.Damage > 0 && Packet.RemainHP < OldHP;
+
+		if (bDamaged)
+		{
+			Character->PlayHitFeedback(bIsLocalTarget);
+		}
+
+		Character->PlayHitFeedback(bIsLocalTarget);
 
 		if (Packet.RemainHP <= 0)
 		{

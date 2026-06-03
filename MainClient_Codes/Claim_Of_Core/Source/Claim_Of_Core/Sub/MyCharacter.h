@@ -6,20 +6,23 @@
 #include "MyCharacter.generated.h"
 
 struct FInputActionValue;
-class USpringArmComponent;
-class UCameraComponent;
-class UInputAction;
-class UTextRenderComponent;
+
+class ABaseItem;
+class FLifetimeProperty;
+
 class UAnimInstance;
 class UAnimMontage;
-class USkeletalMesh;
-class UPrimitiveComponent;
-class UBoxComponent;
-class ABaseItem;
+class UInputAction;
+class UCameraComponent;
 class UStaticMeshComponent;
 class UStaticMesh;
+class USkeletalMesh;
+class UTextRenderComponent;
 class UMaterialInterface;
-class FLifetimeProperty;
+class USpringArmComponent;
+class UPrimitiveComponent;
+class UBoxComponent;
+class UNiagaraSystem;
 
 UENUM(BlueprintType)
 enum class ERecCharacterState : uint8
@@ -263,6 +266,20 @@ public:
 
 	FTimerHandle AttackTimer;
 
+	// Hit Effects
+	UFUNCTION(BlueprintCallable, Category = "Combat|FX")
+	void PlayHitFeedback(bool bPlayLocalDamageFlash);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	TObjectPtr<UNiagaraSystem> HitNiagaraSystem;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	FVector HitNiagaraRelativeLocation = FVector(0.f, 0.f, 120.f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	FVector HitNiagaraScale = FVector(1.f);
+
+	// Attack judgment 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UBoxComponent> HandCollision;
 
@@ -403,6 +420,28 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
 	FLinearColor LowHPSceneTint = FLinearColor(1.18f, 0.78f, 0.78f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashDuration = 0.18f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashBlendWeight = 0.85f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashVignetteIntensity = 0.85f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	FLinearColor DamageFlashSceneTint = FLinearColor(1.35f, 0.25f, 0.25f, 1.0f);
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
+	bool bDamageFlashActive = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
+	float DamageFlashElapsed = 0.0f;
+
+	void PlayHitNiagaraFX();
+	void StartDamageFlash();
+	void UpdateDamageFlashEffect(float DeltaTime);
 
 	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
 	float DeathCameraTargetArmLength = 650.f;

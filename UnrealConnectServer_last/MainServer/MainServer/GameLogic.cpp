@@ -5,7 +5,6 @@
 #include "session.h"
 
 #include <algorithm>
-#include <random>
 
 GameLogic::GameLogic() { ownerRoom = nullptr; }
 
@@ -329,7 +328,12 @@ bool GameLogic::TrySelectMap()
         remainingMaps = availableMaps;
     }
 
-    const int index = rand() % static_cast<int>(remainingMaps.size());
+    std::uniform_int_distribution<int> dist(
+        0,
+        static_cast<int>(remainingMaps.size()) - 1
+    );
+
+    const int index = 1;//dist(MapRandomEngine);
     selectedMapType = remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);

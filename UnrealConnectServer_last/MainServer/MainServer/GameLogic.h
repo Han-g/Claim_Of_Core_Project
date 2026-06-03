@@ -5,6 +5,7 @@
 #include <cmath>
 #include <unordered_set>
 #include <unordered_map>
+#include <random>
 #include <mutex>
 
 class Room;
@@ -266,6 +267,8 @@ private:
 
 	float matchFlowRemainTime = 0.0f;
 	float mapSelectTime = 10.0f;
+
+	std::mt19937 MapRandomEngine{ std::random_device{}() };
 
 private:
 	// ------------------------------------

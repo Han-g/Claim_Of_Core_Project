@@ -25,6 +25,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
+#include "NiagaraFunctionLibrary.h"
 #include "TimerManager.h"
 
 #include "ClientNetworking.h"
@@ -48,7 +49,7 @@ AMyCharacter::AMyCharacter()
 	GetCharacterMovement()->GravityScale = 1.2f;
 	GetCharacterMovement()->MaxWalkSpeed = 2000.f;
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
-	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
+	GetCharacterMovement()->BrakingDecelerationWalking = 4000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
 	BaseWalkSpeed = GetCharacterMovement()->MaxWalkSpeed;
@@ -336,6 +337,7 @@ void AMyCharacter::Tick(float DeltaTime)
 	}
 
 	UpdateLowHPPulseEffect(DeltaTime);
+	UpdateDamageFlashEffect(DeltaTime);
 	UpdateDeathCameraShake(DeltaTime);
 	UpdateDeathCameraPullback(DeltaTime);
 
@@ -435,8 +437,9 @@ void AMyCharacter::SetIceMovement(bool bNew)
 		}
 		else
 		{
-			MoveComp->GroundFriction = 8.f;
+			MoveComp->GroundFriction = 12.f;
 			MoveComp->BrakingFrictionFactor = 2.f;
+			MoveComp->BrakingDecelerationWalking = 4000.f;
 		}
 	}
 }
@@ -2427,6 +2430,84 @@ void AMyCharacter::ApplyHitEvent(AActor* Attacker)
 	//LaunchVel.Z = 0.f;
 
 	//LaunchCharacter(LaunchVel, true, true);
+}
+
+void AMyCharacter::PlayHitFeedback(bool bPlayLocalDamageFlash)
+{
+	PlayHitNiagaraFX();
+
+	if (bPlayLocalDamageFlash)
+	{
+		StartDamageFlash();
+	}
+}
+
+void AMyCharacter::PlayHitNiagaraFX()
+{
+	if (!HitNiagaraSystem || !GetWorld())
+	{
+		return;
+	}
+
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+		GetWorld(),
+		HitNiagaraSystem,
+		GetActorLocation() + HitNiagaraRelativeLocation,
+		GetActorRotation(),
+		HitNiagaraScale,
+		true,
+		true
+	);
+}
+
+void AMyCharacter::StartDamageFlash()
+{
+	if (!IsLocallyControlled() || !FollowCamera || bDeathSequenceLocked || IsDead())
+	{
+		return;
+	}
+
+	bDamageFlashActive = true;
+	DamageFlashElapsed = 0.0f;
+	UpdateDamageFlashEffect(0.0f);
+}
+
+void AMyCharacter::UpdateDamageFlashEffect(float DeltaTime)
+{
+	if (!bDamageFlashActive)
+	{
+		return;
+	}
+
+	if (!IsLocallyControlled() || !FollowCamera || bDeathSequenceLocked || IsDead())
+	{
+		bDamageFlashActive = false;
+		UpdateLocalPostProcessEffects();
+		return;
+	}
+
+	DamageFlashElapsed += DeltaTime;
+
+	const float Duration = FMath::Max(DamageFlashDuration, KINDA_SMALL_NUMBER);
+	const float Alpha = 1.0f - FMath::Clamp(DamageFlashElapsed / Duration, 0.0f, 1.0f);
+
+	if (Alpha <= 0.0f)
+	{
+		bDamageFlashActive = false;
+		DamageFlashElapsed = 0.0f;
+		UpdateLocalPostProcessEffects();
+		return;
+	}
+
+	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
+	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
+	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
+
+	FollowCamera->PostProcessBlendWeight = DamageFlashBlendWeight * Alpha;
+	FollowCamera->PostProcessSettings.ColorSaturation = FVector4(1.f, 1.f, 1.f, 1.f);
+	FollowCamera->PostProcessSettings.VignetteIntensity = DamageFlashVignetteIntensity * Alpha;
+	FollowCamera->PostProcessSettings.SceneColorTint =
+		FMath::Lerp(FLinearColor::White, DamageFlashSceneTint, Alpha);
 }
 
 void AMyCharacter::OnAttackOverlap(
