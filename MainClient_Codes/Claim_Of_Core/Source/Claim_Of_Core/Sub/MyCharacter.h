@@ -19,6 +19,7 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UMaterialInterface;
 class UNiagaraSystem;
+class USoundBase;
 class ABaseItem;
 class FLifetimeProperty;
 
@@ -221,6 +222,15 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Combat")
 	float BaseAttackKnockbackPower = 1200.f;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Sound")
+	TObjectPtr<USoundBase> BasicAttackSwingSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Sound")
+	TObjectPtr<USoundBase> BasicAttackHitSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Sound")
+	TObjectPtr<USoundBase> BasicAttackMissSound;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
 	TObjectPtr<UNiagaraSystem> HitNiagaraSystem;
 
@@ -275,6 +285,8 @@ public:
 
 	UPROPERTY()
 	TSet<TObjectPtr<AMyCharacter>> HitActors;
+
+	bool bBasicAttackHitWindowActive = false;
 
 	UFUNCTION()
 	void OnAttackOverlap(
@@ -509,6 +521,9 @@ private:
 	void UpdateHPText();
 	void UpdateRoleText();
 	void PlayHitNiagaraFX();
+	void PlayBasicAttackSwingSound();
+	void PlayBasicAttackHitSound();
+	void PlayBasicAttackMissSound();
 
 	static FString RoleTypeToString(ERecRoleType InType);
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);

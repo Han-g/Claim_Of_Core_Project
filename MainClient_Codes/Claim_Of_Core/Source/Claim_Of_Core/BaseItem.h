@@ -10,6 +10,7 @@
 class AMyCharacter;
 class UAnimMontage;
 class USphereComponent;
+class USoundBase;
 
 UCLASS()
 class CLAIM_OF_CORE_API ABaseItem : public AActor
@@ -66,6 +67,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
 	float Radius = 180.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Sound")
+	TObjectPtr<USoundBase> AttackSound;
 	// COC_DEBUG_HITBOX_BEGIN BaseItem properties
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Debug")
 	bool bDrawDebugHitBox = false;

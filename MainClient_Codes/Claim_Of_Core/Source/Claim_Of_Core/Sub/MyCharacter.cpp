@@ -24,6 +24,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
+#include "Sound/SoundBase.h"
 #include "TimerManager.h"
 #include "DrawDebugHelpers.h"
 
@@ -309,6 +310,30 @@ void AMyCharacter::PlayHitNiagaraFX()
 		true,
 		true
 	);
+}
+
+void AMyCharacter::PlayBasicAttackSwingSound()
+{
+	if (BasicAttackSwingSound && GetWorld())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, BasicAttackSwingSound, GetActorLocation());
+	}
+}
+
+void AMyCharacter::PlayBasicAttackHitSound()
+{
+	if (BasicAttackHitSound && GetWorld())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, BasicAttackHitSound, GetActorLocation());
+	}
+}
+
+void AMyCharacter::PlayBasicAttackMissSound()
+{
+	if (BasicAttackMissSound && GetWorld())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, BasicAttackMissSound, GetActorLocation());
+	}
 }
 
 float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
@@ -1872,6 +1897,13 @@ void AMyCharacter::Attack()
 
 void AMyCharacter::EndAttack()
 {
+	if (bBasicAttackHitWindowActive && HitActors.Num() == 0)
+	{
+		PlayBasicAttackMissSound();
+	}
+
+	bBasicAttackHitWindowActive = false;
+
 	if (HandCollision)
 	{
 		HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -2225,6 +2257,12 @@ void AMyCharacter::OnAttackOverlap(
 		GetNetworkPlayerUID(),
 		*Victim->GetName(),
 		Victim->GetNetworkPlayerUID());
+
+	if (HitActors.Num() == 0)
+	{
+		PlayBasicAttackHitSound();
+	}
+
 	HitActors.Add(Victim);
 	Victim->ApplyHitEvent(this);
 }
@@ -2291,6 +2329,7 @@ void AMyCharacter::DropCurrentItem()
 	}
 
 	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	CurrentItem->SetActorScale3D(CurrentItemAttachBaseScale);
 	CurrentItem->SetOwnerCharacter(nullptr);
 	CurrentItem->SetActorEnableCollision(true);
 
@@ -2312,12 +2351,14 @@ void AMyCharacter::AnimNotify_AttackHit()
 		return;
 	}
 
+	PlayBasicAttackSwingSound();
 	StartAttackHitWindow(1.2f);
 }
 
 void AMyCharacter::StartAttackHitWindow(float Duration)
 {
 	HitActors.Empty();
+	bBasicAttackHitWindowActive = true;
 
 	if (HandCollision)
 	{

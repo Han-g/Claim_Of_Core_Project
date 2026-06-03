@@ -11,6 +11,7 @@
 #include "Sub/MyCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Character.h"
+#include "Sound/SoundBase.h"
 
 ABaseItem::ABaseItem()
 {
@@ -115,6 +116,11 @@ void ABaseItem::DoHit()
 {
 
 	if (!OwnerCharacter) return;
+
+	if (AttackSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, OwnerCharacter->GetActorLocation());
+	}
 
 	FVector Start = OwnerCharacter->GetActorLocation();
 	FVector Forward = OwnerCharacter->GetActorForwardVector();

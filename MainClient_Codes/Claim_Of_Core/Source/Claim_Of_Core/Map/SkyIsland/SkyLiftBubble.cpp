@@ -38,11 +38,7 @@ void ASkyLiftBubble::BeginPlay()
 
 	Tags.Add(TEXT("SkyLiftBubble"));
 	ApplyVisualSettings();
-
-	if (LifeTime > 0.f)
-	{
-		SetLifeSpan(LifeTime);
-	}
+	SetBubbleActive(true);
 }
 
 void ASkyLiftBubble::OnBubbleBeginOverlap(
@@ -54,17 +50,56 @@ void ASkyLiftBubble::OnBubbleBeginOverlap(
 	const FHitResult& SweepResult)
 {
 	AMyCharacter* Character = Cast<AMyCharacter>(OtherActor);
-	if (!Character || Character->IsDead())
+	if (!bBubbleActive || !Character || Character->IsDead())
 	{
 		return;
 	}
 
 	Character->LaunchCharacter(FVector(0.f, 0.f, LaunchStrength), false, true);
+	DeactivateBubble();
+}
 
-	if (bDestroyOnUse)
+void ASkyLiftBubble::SetBubbleActive(bool bNewActive)
+{
+	bBubbleActive = bNewActive;
+	SetActorHiddenInGame(!bBubbleActive);
+	SetActorEnableCollision(bBubbleActive);
+
+	if (LiftCollision)
 	{
-		Destroy();
+		LiftCollision->SetCollisionEnabled(bBubbleActive ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+		LiftCollision->SetGenerateOverlapEvents(bBubbleActive);
 	}
+
+	if (BubbleMeshComponent)
+	{
+		BubbleMeshComponent->SetHiddenInGame(!bBubbleActive);
+		BubbleMeshComponent->SetVisibility(bBubbleActive, true);
+	}
+}
+
+void ASkyLiftBubble::DeactivateBubble()
+{
+	SetBubbleActive(false);
+
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
+	GetWorldTimerManager().SetTimer(
+		RespawnTimerHandle,
+		this,
+		&ASkyLiftBubble::ReactivateBubble,
+		FMath::Max(0.f, RespawnDelay),
+		false
+	);
+}
+
+void ASkyLiftBubble::ReactivateBubble()
+{
+	SetBubbleActive(true);
 }
 
 void ASkyLiftBubble::ApplyVisualSettings()

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "TimerManager.h"
 #include "SkyLiftBubble.generated.h"
 
 class UMaterialInterface;
@@ -32,10 +33,10 @@ protected:
 	float LaunchStrength = 1450.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift")
-	float LifeTime = 12.f;
+	float RespawnDelay = 5.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift")
-	bool bDestroyOnUse = true;
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Lift")
+	bool bBubbleActive = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift|Visual")
 	TObjectPtr<UStaticMesh> BubbleMesh;
@@ -53,4 +54,9 @@ protected:
 		const FHitResult& SweepResult);
 
 	void ApplyVisualSettings();
+	void SetBubbleActive(bool bNewActive);
+	void DeactivateBubble();
+	void ReactivateBubble();
+
+	FTimerHandle RespawnTimerHandle;
 };
