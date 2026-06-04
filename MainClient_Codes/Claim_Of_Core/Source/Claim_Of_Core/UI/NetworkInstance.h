@@ -79,6 +79,7 @@ public:
 	void RequestItemDrop(int32 ItemID);
 
 	void RequestIceFloorStanding(int32 FloorID, int32 PieceIndex);
+	void RequestGrenadeBlackHoleSpawn(int32 ItemID, const FVector& SpawnLocation);
 
 	void SendMoveInputToServer(const FMovePacket& MoveData);
 
@@ -117,6 +118,7 @@ public:
 	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
 
 	void HandleStatusEffect(const FStatusEffectPacket& Packet);
+
 
 protected:
 

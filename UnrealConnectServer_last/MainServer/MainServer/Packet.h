@@ -166,6 +166,7 @@ enum PacketID {
     PKT_C2S_ATTACK_HIT_REPORT = 554,
 
     PKT_C2S_ICE_FLOOR_STAND_REQ = 555,
+    PKT_C2S_GRENADE_BLACKHOLE_REQ = 556,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,           // Instruct spawning a specific item on the map
     PKT_S2C_DESPAWN_ITEM_BRD = 131,         // Instruct removing a specific item from the map
@@ -277,6 +278,7 @@ struct SpawnObjectPacket {
     int32_t objectType;   // SmallDebris, LargeDebris, etc.
     float x, y, z;        // Spawn position
     int32_t objectID;     // Server-assigned ID
+    float lifeRemainTime;
 };
 
 struct PhaseChangePacket {
@@ -311,10 +313,13 @@ struct RoundChangePacket {
 // ------   Game Logic Packets      ------
 // ---------------------------------------
 
+enum class EDamageType : int32_t { Normal, Poison, Rubble };
+
 struct DamageApplyPacket {
     int32_t targetID;
     int32_t damage;
     int32_t remainHP;
+    EDamageType damageType;
 };
 
 struct AttackActionPacket
@@ -367,6 +372,14 @@ struct StatusEffectPacket
     int32_t effectType; // 0 = Freeze
     int32_t active;     // 1 = Apply, 0 = End
     float duration;
+};
+
+struct GrenadeBlackHolePacket
+{
+    int32_t itemID;
+    float x;
+    float y;
+    float z;
 };
 
 // ---------------------------------------

@@ -273,6 +273,20 @@ void ClientNetworking::IceFloorStandRequest(int32 FloorID, int32 PieceIndex)
     EnqueueSendCommand(PKT_C2S_ICE_FLOOR_STAND_REQ, Payload);
 }
 
+void ClientNetworking::GrenadeBlackHoleRequest(int32 ItemID, const FVector& SpawnLocation)
+{
+    FGrenadeBlackHolePacket Packet{};
+    Packet.itemID = ItemID;
+    Packet.x = SpawnLocation.X;
+    Packet.y = SpawnLocation.Y;
+    Packet.z = SpawnLocation.Z;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FGrenadeBlackHolePacket));
+
+    EnqueueSendCommand(PKT_C2S_GRENADE_BLACKHOLE_REQ, Payload);
+}
+
 // ============================================================
 // Request Methods (main thread — enqueue only)
 // ============================================================

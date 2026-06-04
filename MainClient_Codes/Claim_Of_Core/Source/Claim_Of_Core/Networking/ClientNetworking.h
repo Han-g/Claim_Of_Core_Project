@@ -47,7 +47,9 @@ public:
     void ItemPickupRequest(int32 ItemID);
     void ItemDropRequest(int32 ItemID);
     void AttackHitReportRequest(uint32 AttackSeq, int32 TargetID, int32 AttackType);
+
     void IceFloorStandRequest(int32 FloorID, int32 PieceIndex);
+    void GrenadeBlackHoleRequest(int32 ItemID, const FVector& SpawnLocation);
 
     void SendMoveInput(const FMovePacket& MoveData);
     void SendJumpInput();

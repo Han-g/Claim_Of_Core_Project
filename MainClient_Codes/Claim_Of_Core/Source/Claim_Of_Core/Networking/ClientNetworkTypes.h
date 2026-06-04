@@ -78,6 +78,7 @@ enum PacketID : uint16 {
     PKT_C2S_ATTACK_HIT_REPORT = 554,
 
     PKT_C2S_ICE_FLOOR_STAND_REQ = 555,
+    PKT_C2S_GRENADE_BLACKHOLE_REQ = 556,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,
     PKT_S2C_DESPAWN_ITEM_BRD = 131,
@@ -183,6 +184,7 @@ struct FSpawnObjectPacket {
     int32_t objectType;
     float x, y, z;
     int32_t objectID;
+    float lifeRemainTime;
 };
 
 struct FIceFloorStandPacket
@@ -190,6 +192,15 @@ struct FIceFloorStandPacket
     int32_t FloorID;
     int32_t PieceIndex;
 };
+
+struct FGrenadeBlackHolePacket
+{
+    int32_t itemID;
+    float x;
+    float y;
+    float z;
+};
+
 
 struct FStatusEffectPacket
 {
@@ -227,7 +238,9 @@ struct FItemPacket
     float X, Y, Z;
 };
 
-struct FDamageApplyPacket { int32 TargetID; int32 Damage; int32 RemainHP; };
+enum class EDamageType : int32_t { Normal, Poison, Rubble };
+
+struct FDamageApplyPacket { int32 TargetID; int32 Damage; int32 RemainHP; EDamageType DamageType; };
 
 struct FStatusUpdatePacket { int32 TargetID; int32 CurrentHP; };        
 

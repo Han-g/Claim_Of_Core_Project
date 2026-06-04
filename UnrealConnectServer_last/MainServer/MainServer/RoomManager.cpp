@@ -315,52 +315,52 @@ Vector3 Room::GetRespawnLocation(int slot)
 
     static const Vector3 BuildingSpawnTable[6] =
     {
-        { 600.f, -1500.f, 1000.f },
-        { 600.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f },
-        {   0.f, -1500.f, 1000.f },
-        { 300.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f }
+        {  5000.f, -1500.f, 2000.f },
+        {  5000.f,     0.f, 2000.f },
+        {  5000.f,  1500.f, 2000.f },
+        { -5000.f, -1500.f, 2000.f },
+        { -5000.f,     0.f, 2000.f },
+        { -5000.f,  1500.f, 2000.f }
     };
 
     static const Vector3 IceCaveSpawnTable[6] =
     {
-        { 600.f, -1500.f, 1000.f },
-        { 600.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f },
-        {   0.f, -1500.f, 1000.f },
-        { 300.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f }
+        {  5000.f, -1500.f, 2000.f },
+        {  5000.f,     0.f, 2000.f },
+        {  5000.f,  1500.f, 2000.f },
+        { -5000.f, -1500.f, 2000.f },
+        { -5000.f,     0.f, 2000.f },
+        { -5000.f,  1500.f, 2000.f }
     };
 
     static const Vector3 SpaceStationSpawnTable[6] =
     {
-        { 600.f, -3000.f, 2000.f },
-        { 600.f,     0.f, 2000.f },
-        { 600.f,  3000.f, 2000.f },
-        {-600.f, -1500.f, 2000.f },
-        {-600.f,     0.f, 2000.f },
-        {-600.f,  1500.f, 2000.f }
-    };
-
-    static const Vector3 SkyIslandSpawnTable[6] =
-    {
-        { 600.f, -1500.f, 1000.f },
-        { 600.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f },
-        {   0.f, -1500.f, 1000.f },
-        { 300.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f }
+        {  5000.f, -1500.f, 2000.f },
+        {  5000.f,     0.f, 2000.f },
+        {  5000.f,  1500.f, 2000.f },
+        { -5000.f, -1500.f, 2000.f },
+        { -5000.f,     0.f, 2000.f },
+        { -5000.f,  1500.f, 2000.f }
     };
 
     static const Vector3 JungleSpawnTable[6] =
     {
-        { 600.f, -1500.f, 1000.f },
-        { 600.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f },
-        {   0.f, -1500.f, 1000.f },
-        { 300.f,     0.f, 1000.f },
-        { 600.f,  1500.f, 1000.f }
+        {  5000.f, -1500.f, 2000.f },
+        {  5000.f,     0.f, 2000.f },
+        {  5000.f,  1500.f, 2000.f },
+        { -5000.f, -1500.f, 2000.f },
+        { -5000.f,     0.f, 2000.f },
+        { -5000.f,  1500.f, 2000.f }
+    };
+
+    static const Vector3 SkyIslandSpawnTable[6] =
+    {
+        {  5000.f, -1500.f, 2000.f },
+        {  5000.f,     0.f, 2000.f },
+        {  5000.f,  1500.f, 2000.f },
+        { -5000.f, -1500.f, 2000.f },
+        { -5000.f,     0.f, 2000.f },
+        { -5000.f,  1500.f, 2000.f }
     };
 
     const Vector3* spawnTable = BuildingSpawnTable;
@@ -380,11 +380,11 @@ Vector3 Room::GetRespawnLocation(int slot)
         break;
 
     case 4:
-        spawnTable = SkyIslandSpawnTable;
+        spawnTable = JungleSpawnTable;
         break;
 
     case 5:
-        spawnTable = JungleSpawnTable;
+        spawnTable = SkyIslandSpawnTable;
         break;
 
     default:
@@ -848,7 +848,7 @@ void RoomManager::GameStart(Session* client)
     // Switch the room into PLAYING state.
     room->SetState(ERoomState::PLAYING);
     
-    std::vector<int> AvailableMaps = { 1, 2, 3, /*4, 5*/ }; // 1: Building, 2: IceCave, 3: Space, 4: SkyIsland, 5: Jungle
+    std::vector<int> AvailableMaps = { 1, 2, 3, 4, /*5*/ }; // 1: Building, 2: IceCave, 3: Space, 4: Jungle, 5: SkyIsland
 
     std::random_device rd;
     std::mt19937 gen(rd());

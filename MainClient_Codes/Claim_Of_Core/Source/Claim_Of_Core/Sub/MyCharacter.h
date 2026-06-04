@@ -9,6 +9,7 @@ struct FInputActionValue;
 
 class ABaseItem;
 class FLifetimeProperty;
+class AVineClimbActor;
 
 class UAnimInstance;
 class UAnimMontage;
@@ -196,6 +197,75 @@ public:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Status|Freeze")
 	bool bFrozen = false;
+
+
+	// JungleMap Gimmick
+	UFUNCTION(BlueprintCallable, Category = "Status|PoisonFog")
+	void EnterPoisonFog(AActor* FogActor);
+
+	UFUNCTION(BlueprintCallable, Category = "Status|PoisonFog")
+	void ExitPoisonFog(AActor* FogActor);
+
+	UFUNCTION(BlueprintPure, Category = "Status|PoisonFog")
+	bool IsInPoisonFog() const { return bPoisonFogVisionEffectActive; }
+
+	UFUNCTION(BlueprintCallable, Category = "Climb")
+	void EnterVineClimb(AVineClimbActor* VineActor);
+
+	UFUNCTION(BlueprintCallable, Category = "Climb")
+	void ExitVineClimb(AVineClimbActor* VineActor);
+
+	UFUNCTION(BlueprintPure, Category = "Climb")
+	bool IsVineClimbing() const { return bIsVineClimbing; }
+
+private:
+	UPROPERTY(VisibleInstanceOnly, Category = "PoisonFog")
+	bool bPoisonFogVisionEffectActive = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	float PoisonFogPostProcessBlendWeight = 0.70f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	float PoisonFogSaturation = 0.50f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	float PoisonFogVignetteIntensity = 0.82f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	FLinearColor PoisonFogSceneTint = FLinearColor(1.18f, 0.58f, 1.55f, 1.0f);
+
+	TArray<TWeakObjectPtr<AActor>> PoisonFogVisionSources;
+
+	void CompactPoisonFogVisionSources();
+
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineClimbSpeed = 850.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineClimbInputThreshold = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineJumpOffForwardPower = 1000.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineJumpOffUpPower = 700.f;
+
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Climb")
+	bool bCanVineClimb = false;
+	UPROPERTY(VisibleInstanceOnly, Category = "Climb")
+	bool bIsVineClimbing = false;
+
+	TWeakObjectPtr<AVineClimbActor> CurrentVineClimbActor;
+
+	bool CanStartVineClimb() const;
+	void StartVineClimbing();
+	void StopVineClimbing(bool bRestoreWalking = true);
+	void UpdateVineClimbMovement();
+	void VineInteractPressed();
+	void DetachFromVineAndFall();
+	void JumpOffVine();
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "HP")

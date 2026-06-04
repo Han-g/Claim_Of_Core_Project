@@ -1,6 +1,7 @@
 ﻿#include "MyCharacter.h"
 
 #include "../Map/IceCave/IceFloorTile.h"
+#include "../Map/Jungle/VineClimbActor.h"
 
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
@@ -273,8 +274,8 @@ void AMyCharacter::Tick(float DeltaTime)
 						// Controller/camera yaw used by server to reconstruct movement
 						Packet.cameraDir = CameraDir;
 
-						Packet.VelocityX = CachedMoveRight;
-						Packet.VelocityY = CachedMoveForward;
+						Packet.VelocityX = bIsVineClimbing ? 0.f : CachedMoveRight;
+						Packet.VelocityY = bIsVineClimbing ? 0.f : CachedMoveForward;
 
 						NetInst->SendMoveInputToServer(Packet);
 					}
@@ -1077,6 +1078,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindKey(EKeys::F, IE_Pressed, this, &AMyCharacter::EquipItem);
 	PlayerInputComponent->BindKey(EKeys::G, IE_Pressed, this, &AMyCharacter::DropCurrentItem);
 
+	PlayerInputComponent->BindKey(EKeys::V, IE_Pressed, this, &AMyCharacter::VineInteractPressed);
+
 	PlayerInputComponent->BindKey(EKeys::Q, IE_Pressed, this, &AMyCharacter::SpectateUpPressed);
 	PlayerInputComponent->BindKey(EKeys::Q, IE_Released, this, &AMyCharacter::SpectateUpReleased);
 
@@ -1151,6 +1154,8 @@ void AMyCharacter::StopMove(const FInputActionValue& Value)
 {
 	CachedMoveRight = 0.f;
 	CachedMoveForward = 0.f;
+
+	if (bIsVineClimbing) { UpdateVineClimbMovement(); }
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
@@ -1172,6 +1177,12 @@ void AMyCharacter::DoMove(float Right, float Forward)
 
 	if (bDeathSequenceLocked || bFrozen)
 	{
+		return;
+	}
+
+	if (bIsVineClimbing)
+	{
+		UpdateVineClimbMovement();
 		return;
 	}
 
@@ -1275,10 +1286,262 @@ void AMyCharacter::EndFreeze()
 	ApplyRoleStats();
 }
 
+void AMyCharacter::EnterPoisonFog(AActor* FogActor)
+{
+	if (!IsValid(FogActor))
+	{
+		return;
+	}
+
+	CompactPoisonFogVisionSources();
+
+	for (const TWeakObjectPtr<AActor>& Source : PoisonFogVisionSources)
+	{
+		if (Source.Get() == FogActor)
+		{
+			return;
+		}
+	}
+
+	PoisonFogVisionSources.Add(FogActor);
+	bPoisonFogVisionEffectActive = true;
+
+	UpdateLocalPostProcessEffects();
+}
+
+void AMyCharacter::ExitPoisonFog(AActor* FogActor)
+{
+	if (!FogActor)
+	{
+		return;
+	}
+
+	PoisonFogVisionSources.RemoveAll(
+		[FogActor](const TWeakObjectPtr<AActor>& Source)
+		{
+			return !Source.IsValid() || Source.Get() == FogActor;
+		}
+	);
+
+	bPoisonFogVisionEffectActive = PoisonFogVisionSources.Num() > 0;
+
+	UpdateLocalPostProcessEffects();
+}
+
+void AMyCharacter::CompactPoisonFogVisionSources()
+{
+	PoisonFogVisionSources.RemoveAll(
+		[](const TWeakObjectPtr<AActor>& Source)
+		{
+			return !Source.IsValid();
+		}
+	);
+
+	bPoisonFogVisionEffectActive = PoisonFogVisionSources.Num() > 0;
+}
+
+void AMyCharacter::EnterVineClimb(AVineClimbActor* VineActor)
+{
+	if (!VineActor)
+	{
+		return;
+	}
+
+	bCanVineClimb = true;
+	CurrentVineClimbActor = VineActor;
+}
+
+void AMyCharacter::ExitVineClimb(AVineClimbActor* VineActor)
+{
+	if (VineActor && CurrentVineClimbActor.IsValid() && CurrentVineClimbActor.Get() != VineActor)
+	{
+		return;
+	}
+
+	bCanVineClimb = false;
+	CurrentVineClimbActor.Reset();
+
+	if (bIsVineClimbing)
+	{
+		DetachFromVineAndFall();
+	}
+}
+
+bool AMyCharacter::CanStartVineClimb() const
+{
+	return bCanVineClimb
+		&& CurrentVineClimbActor.IsValid()
+		&& !IsDead()
+		&& !bDeathSequenceLocked
+		&& !bFrozen;
+}
+
+void AMyCharacter::StartVineClimbing()
+{
+	if (bIsVineClimbing || !CanStartVineClimb())
+	{
+		return;
+	}
+
+	bIsVineClimbing = true;
+	StopJumping();
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->Velocity = FVector::ZeroVector;
+		MoveComp->SetMovementMode(EMovementMode::MOVE_Flying);
+	}
+}
+
+void AMyCharacter::StopVineClimbing(bool bRestoreWalking)
+{
+	if (!bIsVineClimbing)
+	{
+		return;
+	}
+
+	bIsVineClimbing = false;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->Velocity = FVector::ZeroVector;
+
+		if (bRestoreWalking && !IsDead())
+		{
+			MoveComp->SetMovementMode(EMovementMode::MOVE_Walking);
+		}
+	}
+}
+
+void AMyCharacter::UpdateVineClimbMovement()
+{
+	if (!bIsVineClimbing)
+	{
+		return;
+	}
+
+	if (!CanStartVineClimb())
+	{
+		DetachFromVineAndFall();
+		return;
+	}
+
+	AVineClimbActor* VineActor = CurrentVineClimbActor.Get();
+	if (!IsValid(VineActor))
+	{
+		DetachFromVineAndFall();
+		return;
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		if (MoveComp->MovementMode != EMovementMode::MOVE_Flying)
+		{
+			MoveComp->SetMovementMode(EMovementMode::MOVE_Flying);
+		}
+
+		const float ClimbAxis =
+			FMath::Abs(CachedMoveForward) >= VineClimbInputThreshold
+			? CachedMoveForward
+			: 0.f;
+
+		const FVector ClimbDirection = VineActor->GetActorUpVector().GetSafeNormal();
+		MoveComp->Velocity = ClimbDirection * ClimbAxis * VineClimbSpeed;
+	}
+}
+
+void AMyCharacter::VineInteractPressed()
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+
+	if (IsDead() || bDeathSequenceLocked || bFrozen)
+	{
+		return;
+	}
+
+	if (bIsVineClimbing)
+	{
+		DetachFromVineAndFall();
+		return;
+	}
+
+	if (CanStartVineClimb())
+	{
+		StartVineClimbing();
+	}
+}
+
+void AMyCharacter::DetachFromVineAndFall()
+{
+	if (!bIsVineClimbing)
+	{
+		return;
+	}
+
+	bIsVineClimbing = false;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->Velocity = FVector::ZeroVector;
+		MoveComp->SetMovementMode(EMovementMode::MOVE_Falling);
+	}
+}
+
+void AMyCharacter::JumpOffVine()
+{
+	if (!bIsVineClimbing)
+	{
+		return;
+	}
+
+	AVineClimbActor* VineActor = CurrentVineClimbActor.Get();
+
+	bIsVineClimbing = false;
+
+	FVector JumpDirection = VineActor
+		? VineActor->GetActorForwardVector()
+		: GetActorForwardVector();
+
+	JumpDirection.Z = 0.f;
+	JumpDirection = JumpDirection.GetSafeNormal();
+
+	if (JumpDirection.IsNearlyZero())
+	{
+		JumpDirection = GetActorForwardVector();
+		JumpDirection.Z = 0.f;
+		JumpDirection = JumpDirection.GetSafeNormal();
+	}
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->StopMovementImmediately();
+		MoveComp->SetMovementMode(EMovementMode::MOVE_Falling);
+	}
+
+	const FVector LaunchVelocity =
+		JumpDirection * VineJumpOffForwardPower
+		+ FVector::UpVector * VineJumpOffUpPower;
+
+	LaunchCharacter(LaunchVelocity, true, true);
+}
+
+
 void AMyCharacter::DoJumpStart()
 {
 	if (IsDead() || bDeathSequenceLocked)
 	{
+		return;
+	}
+
+	if (bIsVineClimbing)
+	{
+		JumpOffVine();
 		return;
 	}
 
@@ -1365,6 +1628,20 @@ void AMyCharacter::UpdateLocalPostProcessEffects()
 		return;
 	}
 
+	if (bPoisonFogVisionEffectActive)
+	{
+		FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
+		FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = true;
+		FollowCamera->PostProcessSettings.bOverride_SceneColorTint = true;
+
+		FollowCamera->PostProcessBlendWeight = PoisonFogPostProcessBlendWeight;
+		FollowCamera->PostProcessSettings.ColorSaturation =
+			FVector4(PoisonFogSaturation, PoisonFogSaturation, PoisonFogSaturation, 1.f);
+		FollowCamera->PostProcessSettings.VignetteIntensity = PoisonFogVignetteIntensity;
+		FollowCamera->PostProcessSettings.SceneColorTint = PoisonFogSceneTint;
+		return;
+	}
+
 	if (bLowHPEffectActive)
 	{
 		FollowCamera->PostProcessSettings.bOverride_ColorSaturation = true;
@@ -1404,6 +1681,11 @@ void AMyCharacter::UpdateLowHPPulseEffect(float DeltaTime)
 	}
 
 	if (bDeathSequenceLocked)
+	{
+		return;
+	}
+
+	if (bPoisonFogVisionEffectActive)
 	{
 		return;
 	}
@@ -2066,7 +2348,8 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 	HitActors.Empty();
 
 	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	const float PlayedLength = AnimInstance->Montage_Play(AttackMontage);
+	const float AttackPlayRate = 1.4f;
+	const float PlayedLength = AnimInstance->Montage_Play(AttackMontage, AttackPlayRate);
 	if (PlayedLength <= 0.f)
 	{
 		CurrentAttackSeq = 0;
@@ -2077,7 +2360,7 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 		AttackTimer,
 		this,
 		&AMyCharacter::EndAttack,
-		1.8f,
+		1.2f,
 		false
 	);
 }
@@ -2730,7 +3013,7 @@ void AMyCharacter::AnimNotify_AttackHit()
 		return;
 	}
 
-	StartAttackHitWindow(1.2f);
+	StartAttackHitWindow(0.4f);
 }
 
 void AMyCharacter::StartAttackHitWindow(float Duration)

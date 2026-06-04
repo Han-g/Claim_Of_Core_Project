@@ -7,16 +7,20 @@
 #include <unordered_map>
 #include <random>
 #include <mutex>
+#include <cstdint>
 
 class Room;
 struct Session;
 struct AttackHitReportPacket;
 struct RoundChangePacket;
+struct GrenadeBlackHolePacket;
+struct GameData;
 
 enum ERecCharacterState { Alive, Dead };
 enum ERecRoleType { Striker, Guardian, Manipulator };
 enum ERoundState { Waiting, Playing, Finished };
 enum EMatchFlow { Robby, MapSelecting, MapSelectedWait, RoundPlaying, RoundFinish, MatchFinish };
+enum class EDamageType : int32_t;
 
 namespace GameMath {
 	constexpr float PI = 3.141592f;
@@ -163,6 +167,22 @@ struct IceChillZoneData {
 	std::unordered_set<int> triggeredSessionIDs;
 };
 
+struct JunglePoisonFogData {
+	bool bActive = false;
+
+	float x = 0.f;
+	float y = 0.f;
+	float z = 500.f;
+	float radius = 3000.f;
+
+	float activationDelay = 20.0f;
+	float activationTimer = 0.0f;
+
+	float damageInterval = 1.0f;
+	float damageAccumulator = 0.0f;
+	int damageAmount = 10;
+};
+
 struct DebrisSpawnConfig {
 	float min_Interval, max_Interval;
 	int min_Count, max_Count;
@@ -179,6 +199,7 @@ struct SpaceBlackHoleData
 	float pullStrength;
 	float maxPullSpeed;
 	bool bActive;
+	float lifeRemainTime = -1.0f;
 };
 
 
@@ -214,7 +235,7 @@ public:
 	// Broadcasts the authoritative remaining game time.
 	void BroadcastGameTime(float currentTime);
 	// Broadcasts damage and remaining HP for a target.
-	void BroadcastDamageApply(int targetID, int damage, int remainHP);
+	void BroadcastDamageApply(int targetID, int damage, int remainHP, EDamageType damageType);
 	// Broadcasts a status-only update such as HP recovery.
 	void BroadcastStatusUpdate(int targetID, int currentHP);
 	// Broadcasts a life-state change such as Alive or Dead.
@@ -286,7 +307,7 @@ public:
 	// -------   Player Character   -------
 	// ------------------------------------
 	// HP System
-	void ApplyDamage(int sessionID, int damageAmount);		// Applies damage, triggers death at zero HP, and broadcasts the result.
+	void ApplyDamage(int sessionID, int damageAmount, EDamageType damageType);		// Applies damage, triggers death at zero HP, and broadcasts the result.
 	void Heal(int sessionID, int healAmount);				// Restores HP up to max HP and broadcasts the result.
 	void ResetHP(int sessionID);							// Restores HP to max HP and broadcasts the updated status.
 	void SetCurrentHP(int sessionID, int newHP);			// Sets the internal HP value after clamping it to the valid range.
@@ -537,6 +558,19 @@ public:
 	void AddSpaceBlackHole(int objectID, const Vector3& center);
 	void BroadcastSpaceBlackHoleSpawn(const SpaceBlackHoleData& blackHole);
 
+public:
+	// ------------------------------------
+	// ---------   Map Control   ----------
+	// --------  Jungle  Station  ---------
+	// ------------------------------------
+	void StartJungleMap();
+	void UpdateJungleMap(float deltaTime);
+
+	void UpdateJunglePoisonFog(float deltaTime);
+	void ApplyJunglePoisonDamage();
+	bool IsInsideJunglePoisonFog(const GameData& gd) const;
+
+	void HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHolePacket& pkt);
 
 private:
 	// ------------ Building Map Statement ------------
@@ -592,4 +626,10 @@ private:
 	float SpaceBlackHoleMinDistance  =  150.f;
 	float SpaceBlackHolePullStrength = 1600.f;
 	float SpaceBlackHoleMaxPullSpeed = 1400.f;
+
+	int nextGrenadeBlackHoleObjectID = 1000;
+
+
+	// ------------ Jungle Map Statement ------------
+	JunglePoisonFogData junglePoisonFog;
 };

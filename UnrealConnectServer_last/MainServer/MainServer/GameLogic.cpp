@@ -80,8 +80,8 @@ void GameLogic::Update(float deltaTime)
     if      (mapType == 1)  { UpdateBuildingMap(deltaTime); } 
     else if (mapType == 2)  { UpdateIceCaveMap(deltaTime); }
     else if (mapType == 3)  { UpdateSpaceStation(deltaTime); }
-    else if (mapType == 4)  { UpdateIceCaveMap(deltaTime); }
-    else if (mapType == 5)  { UpdateIceCaveMap(deltaTime); }
+    else if (mapType == 4)  { UpdateJungleMap(deltaTime); }
+    else if (mapType == 5)  { /*UpdateSkyIslandMap(deltaTime);*/ }
     else { LOG_ERROR("InValid Map Type!"); return; }
 }
 
@@ -114,10 +114,11 @@ void GameLogic::StartGameRound()
         StartSpaceStation();
     }
     else if (mapType == 4) {
-        LOG_INFO("SkyIsland Map Select");
+        LOG_INFO("Jungle Map Select");
+        StartJungleMap();
     }
     else if (mapType == 5) {
-        LOG_INFO("Jungle Map Select");
+        LOG_INFO("SkyIsland Map Select");
     }
     else {
         LOG_ERROR("InValid Map Selection");
@@ -333,7 +334,7 @@ bool GameLogic::TrySelectMap()
         static_cast<int>(remainingMaps.size()) - 1
     );
 
-    const int index = 1;//dist(MapRandomEngine);
+    const int index = dist(MapRandomEngine);
     selectedMapType = remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
@@ -422,7 +423,7 @@ void GameLogic::BroadcastGameTime(float currentTime)
 }
 
 
-void GameLogic::BroadcastDamageApply(int targetID, int damage, int remainHP)
+void GameLogic::BroadcastDamageApply(int targetID, int damage, int remainHP, EDamageType damageType)
 {
     if (!ownerRoom) { return; }
 
@@ -430,6 +431,7 @@ void GameLogic::BroadcastDamageApply(int targetID, int damage, int remainHP)
     pkt.targetID = targetID;
     pkt.damage = damage;
     pkt.remainHP = remainHP;
+    pkt.damageType = damageType;
 
     ownerRoom->BroadcastToMembers(PKT_S2C_DAMAGE_APPLY_BRD, (const char*)&pkt, sizeof(pkt));
 }
@@ -494,7 +496,7 @@ void GameLogic::BroadcastRoundResult(const RoundChangePacket& packet)
 
 
 
-void GameLogic::ApplyDamage(int sessionID, int damageAmount)
+void GameLogic::ApplyDamage(int sessionID, int damageAmount, EDamageType damageType)
 {
     auto it = players.find(sessionID);
     if (it == players.end()) { return; }
@@ -517,7 +519,7 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount)
 
     // Broadcast the damage result to all clients in the room.
     // PKT_S2C_DAMAGE_APPLY_BRD: target session, damage, remaining HP
-    BroadcastDamageApply(targetSession->playerUID, damageAmount, gd.currentHP);
+    BroadcastDamageApply(targetSession->playerUID, damageAmount, gd.currentHP, damageType);
 
     if (prevHP > 0 && gd.currentHP <= 0)
     {
@@ -1178,7 +1180,7 @@ void GameLogic::HandleAttackInput(int sessionID)
         }
 
         attackerSession->isAttack = true;
-        attackerSession->attackRemainTime = 1.8f;
+        attackerSession->attackRemainTime = 1.2f;
         attackerSession->attackSeq++;
         attackerSession->hasAttackHit = false;
     }
@@ -1405,7 +1407,7 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
         }
     }
 
-    ApplyDamage(targetSession->sessionID, damageAmount);
+    ApplyDamage(targetSession->sessionID, damageAmount, EDamageType::Normal);
 }
 
 void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t attackSeq)
@@ -2288,7 +2290,22 @@ void GameLogic::UpdateSpaceStation(float deltaTime)
         EnterSpaceStationPhase3();
     }
 
-    if (currentMapPhase == 2 || currentMapPhase == 3)
+    for (auto it = SpaceBlackHoles.begin(); it != SpaceBlackHoles.end(); )
+    {
+        if (it->lifeRemainTime > 0.0f)
+        {
+            it->lifeRemainTime -= deltaTime;
+            if (it->lifeRemainTime <= 0.0f)
+            {
+                it = SpaceBlackHoles.erase(it);
+                continue;
+            }
+        }
+
+        ++it;
+    }
+
+    if (!SpaceBlackHoles.empty())
     {
         ApplyBlackHolePull(deltaTime);
     }
@@ -2299,6 +2316,7 @@ void GameLogic::StartSpaceStation()
     bSpaceStationPhase2Trigger = false;
     bSpaceStationPhase3Trigger = false;
     SpaceBlackHoles.clear();
+    nextGrenadeBlackHoleObjectID = 1000;
 
     ResetMapItemSpawner();
 }
@@ -2379,6 +2397,14 @@ void GameLogic::ApplyBlackHolePull(float deltaTime)
             gd.x = resolvedPos.x;
             gd.y = resolvedPos.y;
             gd.z = resolvedPos.z;
+
+            LOG_INFO("[BlackHolePull] uid=%d dist=%.1f before=(%.1f, %.1f) hole=(%.1f, %.1f)",
+                gd.userUID,
+                distance,
+                gd.x,
+                gd.y,
+                blackHole.center.x,
+                blackHole.center.y);
         }
     }
 }
@@ -2393,6 +2419,7 @@ void GameLogic::AddSpaceBlackHole(int objectID, const Vector3& center)
     blackHole.pullStrength = SpaceBlackHolePullStrength;
     blackHole.maxPullSpeed = SpaceBlackHoleMaxPullSpeed;
     blackHole.bActive = true;
+    blackHole.lifeRemainTime = -1.0f;
 
     SpaceBlackHoles.push_back(blackHole);
 
@@ -2409,12 +2436,147 @@ void GameLogic::BroadcastSpaceBlackHoleSpawn(const SpaceBlackHoleData& blackHole
     pkt.x = blackHole.center.x;
     pkt.y = blackHole.center.y;
     pkt.z = blackHole.center.z;
+    pkt.lifeRemainTime = blackHole.lifeRemainTime;
 
     ownerRoom->BroadcastToMembers(
         PKT_S2C_SPAWN_OBJECT_BRD,
         reinterpret_cast<const char*>(&pkt),
         sizeof(pkt)
     );
+}
+
+
+// ------------------------------------
+// ---------   Map Control   ----------
+// --------  Jungle  Station  ---------
+// ------------------------------------
+void GameLogic::StartJungleMap()
+{
+    junglePoisonFog = JunglePoisonFogData{};
+
+    // 클라이언트 JunglePoisonFogActor의 배치 위치와 반드시 맞추세요.
+    junglePoisonFog.x = 0.f;
+    junglePoisonFog.y = 0.f;
+    junglePoisonFog.z = FixedGroundZ;
+    junglePoisonFog.radius = 3000.f;
+
+    junglePoisonFog.activationDelay = 20.0f;
+    junglePoisonFog.damageInterval = 1.0f;
+    junglePoisonFog.damageAmount = 10;
+
+    ResetMapItemSpawner();
+}
+
+void GameLogic::UpdateJungleMap(float deltaTime)
+{
+    UpdateJunglePoisonFog(deltaTime);
+}
+
+void GameLogic::UpdateJunglePoisonFog(float deltaTime)
+{
+    if (!junglePoisonFog.bActive)
+    {
+        junglePoisonFog.activationTimer += deltaTime;
+
+        if (junglePoisonFog.activationTimer < junglePoisonFog.activationDelay)
+        {
+            return;
+        }
+
+        junglePoisonFog.bActive = true;
+        junglePoisonFog.damageAccumulator = 0.0f;
+
+        LOG_INFO("[JunglePoisonFog] Activated");
+        return;
+    }
+
+    junglePoisonFog.damageAccumulator += deltaTime;
+
+    const float interval = (std::max)(junglePoisonFog.damageInterval, 0.1f);
+    while (junglePoisonFog.damageAccumulator >= interval)
+    {
+        junglePoisonFog.damageAccumulator -= interval;
+        ApplyJunglePoisonDamage();
+    }
+}
+
+void GameLogic::ApplyJunglePoisonDamage()
+{
+    if (!junglePoisonFog.bActive)
+    {
+        return;
+    }
+
+    for (auto& pair : players)
+    {
+        Session* player = pair.second;
+        if (!player) { continue; }
+
+        GameData& gd = player->gameDatas;
+        if (!gd.isConnected || gd.characterState != Alive) { continue; }
+
+        if (!IsInsideJunglePoisonFog(gd)) { continue; }
+
+        ApplyDamage(player->sessionID, junglePoisonFog.damageAmount, EDamageType::Poison);
+    }
+}
+
+bool GameLogic::IsInsideJunglePoisonFog(const GameData& gd) const
+{
+    const float dx = gd.x - junglePoisonFog.x;
+    const float dy = gd.y - junglePoisonFog.y;
+    const float radiusSq = junglePoisonFog.radius * junglePoisonFog.radius;
+
+    return (dx * dx + dy * dy) <= radiusSq;
+}
+
+void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHolePacket& pkt)
+{
+    if (!ownerRoom)
+    {
+        return;
+    }
+
+    auto playerIt = players.find(sessionID);
+    if (playerIt == players.end() || !playerIt->second)
+    {
+        return;
+    }
+
+    Session* thrower = playerIt->second;
+    GameData& gd = thrower->gameDatas;
+
+    if (!gd.isConnected || gd.characterState != Alive)
+    {
+        return;
+    }
+
+    ItemData* item = ownerRoom->GetItemData(pkt.itemID);
+    if (!item || item->ItemKind != EItemKind::Grenade)
+    {
+        return;
+    }
+
+    SpaceBlackHoleData blackHole{};
+    blackHole.objectID = nextGrenadeBlackHoleObjectID++;
+    blackHole.center = { pkt.x, pkt.y, pkt.z };
+    blackHole.pullRadius = 1500.0f;
+    blackHole.minDistance = 60.0f;
+    blackHole.pullStrength = 3000.0f;
+    blackHole.maxPullSpeed = 1000.0f;
+    blackHole.bActive = true;
+    blackHole.lifeRemainTime = 4.0f;
+
+    SpaceBlackHoles.push_back(blackHole);
+    BroadcastSpaceBlackHoleSpawn(blackHole);
+
+    LOG_INFO("[GrenadeBlackHole] Spawn session=%d itemID=%d objectID=%d pos=(%.1f, %.1f, %.1f)",
+        sessionID,
+        pkt.itemID,
+        blackHole.objectID,
+        pkt.x,
+        pkt.y,
+        pkt.z);
 }
 
 

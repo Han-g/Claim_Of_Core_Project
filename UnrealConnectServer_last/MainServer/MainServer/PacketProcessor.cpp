@@ -45,6 +45,7 @@ void PacketProcessor::InitHandler()
 	m_FuncHandlerMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
 
 	m_FuncHandlerMap[PKT_C2S_ICE_FLOOR_STAND_REQ] = &PacketProcessor::Handle_IceFloor_StandReq;
+	m_FuncHandlerMap[PKT_C2S_GRENADE_BLACKHOLE_REQ] = &PacketProcessor::Handle_Grenade_SpawnReq;
 }
 
 void PacketProcessor::Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data)
@@ -349,4 +350,21 @@ void PacketProcessor::Handle_IceFloor_StandReq(IOCPServer* server, Session* sess
 	if (!logic) { return; }
 
 	logic->HandleIceFloorStanding(session->sessionID, pkt.floorID, pkt.pieceIndex);
+}
+
+void PacketProcessor::Handle_Grenade_SpawnReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	GrenadeBlackHolePacket pkt{};
+	if (!reader.Read(pkt))
+	{
+		return;
+	}
+
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic)
+	{
+		return;
+	}
+
+	logic->HandleGrenadeBlackHoleSpawn(session->sessionID, pkt);
 }

@@ -26,6 +26,8 @@ class CLAIM_OF_CORE_API URoomWidget : public UUserWidget
 public:
 	void UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList);
 
+	void SetRoomActionsEnabled(bool bEnabled);
+
 private:
 	UFUNCTION()
 	void OnExitButtonClicked();

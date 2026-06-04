@@ -504,6 +504,22 @@ void UNetworkInstance::RequestIceFloorStanding(int32 FloorID, int32 PieceIndex)
 	Client->IceFloorStandRequest(FloorID, PieceIndex);
 }
 
+void UNetworkInstance::RequestGrenadeBlackHoleSpawn(int32 ItemID, const FVector& SpawnLocation)
+{
+	if (!Client.IsValid())
+	{
+		return;
+	}
+
+	if (ItemID < 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[GrenadeBlackHole][ClientReq] ItemID=%d"), ItemID);
+		return;
+	}
+
+	Client->GrenadeBlackHoleRequest(ItemID, SpawnLocation);
+}
+
 void UNetworkInstance::SendMoveInputToServer(const FMovePacket& MoveData)
 {
 	if (!Client.IsValid()) { return; }
@@ -719,6 +735,7 @@ void UNetworkInstance::HandleMatchEnd()
 
 	if (RoomWidgetInstance)
 	{
+		RoomWidgetInstance->SetRoomActionsEnabled(false);
 		RoomWidgetInstance->RemoveFromParent();
 		RoomWidgetInstance = nullptr;
 	}
@@ -737,24 +754,6 @@ void UNetworkInstance::HandleMatchEnd()
 
 	bPendingReturnToLobby = true;
 	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Game/UI/GameLobby")));
-
-	/*if (LobbyWidgetClass)
-	{
-		LobbyWidgetInstance = CreateWidget<UUserWidget>(this, LobbyWidgetClass);
-		if (LobbyWidgetInstance)
-		{
-			LobbyWidgetInstance->AddToViewport();
-
-			if (APlayerController* PC = GetFirstLocalPlayerController())
-			{
-				PC->SetShowMouseCursor(true);
-
-				FInputModeUIOnly InputMode;
-				InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-				PC->SetInputMode(InputMode);
-			}
-		}
-	}*/
 }
 
 void UNetworkInstance::HandleConnected()
@@ -837,6 +836,18 @@ void UNetworkInstance::HandleMapSelected(int32 MapType)
 	case 3:
 		InGameLevel = TSoftObjectPtr<UWorld>(
 			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/SpaceStationStage.SpaceStationStage"))
+		);
+		break;
+
+	case 4:
+		InGameLevel = TSoftObjectPtr<UWorld>(
+			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/JungleStage.JungleStage"))
+		);
+		break;
+
+	case 5:
+		InGameLevel = TSoftObjectPtr<UWorld>(
+			FSoftObjectPath(TEXT("/Game/Game/Map/Stage/SkyislandStage.SkyislandStage"))
 		);
 		break;
 
@@ -973,10 +984,26 @@ void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket& Packet)
 
 		if (bDamaged)
 		{
-			Character->PlayHitFeedback(bIsLocalTarget);
-		}
+			switch (Packet.DamageType)
+			{
+			case EDamageType::Normal:
+				Character->PlayHitFeedback(bIsLocalTarget);
+				break;
 
-		Character->PlayHitFeedback(bIsLocalTarget);
+			case EDamageType::Rubble:
+				Character->PlayHitFeedback(bIsLocalTarget);
+				break;
+
+			case EDamageType::Poison:
+				// 독안개는 JunglePoisonFogActor의 화면 효과만 사용.
+				// 피격 나이아가라와 빨간 섬광은 출력하지 않음.
+				break;
+
+			default:
+				Character->PlayHitFeedback(bIsLocalTarget);
+				break;
+			}
+		}
 
 		if (Packet.RemainHP <= 0)
 		{
@@ -1363,6 +1390,12 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 		if (!NewBlackHole) { return; }
 
 		NewBlackHole->ShowBlackHole();
+		NewBlackHole->DeactivateBlackHole();
+
+		if (Packet.lifeRemainTime > 0.0f)
+		{
+			NewBlackHole->SetLifeSpan(Packet.lifeRemainTime);
+		}
 
 		// Draw BlackHole Range For Debuging
 		const FVector SpawnLocation(Packet.x, Packet.y, Packet.z);

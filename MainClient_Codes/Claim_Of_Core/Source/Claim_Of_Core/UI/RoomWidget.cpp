@@ -90,6 +90,19 @@ void URoomWidget::UpdateMemberList(const TArray<FRoomMemberInfo>& PlayerList)
 	}
 }
 
+void URoomWidget::SetRoomActionsEnabled(bool bEnabled)
+{
+	if (StartButton)
+	{
+		StartButton->SetIsEnabled(bEnabled);
+	}
+
+	if (ExitButton)
+	{
+		ExitButton->SetIsEnabled(bEnabled);
+	}
+}
+
 void URoomWidget::OnExitButtonClicked()
 {
 	UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance());
@@ -106,7 +119,7 @@ void URoomWidget::OnStartButtonClicked()
 	UNetworkInstance* GI = Cast<UNetworkInstance>(GetGameInstance());
 	if (GI) { 
 		// Start Condition Check
-		GI->RequestGameStart(); 
+		GI->RequestGameStart();
 	}
 }
 

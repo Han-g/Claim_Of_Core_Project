@@ -155,6 +155,7 @@ void ABlackHoleActor::ApplyVisibleState(bool bVisible)
 	}
 }
 
+
 void ABlackHoleActor::ApplyActiveState()
 {
 	if (IsValid(PullRange))
