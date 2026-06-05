@@ -2,9 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "TimerManager.h"
 #include "SkyLiftBubble.generated.h"
 
+class AMyCharacter;
 class UMaterialInterface;
 class UPrimitiveComponent;
 class USphereComponent;
@@ -21,6 +21,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -30,10 +31,10 @@ protected:
 	TObjectPtr<UStaticMeshComponent> BubbleMeshComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift")
-	float LaunchStrength = 1450.f;
+	float UpdraftSpeed = 1100.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift")
-	float RespawnDelay = 5.f;
+	float ActiveDuration = 5.f;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Lift")
 	bool bBubbleActive = true;
@@ -53,10 +54,17 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepResult);
 
+	UFUNCTION()
+	void OnBubbleEndOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex);
+
 	void ApplyVisualSettings();
 	void SetBubbleActive(bool bNewActive);
-	void DeactivateBubble();
-	void ReactivateBubble();
+	void ApplyUpdraft();
 
-	FTimerHandle RespawnTimerHandle;
+	TSet<TWeakObjectPtr<AMyCharacter>> OverlappingCharacters;
+	float ActiveElapsed = 0.f;
 };

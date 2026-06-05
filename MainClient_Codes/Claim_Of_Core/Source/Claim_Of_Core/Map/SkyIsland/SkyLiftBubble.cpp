@@ -3,21 +3,23 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "UObject/ConstructorHelpers.h"
 #include "../../Sub/MyCharacter.h"
 
 ASkyLiftBubble::ASkyLiftBubble()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 
 	LiftCollision = CreateDefaultSubobject<USphereComponent>(TEXT("LiftCollision"));
 	SetRootComponent(LiftCollision);
-	LiftCollision->SetSphereRadius(90.f);
+	LiftCollision->SetSphereRadius(220.f);
 	LiftCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	LiftCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
 	LiftCollision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	LiftCollision->SetGenerateOverlapEvents(true);
 	LiftCollision->OnComponentBeginOverlap.AddDynamic(this, &ASkyLiftBubble::OnBubbleBeginOverlap);
+	LiftCollision->OnComponentEndOverlap.AddDynamic(this, &ASkyLiftBubble::OnBubbleEndOverlap);
 
 	BubbleMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BubbleMesh"));
 	BubbleMeshComponent->SetupAttachment(LiftCollision);
@@ -28,7 +30,7 @@ ASkyLiftBubble::ASkyLiftBubble()
 	if (DefaultMesh.Succeeded())
 	{
 		BubbleMeshComponent->SetStaticMesh(DefaultMesh.Object);
-		BubbleMeshComponent->SetRelativeScale3D(FVector(1.8f));
+		BubbleMeshComponent->SetRelativeScale3D(FVector(2.2f, 2.2f, 4.0f));
 	}
 }
 
@@ -39,6 +41,24 @@ void ASkyLiftBubble::BeginPlay()
 	Tags.Add(TEXT("SkyLiftBubble"));
 	ApplyVisualSettings();
 	SetBubbleActive(true);
+}
+
+void ASkyLiftBubble::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (!bBubbleActive || DeltaTime <= 0.f)
+	{
+		return;
+	}
+
+	ActiveElapsed += DeltaTime;
+	ApplyUpdraft();
+
+	if (ActiveElapsed >= ActiveDuration)
+	{
+		Destroy();
+	}
 }
 
 void ASkyLiftBubble::OnBubbleBeginOverlap(
@@ -55,8 +75,19 @@ void ASkyLiftBubble::OnBubbleBeginOverlap(
 		return;
 	}
 
-	Character->LaunchCharacter(FVector(0.f, 0.f, LaunchStrength), false, true);
-	DeactivateBubble();
+	OverlappingCharacters.Add(Character);
+}
+
+void ASkyLiftBubble::OnBubbleEndOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex)
+{
+	if (AMyCharacter* Character = Cast<AMyCharacter>(OtherActor))
+	{
+		OverlappingCharacters.Remove(Character);
+	}
 }
 
 void ASkyLiftBubble::SetBubbleActive(bool bNewActive)
@@ -78,28 +109,27 @@ void ASkyLiftBubble::SetBubbleActive(bool bNewActive)
 	}
 }
 
-void ASkyLiftBubble::DeactivateBubble()
+void ASkyLiftBubble::ApplyUpdraft()
 {
-	SetBubbleActive(false);
-
-	if (!GetWorld())
+	for (auto It = OverlappingCharacters.CreateIterator(); It; ++It)
 	{
-		return;
+		AMyCharacter* Character = It->Get();
+		if (!Character || Character->IsDead())
+		{
+			It.RemoveCurrent();
+			continue;
+		}
+
+		UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
+		if (!MoveComp)
+		{
+			continue;
+		}
+
+		FVector Velocity = MoveComp->Velocity;
+		Velocity.Z = FMath::Max(Velocity.Z, UpdraftSpeed);
+		MoveComp->Velocity = Velocity;
 	}
-
-	GetWorldTimerManager().ClearTimer(RespawnTimerHandle);
-	GetWorldTimerManager().SetTimer(
-		RespawnTimerHandle,
-		this,
-		&ASkyLiftBubble::ReactivateBubble,
-		FMath::Max(0.f, RespawnDelay),
-		false
-	);
-}
-
-void ASkyLiftBubble::ReactivateBubble()
-{
-	SetBubbleActive(true);
 }
 
 void ASkyLiftBubble::ApplyVisualSettings()

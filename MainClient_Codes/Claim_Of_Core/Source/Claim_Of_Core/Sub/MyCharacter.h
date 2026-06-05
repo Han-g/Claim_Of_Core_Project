@@ -22,6 +22,7 @@ class UMaterialInstanceDynamic;
 class UNiagaraSystem;
 class USoundBase;
 class ABaseItem;
+class AJungleOneShotGunItem;
 class FLifetimeProperty;
 
 UENUM(BlueprintType)
@@ -208,6 +209,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "RoleSkill")
 	bool IsRoleSkillActive() const { return bRoleSkillActive; }
 
+	UFUNCTION(BlueprintPure, Category = "Aim")
+	bool IsAiming() const { return bAiming; }
+
+	UFUNCTION(BlueprintCallable, Category = "Aim")
+	void StartAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Aim")
+	void EndAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void ConsumeCurrentItem(ABaseItem* ItemToConsume);
+
 	UFUNCTION(BlueprintPure, Category = "RoleSkill")
 	bool IsStatusEffectImmune() const;
 
@@ -359,6 +372,15 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Role")
 	int32 BaseJumpMaxCount = 1;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Aim")
+	bool bAiming = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Aim")
+	float AimCameraArmLength = 500.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Aim")
+	FVector AimCameraSocketOffset = FVector(0.f, 150.f, 45.f);
 
 	UPROPERTY(ReplicatedUsing = OnRep_RoleSkillActive, VisibleInstanceOnly, Category = "RoleSkill")
 	bool bRoleSkillActive = false;

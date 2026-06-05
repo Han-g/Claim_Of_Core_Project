@@ -32,6 +32,7 @@
 #include "ClientNetworking.h"
 #include "BaseItem.h"
 #include "../Map/IceCave/IceFloorTile.h"
+#include "../Map/Jungle/JungleOneShotGunItem.h"
 #include "../Map/SkyIsland/SkyCloudPlatform.h"
 
 AMyCharacter::AMyCharacter()
@@ -40,6 +41,7 @@ AMyCharacter::AMyCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetCapsuleComponent()->InitCapsuleSize(200.f, 475.0f);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -725,6 +727,11 @@ void AMyCharacter::SetCharacterState(ERecCharacterState NewState)
 		EndFreeze();
 	}
 
+	if (NewState == ERecCharacterState::Dead && bAiming)
+	{
+		EndAim();
+	}
+
 	CharacterState = NewState;
 	ApplyCharacterState();
 	ForceNetUpdate();
@@ -790,6 +797,7 @@ void AMyCharacter::ApplyDamage(int32 DamageAmount)
 	}
 
 	SetCurrentHP(CurrentHP - DamageAmount);
+	KnockbackTest();
 }
 
 void AMyCharacter::Heal(int32 HealAmount)
@@ -1041,7 +1049,9 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 		if (KnockbackAction)
 		{
-			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::KnockbackTest);
+			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::StartAim);
+			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Completed, this, &AMyCharacter::EndAim);
+			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Canceled, this, &AMyCharacter::EndAim);
 		}
 	}
 	else
@@ -1983,6 +1993,55 @@ void AMyCharacter::Attack()
 	AnimInstance->Montage_Play(Data.AttackMontage);*/
 }
 
+void AMyCharacter::StartAim()
+{
+	if (!IsLocallyControlled() || IsDead() || bDeathSequenceLocked || bCameraDetached)
+	{
+		return;
+	}
+
+	if (!CurrentItem || !Cast<AJungleOneShotGunItem>(CurrentItem))
+	{
+		return;
+	}
+
+	bAiming = true;
+	bUseControllerRotationYaw = true;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->bOrientRotationToMovement = false;
+	}
+
+	if (CameraBoom)
+	{
+		CameraBoom->TargetArmLength = AimCameraArmLength;
+		CameraBoom->SocketOffset = AimCameraSocketOffset;
+	}
+}
+
+void AMyCharacter::EndAim()
+{
+	if (!bAiming)
+	{
+		return;
+	}
+
+	bAiming = false;
+	bUseControllerRotationYaw = false;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->bOrientRotationToMovement = true;
+	}
+
+	if (CameraBoom && !bCameraDetached)
+	{
+		CameraBoom->TargetArmLength = InitialCameraBoomArmLength;
+		CameraBoom->SocketOffset = InitialCameraBoomSocketOffset;
+	}
+}
+
 void AMyCharacter::EndAttack()
 {
 	if (bBasicAttackHitWindowActive && HitActors.Num() == 0)
@@ -2458,6 +2517,8 @@ void AMyCharacter::DropCurrentItem()
 		return;
 	}
 
+	EndAim();
+
 	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	CurrentItem->SetActorScale3D(CurrentItemAttachBaseScale);
 	CurrentItem->SetOwnerCharacter(nullptr);
@@ -2469,6 +2530,20 @@ void AMyCharacter::DropCurrentItem()
 		Prim->SetSimulatePhysics(true);
 	}
 
+	CurrentItemAttachBaseScale = FVector::OneVector;
+	CurrentItem = nullptr;
+}
+
+void AMyCharacter::ConsumeCurrentItem(ABaseItem* ItemToConsume)
+{
+	if (!ItemToConsume || CurrentItem != ItemToConsume)
+	{
+		return;
+	}
+
+	EndAim();
+	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	CurrentItem->SetOwnerCharacter(nullptr);
 	CurrentItemAttachBaseScale = FVector::OneVector;
 	CurrentItem = nullptr;
 }
