@@ -2,6 +2,7 @@
 
 #include "../Map/IceCave/IceFloorTile.h"
 #include "../Map/Jungle/VineClimbActor.h"
+#include "../Map/Jungle/GunItem.h"
 
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
@@ -24,6 +25,8 @@
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 
+#include "Materials/MaterialInstanceDynamic.h"
+
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -38,6 +41,7 @@ AMyCharacter::AMyCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetCapsuleComponent()->InitCapsuleSize(200.f, 475.0f);
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -1061,9 +1065,13 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 			EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &AMyCharacter::Attack);
 		}
 
-		if (KnockbackAction)
+		if (AimAction)
 		{
-			EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::KnockbackTest);
+			//EnhancedInputComponent->BindAction(KnockbackAction, ETriggerEvent::Started, this, &AMyCharacter::KnockbackTest);
+
+			EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Started, this, &AMyCharacter::StartAim);
+			EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Completed, this, &AMyCharacter::EndAim);
+			EnhancedInputComponent->BindAction(AimAction, ETriggerEvent::Canceled, this, &AMyCharacter::EndAim);
 		}
 	}
 	else
@@ -1367,6 +1375,71 @@ void AMyCharacter::ExitVineClimb(AVineClimbActor* VineActor)
 	}
 }
 
+void AMyCharacter::StartAim()
+{
+	if (!IsLocallyControlled() || IsDead() || bDeathSequenceLocked || bCameraDetached)
+	{
+		return;
+	}
+
+	if (!CurrentItem || !Cast<AGunItem>(CurrentItem))
+	{
+		return;
+	}
+
+	bAiming = true;
+	bUseControllerRotationYaw = true;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->bOrientRotationToMovement = false;
+	}
+
+	if (CameraBoom)
+	{
+		CameraBoom->TargetArmLength = AimCameraArmLength;
+		CameraBoom->SocketOffset = AimCameraSocketOffset;
+	}
+}
+
+void AMyCharacter::EndAim()
+{
+	if (!bAiming)
+	{
+		return;
+	}
+
+	bAiming = false;
+	bUseControllerRotationYaw = false;
+
+	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+	{
+		MoveComp->bOrientRotationToMovement = true;
+	}
+
+	if (CameraBoom && !bCameraDetached)
+	{
+		CameraBoom->TargetArmLength = InitialCameraBoomArmLength;
+		CameraBoom->SocketOffset = InitialCameraBoomSocketOffset;
+	}
+}
+
+void AMyCharacter::ConsumeCurrentItem(ABaseItem* ItemToConsume)
+{
+	if (!ItemToConsume || CurrentItem != ItemToConsume)
+	{
+		return;
+	}
+
+	EndAim();
+
+	CurrentItem->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	CurrentItem->SetOwnerCharacter(nullptr);
+
+	CurrentItemAttachBaseScale = FVector::OneVector;
+	CurrentItem = nullptr;
+}
+
 bool AMyCharacter::CanStartVineClimb() const
 {
 	return bCanVineClimb
@@ -1617,7 +1690,7 @@ void AMyCharacter::UpdateLocalPostProcessEffects()
 	FollowCamera->PostProcessSettings.bOverride_ColorSaturation = false;
 	FollowCamera->PostProcessSettings.bOverride_VignetteIntensity = false;
 	FollowCamera->PostProcessSettings.bOverride_SceneColorTint = false;
-	FollowCamera->PostProcessBlendWeight = 0.0f;
+	FollowCamera->PostProcessBlendWeight = TeamOutlinePostProcessMID ? 1.0f : 0.0f;
 
 	if (bDeathSequenceLocked)
 	{
@@ -2255,50 +2328,22 @@ void AMyCharacter::Attack()
 		return;
 	}
 
-	/*if (CurrentItem)
-	{
-		CurrentItem->StartUse();
-		return;
-	}*/
-
 	if (!IsLocallyControlled())
 	{
 		return;
 	}
 
+	if (AGunItem* GunItem = Cast<AGunItem>(CurrentItem))
+	{
+		GunItem->StartUse();
+		return;
+	}
+
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
 	{
-		//NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
 		const int32 AttackType = CurrentItem ? 1 : 0;
 		NetworkInstance->RequestAttackInput(0);
 	}
-	/*if (!IsValid(Controller))
-	{
-		return;
-	}
-
-	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
-	const FRoleVisualData& Data = GetVisualData(RoleType);
-
-	if (!AnimInstance || !Data.AttackMontage)
-	{
-		return;
-	}
-
-	if (AnimInstance->Montage_IsPlaying(Data.AttackMontage))
-	{
-		return;
-	}
-
-	if (IsLocallyControlled())
-	{
-		if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
-		{
-			NetworkInstance->SendGameplayTestPacket(PKT_C2S_ATTACK_KEYINPUT);
-		}
-	}
-
-	AnimInstance->Montage_Play(Data.AttackMontage);*/
 }
 
 void AMyCharacter::EndAttack()
@@ -2376,6 +2421,42 @@ void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
+	UpdateRoleText();
+}
+
+void AMyCharacter::SetTeamFromNetwork(int32 InTeamType)
+{
+	ERecTeamType NewTeamType = ERecTeamType::None;
+
+	switch (InTeamType)
+	{
+	case 0:
+		NewTeamType = ERecTeamType::Red;
+		break;
+
+	case 1:
+		NewTeamType = ERecTeamType::Blue;
+		break;
+
+	case -1:
+		NewTeamType = ERecTeamType::None;
+		break;
+
+	default:
+		return;
+	}
+
+	if (TeamType == NewTeamType)
+	{
+		ApplyTeamVisual();
+		UpdateTeamOutlinePostProcess();
+		return;
+	}
+
+	TeamType = NewTeamType;
+
+	ApplyTeamVisual();
+	UpdateTeamOutlinePostProcess();
 	UpdateRoleText();
 }
 
@@ -2560,6 +2641,59 @@ void AMyCharacter::ApplyLocalServerCorrection(float X, float Y, float Z, float Y
 	}
 
 	bHasLocalCorrectionTarget = true;
+}
+
+void AMyCharacter::ApplyTeamVisual()
+{
+	const int32 StencilValue =
+		TeamType == ERecTeamType::Red ? 1 :
+		TeamType == ERecTeamType::Blue ? 2 : 0;
+
+	const bool bEnableOutline = StencilValue > 0;
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetRenderCustomDepth(bEnableOutline);
+		MeshComp->SetCustomDepthStencilValue(StencilValue);
+	}
+
+	if (FrozenOverlayMeshComponent)
+	{
+		FrozenOverlayMeshComponent->SetRenderCustomDepth(bEnableOutline);
+		FrozenOverlayMeshComponent->SetCustomDepthStencilValue(StencilValue);
+	}
+}
+
+void AMyCharacter::UpdateTeamOutlinePostProcess()
+{
+	if (!IsLocallyControlled() || !FollowCamera || !TeamOutlinePostProcessMaterial)
+	{
+		return;
+	}
+
+	if (!TeamOutlinePostProcessMID)
+	{
+		TeamOutlinePostProcessMID =
+			UMaterialInstanceDynamic::Create(TeamOutlinePostProcessMaterial, this);
+
+		if (!TeamOutlinePostProcessMID)
+		{
+			return;
+		}
+
+		FollowCamera->PostProcessSettings.AddBlendable(TeamOutlinePostProcessMID, 1.0f);
+	}
+
+	TeamOutlinePostProcessMID->SetVectorParameterValue(TEXT("RedTeamColor"), RedTeamOutlineColor);
+	TeamOutlinePostProcessMID->SetVectorParameterValue(TEXT("BlueTeamColor"), BlueTeamOutlineColor);
+	TeamOutlinePostProcessMID->SetScalarParameterValue(TEXT("OutlineThickness"), TeamOutlineThickness);
+	TeamOutlinePostProcessMID->SetScalarParameterValue(
+		TEXT("LocalTeamStencil"),
+		TeamType == ERecTeamType::Red ? 1.0f :
+		TeamType == ERecTeamType::Blue ? 2.0f : 0.0f
+	);
+
+	FollowCamera->PostProcessBlendWeight = 1.0f;
 }
 
 void AMyCharacter::LockUntilInitialSnapshot()
@@ -2853,6 +2987,12 @@ void AMyCharacter::OnAttackOverlap(
 void AMyCharacter::SetOverlappingItem(ABaseItem* Item)
 {
 	OverlappingItem = Item;
+}
+
+bool AMyCharacter::IsUmbrellaEquipped() const
+{
+	return CurrentItem &&
+		CurrentItem->ItemAnimPoseType == EItemAnimPoseType::Umbrella;
 }
 
 void AMyCharacter::EquipItem()

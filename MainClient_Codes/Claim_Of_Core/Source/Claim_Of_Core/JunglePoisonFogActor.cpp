@@ -6,6 +6,7 @@
 #include "DrawDebugHelpers.h"
 #include "NiagaraComponent.h"
 #include "Sub/MyCharacter.h"
+#include "GameState/InGame_GameState.h"
 #include "Components/LocalFogVolumeComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SphereComponent.h"
@@ -93,6 +94,34 @@ void AJunglePoisonFogActor::Tick(float DeltaTime)
 		return;
 	}
 
+	float ShrinkSpeed = 0.0f;
+
+	if (const AInGame_GameState* GS = GetWorld() ? GetWorld()->GetGameState<AInGame_GameState>() : nullptr)
+	{
+		if (GS->CurrentPhase == EMapPhase::Phase2)
+		{
+			ShrinkSpeed = Phase2InnerShrinkSpeed;
+		}
+		else if (GS->CurrentPhase == EMapPhase::Phase3)
+		{
+			ShrinkSpeed = Phase3InnerShrinkSpeed;
+		}
+	}
+
+	if (ShrinkSpeed > 0.0f)
+	{
+		InnerRadius = FMath::Max(MinInnerRadius, InnerRadius - ShrinkSpeed * DeltaTime);
+	}
+
+	if (FogNiagara)
+	{
+		FogNiagara->SetVariableFloat(TEXT("User.OuterRadius"), FogRadius);
+		FogNiagara->SetVariableFloat(TEXT("User.InnerRadius"), InnerRadius);
+		FogNiagara->SetVariableFloat(TEXT("User.FogHeightMin"), 0.0f);
+		FogNiagara->SetVariableFloat(TEXT("User.FogHeightMax"), 1200.0f);
+		FogNiagara->SetVariableFloat(TEXT("User.EdgeSoftness"), 500.0f);
+	}
+
 	CharacterRefreshAccumulator += DeltaTime;
 	if (CharacterRefreshAccumulator >= CharacterRefreshInterval)
 	{
@@ -158,6 +187,9 @@ void AJunglePoisonFogActor::ActivateFog()
 	}
 
 	bFogActive = true;
+	FogActiveElapsed = 0.0f;
+	InnerRadius = InitialInnerRadius;
+
 	HandleFogActiveChanged();
 
 	UE_LOG(LogTemp, Warning, TEXT("[JunglePoisonFog] Activated: %s"), *GetName());
@@ -198,10 +230,11 @@ void AJunglePoisonFogActor::OnFogBeginOverlap(
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
-	if (!bFogActive)
+	if (!bFogActive || !IsActorInsideFog(OtherActor))
 	{
 		return;
 	}
+
 
 	AddCharacterToFog(Cast<AMyCharacter>(OtherActor));
 }
@@ -233,9 +266,9 @@ void AJunglePoisonFogActor::ApplyActiveState()
 
 	if (LocalFogVolume)
 	{
-		LocalFogVolume->SetVisibility(bFogActive, true);
-		LocalFogVolume->SetHiddenInGame(!bFogActive, true);
-		LocalFogVolume->SetComponentTickEnabled(bFogActive);
+		LocalFogVolume->SetVisibility(false, true);
+		LocalFogVolume->SetHiddenInGame(true, true);
+		LocalFogVolume->SetComponentTickEnabled(false);
 	}
 
 	if (FogNiagara)
@@ -291,7 +324,7 @@ void AJunglePoisonFogActor::ApplyVisualSettings()
 
 	if (PurpleGlow)
 	{
-		PurpleGlow->AttenuationRadius = FogRadius;
+		PurpleGlow->AttenuationRadius = 0;
 		PurpleGlow->SetIntensity(bFogActive ? GlowIntensity : 0.0f);
 		PurpleGlow->SetLightColor(GlowColor);
 	}
@@ -314,8 +347,7 @@ void AJunglePoisonFogActor::SyncFogShape()
 
 	if (FogNiagara)
 	{
-		const float NiagaraScale = FogRadius / ULocalFogVolumeComponent::GetBaseVolumeSize();
-		FogNiagara->SetRelativeScale3D(FVector(NiagaraScale));
+		FogNiagara->SetRelativeScale3D(FVector::OneVector);
 	}
 }
 
@@ -412,5 +444,10 @@ bool AJunglePoisonFogActor::IsActorInsideFog(const AActor* Actor) const
 		return false;
 	}
 
-	return FVector::DistSquared(GetActorLocation(), Actor->GetActorLocation()) <= FMath::Square(FogRadius);
+	const float DistSq = FVector::DistSquared2D(GetActorLocation(), Actor->GetActorLocation());
+
+	const bool bInsideOuter = DistSq <= FMath::Square(FogRadius);
+	const bool bInsideSafeHole = InnerRadius > 0.0f && DistSq < FMath::Square(InnerRadius);
+
+	return bInsideOuter && !bInsideSafeHole;
 }

@@ -164,9 +164,10 @@ enum PacketID {
     PKT_C2S_ITEMDROP_KEYINPUT = 552,        // Attempt to drop the currently equipped item
     PKT_C2S_OBJECT_HIT_REQ = 553,           // Hit attempt on a destructible object (asks server to judge)
     PKT_C2S_ATTACK_HIT_REPORT = 554,
+    PKT_C2S_HITSCAN_SHOT_REQ = 555,
 
-    PKT_C2S_ICE_FLOOR_STAND_REQ = 555,
-    PKT_C2S_GRENADE_BLACKHOLE_REQ = 556,
+    PKT_C2S_ICE_FLOOR_STAND_REQ = 556,
+    PKT_C2S_GRENADE_BLACKHOLE_REQ = 557,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,           // Instruct spawning a specific item on the map
     PKT_S2C_DESPAWN_ITEM_BRD = 131,         // Instruct removing a specific item from the map
@@ -201,6 +202,7 @@ struct GameData {
 
     int characterState = -1;    // 0=Alive, 1=Dead
     int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
+    int teamType = -1;          // -1=None, 0=Red, 1=Blue
 
 	int animationNum = 0;
     int equippedItemID = -1;
@@ -313,13 +315,29 @@ struct RoundChangePacket {
 // ------   Game Logic Packets      ------
 // ---------------------------------------
 
-enum class EDamageType : int32_t { Normal, Poison, Rubble };
+enum class EDamageType : int32_t { Normal, Poison, Rubble, Fall };
 
 struct DamageApplyPacket {
     int32_t targetID;
     int32_t damage;
     int32_t remainHP;
     EDamageType damageType;
+};
+
+struct ObjectHitPacket
+{
+    int32_t objectID;
+    int32_t objectType;
+    int32_t subID;      // chunkIndex, º»Ã¼¸é -1
+    int32_t hitKind;    // 0=LargeBody, 1=Chunk
+};
+
+struct HitscanShotPacket
+{
+    int32_t ItemID;
+    int32_t TargetID;
+    float StartX, StartY, StartZ;
+    float DirX, DirY, DirZ;
 };
 
 struct AttackActionPacket

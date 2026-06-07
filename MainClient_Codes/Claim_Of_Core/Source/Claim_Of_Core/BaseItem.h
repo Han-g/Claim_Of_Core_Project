@@ -21,6 +21,7 @@ enum class EItemAnimPoseType : uint8
 	Umbrella UMETA(DisplayName = "Umbrella"),
 	Torch	 UMETA(DisplayName = "Torch"),
 	Grenade  UMETA(DisplayName = "Grenade"),
+	Gun		 UMETA(DisplayName = "Gun"),
 };
 
 UCLASS()

@@ -4,6 +4,7 @@
 #include "LoginWidget.h"
 #include "RobbyWidget.h"
 #include "RoomWidget.h"
+#include "RoundWinWidget.h"
 #include "BaseItem.h"
 #include "Map/Building/SmallDebrisActor.h"
 #include "Map/Building/LargeDebrisController.h"
@@ -52,10 +53,17 @@ void UNetworkInstance::Init()
 
 	Client = MakeShared<ClientNetworking>();
 
+	const TCHAR* ServerIPKey =
+#if WITH_EDITOR
+		TEXT("LocalServerIP");
+#else
+		TEXT("ServerIP");
+#endif
+
 	if (GConfig) {
 		GConfig->GetString(
 			TEXT("ServerSettings"),
-			TEXT("LocalServerIP"),
+			TEXT("ServerIP"),
 			ServerIPAddress,
 			GGameIni
 		);
@@ -69,6 +77,7 @@ void UNetworkInstance::Init()
 	Client->OnRoomEnterResult.AddUObject(this, &UNetworkInstance::HandleRoomEnterResult);
 	Client->OnLoginResult.AddUObject(this, &UNetworkInstance::HandleLoginResult);
 	Client->OnRegisterResult.AddUObject(this, &UNetworkInstance::HandleRegisterResult);
+	Client->OnRoleChanged.AddUObject(this, &UNetworkInstance::HandleRoleChanged);
 	Client->OnGameStart.AddUObject(this, &UNetworkInstance::HandleGameStart);
 	Client->OnMatchEnd.AddUObject(this, &UNetworkInstance::HandleMatchEnd);
 
@@ -82,6 +91,7 @@ void UNetworkInstance::Init()
 	Client->OnRespawned.AddUObject(this, &UNetworkInstance::HandleRespawned);
 	Client->OnGameTimeSynced.AddUObject(this, &UNetworkInstance::HandleGameTimeSynced);
 	Client->OnPhaseChanged.AddUObject(this, &UNetworkInstance::HandlePhaseChanged);
+	Client->OnRoundResult.AddUObject(this, &UNetworkInstance::HandleRoundResult);
 	Client->OnMapEventTriggered.AddUObject(this, &UNetworkInstance::HandleMapEventTriggered);
 	Client->OnObjectSpawned.AddUObject(this, &UNetworkInstance::HandleObjectSpawned);
 	Client->OnItemOwnershipChanged.AddUObject(this, &UNetworkInstance::HandleItemOwnershipChanged);
@@ -494,6 +504,34 @@ void UNetworkInstance::RequestItemDrop(int32 ItemID)
 	Client->ItemDropRequest(ItemID);
 }
 
+void UNetworkInstance::RequestObjectHit(int32 ObjectID, int32 ObjectType, int32 SubID, int32 HitKind)
+{
+	if (!Client.IsValid()) { return; }
+
+	Client->ObjectHitRequest(ObjectID, ObjectType, SubID, HitKind);
+}
+
+void UNetworkInstance::RequestHitscanShot(int32 ItemID, int32 TargetID, const FVector& TraceStart, const FVector& TraceDirection)
+{
+	if (!Client.IsValid())
+	{
+		return;
+	}
+
+	if (ItemID < 0 || TargetID <= 0 || TraceDirection.IsNearlyZero())
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[GunCheck][RequestHitscanShot] ItemID=%d TargetID=%d Dir=%s"),
+		ItemID,
+		TargetID,
+		*TraceDirection.ToString());
+
+	Client->HitscanShotRequest(ItemID, TargetID, TraceStart, TraceDirection);
+}
+
 void UNetworkInstance::RequestIceFloorStanding(int32 FloorID, int32 PieceIndex)
 {
 	if (!Client.IsValid() || PieceIndex < 0)
@@ -672,6 +710,19 @@ void UNetworkInstance::HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMe
 	}
 }
 
+void UNetworkInstance::HandleRoleChanged(const FRoleChangePacket& Packet)
+{
+	if (Client.IsValid() && Packet.TargetID == Client->ClientPlayerData.userUID)
+	{
+		CachedSelectedRoleType = Packet.NewRoleType;
+	}
+
+	if (AMyCharacter* Character = FindCharacterByUID(Packet.TargetID))
+	{
+		Character->SetRoleFromNetwork(Packet.NewRoleType);
+	}
+}
+
 void UNetworkInstance::HandleGameStart()
 {
 	UE_LOG(LogTemp, Display, TEXT("Game Starting! Closing Room Widget."));
@@ -735,7 +786,7 @@ void UNetworkInstance::HandleMatchEnd()
 
 	if (RoomWidgetInstance)
 	{
-		RoomWidgetInstance->SetRoomActionsEnabled(false);
+		//RoomWidgetInstance->SetRoomActionsEnabled(false);
 		RoomWidgetInstance->RemoveFromParent();
 		RoomWidgetInstance = nullptr;
 	}
@@ -780,6 +831,11 @@ void UNetworkInstance::HandleDisconnected()
 
 void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 {
+	if (RoomWidgetInstance)
+	{
+		RoomWidgetInstance->SetRoomActionsEnabled(false);
+	}
+
 	if (RoundPrepareWidgetInstance)
 	{
 		RoundPrepareWidgetInstance->RemoveFromParent();
@@ -896,6 +952,7 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 
 			LocalCharacter->SetNetworkPlayerUID(LocalUID);
 			LocalCharacter->SetRoleFromNetwork(Data.roleType);
+			LocalCharacter->SetTeamFromNetwork(Data.teamType);
 			LocalCharacter->SetHPFromNetwork(Data.currentHP);
 			LocalCharacter->SetStateFromNetwork(Data.characterState);
 			
@@ -928,6 +985,7 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 
 			RemoteCharacter->SetNetworkPlayerUID(Data.userUID);
 			RemoteCharacter->SetRoleFromNetwork(Data.roleType);
+			RemoteCharacter->SetTeamFromNetwork(Data.teamType);
 			RemoteCharacter->SetHPFromNetwork(Data.currentHP);
 			RemoteCharacter->SetStateFromNetwork(Data.characterState);
 			RemoteCharacter->ApplyTransformFromNetwork(Data.x, Data.y, Data.z, Data.rotate);
@@ -995,8 +1053,9 @@ void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket& Packet)
 				break;
 
 			case EDamageType::Poison:
-				// 독안개는 JunglePoisonFogActor의 화면 효과만 사용.
-				// 피격 나이아가라와 빨간 섬광은 출력하지 않음.
+				break;
+
+			case EDamageType::Fall:
 				break;
 
 			default:
@@ -1173,6 +1232,33 @@ void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
         Packet.gameTime);
 }
 
+void UNetworkInstance::HandleRoundResult(const FRoundChangePacket& Packet)
+{
+	if (RoundWinWidgetInstance)
+	{
+		RoundWinWidgetInstance->RemoveFromParent();
+		RoundWinWidgetInstance = nullptr;
+	}
+
+	if (!RoundWinWidgetClass)
+	{
+		return;
+	}
+
+	RoundWinWidgetInstance = CreateWidget<URoundWinWidget>(this, RoundWinWidgetClass);
+	if (!RoundWinWidgetInstance)
+	{
+		return;
+	}
+
+	RoundWinWidgetInstance->AddToViewport();
+	RoundWinWidgetInstance->SetRoundResultInfo(
+		Packet.result.winnerTeamID,
+		Packet.result.team1Score,
+		Packet.result.team2Score
+	);
+}
+
 void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 {
 	UWorld* World = GetWorld();
@@ -1300,6 +1386,7 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 			return;
 		}
 
+		NewDebris->SetObjectID(Packet.objectID);
 		SpawnedSmallDebris.Add(Packet.objectID, NewDebris);
 
 		UE_LOG(LogTemp, Display,
@@ -1583,6 +1670,7 @@ TSubclassOf<ABaseItem> UNetworkInstance::GetItemClassByKind(int32 ItemKind) cons
 		case EClientItemKind::Umbrella: return UmbrellaItemClass;
 		case EClientItemKind::Torch:    return TorchItemClass;
 		case EClientItemKind::Grenade:  return GrenadeItemClass;
+		case EClientItemKind::Gun:		return GunItemClass;
 		default:                        return nullptr;
 	}
 }

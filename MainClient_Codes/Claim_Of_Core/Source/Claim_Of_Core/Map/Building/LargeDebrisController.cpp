@@ -22,8 +22,8 @@ void ALargeDebrisController::ActivateGameplayRuntime()
 
 	bRuntimeActivated = true;
 
-	PrepareDebrisActors(Phase2DebrisActors);
-	PrepareDebrisActors(Phase3DebrisActors);
+	PrepareDebrisActors(Phase2DebrisActors, 2000);
+	PrepareDebrisActors(Phase3DebrisActors, 3000);
 
 	SetActorTickEnabled(true);
 }
@@ -151,14 +151,15 @@ void ALargeDebrisController::TriggerPhase3Debris()
 
 }
 
-void ALargeDebrisController::PrepareDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors)
+void ALargeDebrisController::PrepareDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors, int32 BaseID)
 {
-	for (ALargeDebrisActor* DebrisActor : DebrisActors)
+	for (int32 i = 0; i < DebrisActors.Num(); ++i)
 	{
-		if (DebrisActor)
-		{
-			DebrisActor->PrepareDebris();
-		}
+		ALargeDebrisActor* DebrisActor = DebrisActors[i];
+		if (!DebrisActor) { continue; }
+
+		DebrisActor->SetLargeDebrisID(BaseID + i);
+		DebrisActor->PrepareDebris();
 	}
 }
 

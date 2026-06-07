@@ -47,6 +47,8 @@ public:
     void ItemPickupRequest(int32 ItemID);
     void ItemDropRequest(int32 ItemID);
     void AttackHitReportRequest(uint32 AttackSeq, int32 TargetID, int32 AttackType);
+    void ObjectHitRequest(int32 ObjectID, int32 ObjectType, int32 SubID, int32 HitKind);
+    void HitscanShotRequest(int32 ItemID, int32 TargetID, const FVector& TraceStart, const FVector& TraceDirection);
 
     void IceFloorStandRequest(int32 FloorID, int32 PieceIndex);
     void GrenadeBlackHoleRequest(int32 ItemID, const FVector& SpawnLocation);
@@ -74,6 +76,7 @@ public:
     FOnRoleChanged            OnRoleChanged;
     FOnGameTimeSynced         OnGameTimeSynced;
     FOnPhaseChanged           OnPhaseChanged;
+    FOnRoundResult            OnRoundResult;
     FOnMapEventTriggered      OnMapEventTriggered;
     FOnItemSpawned            OnItemSpawned;
     FOnObjectSpawned          OnObjectSpawned;

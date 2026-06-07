@@ -73,7 +73,13 @@ void GameLogic::Update(float deltaTime)
                 }
             }
         }
+
+        if (CheckFallDeath(player))
+        {
+            continue;
+        }
     }
+
 
 
     // Update map-specific hazard logic.
@@ -81,7 +87,7 @@ void GameLogic::Update(float deltaTime)
     else if (mapType == 2)  { UpdateIceCaveMap(deltaTime); }
     else if (mapType == 3)  { UpdateSpaceStation(deltaTime); }
     else if (mapType == 4)  { UpdateJungleMap(deltaTime); }
-    else if (mapType == 5)  { /*UpdateSkyIslandMap(deltaTime);*/ }
+    else if (mapType == 5)  { UpdateSkyIslandMap(deltaTime); }
     else { LOG_ERROR("InValid Map Type!"); return; }
 }
 
@@ -329,12 +335,11 @@ bool GameLogic::TrySelectMap()
         remainingMaps = availableMaps;
     }
 
-    std::uniform_int_distribution<int> dist(
-        0,
-        static_cast<int>(remainingMaps.size()) - 1
-    );
+    std::uniform_int_distribution<int> dist( 0, static_cast<int>(remainingMaps.size()) - 1  );
 
-    const int index = dist(MapRandomEngine);
+    //----------------------------- Map index Setting --------------------------------
+    const int index = 4;//dist(MapRandomEngine);
+
     selectedMapType = remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
@@ -582,6 +587,35 @@ void GameLogic::SetCurrentHP(int sessionID, int newHP)
     /*if (gd.characterState == 0 && gd.currentHP <= 0) {
         HandleDeath(sessionID);
     }*/
+}
+
+bool GameLogic::CheckFallDeath(Session* player)
+{
+    if (!player) { return false; }
+
+    GameData& gd = player->gameDatas;
+    if (!gd.isConnected || gd.characterState != Alive) { return false; }
+
+    float fallDeathZ = -3000.f;
+    switch (mapType)
+    {
+    case 1: fallDeathZ = -3000.0f; break; // Building
+    case 2: fallDeathZ = -3000.0f; break; // IceCave
+    case 3: fallDeathZ = -5000.0f; break; // Space
+    case 4: fallDeathZ = -3000.0f; break; // Jungle
+    default:  return false;
+    }
+
+    if (gd.z > fallDeathZ) { return false; }
+
+    player->VerticalVelocity = 0.0f;
+    player->HorizontalVelocityX = 0.0f;
+    player->HorizontalVelocityY = 0.0f;
+    player->isGrounded = false;
+    player->JumpCount = 0;
+
+    ApplyDamage(player->sessionID, (std::max)(gd.currentHP, 1), EDamageType::Fall);
+    return true;
 }
 
 void GameLogic::EndGameRoundByElimination(int eliminatedTeamID)
@@ -1357,18 +1391,21 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
 
     int damageAmount = 20;
 
-    switch (attackerData.roleType)
+    ItemData* EquippedItem = nullptr;
+    if (attackerData.equippedItemID != -1 && ownerRoom)
     {
-    case Striker:
-        damageAmount = 30;
-        break;
-    case Guardian:
-        damageAmount = 15;
-        break;
-    case Manipulator:
-        damageAmount = 20;
-        break;
+        ItemData* item = ownerRoom->GetItemData(attackerData.equippedItemID);
+
+        if (item &&
+            item->bEquipped &&
+            item->ownerUID == attackerSession->playerUID &&
+            item->ObjectType == e_ObjectType::WEAPON_ITEM)
+        {
+            EquippedItem = item;
+        }
     }
+
+    damageAmount = GetAttackDamage(attackerData, EquippedItem);
 
     {
         std::lock_guard<std::mutex> lock(attackerSession->AttackStateLock);
@@ -1388,11 +1425,6 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
         attackRange,
         damageAmount);
 
-    ItemData* EquippedItem = nullptr;
-    if (attackerData.equippedItemID != -1 && ownerRoom)
-    {
-        EquippedItem = ownerRoom->GetItemData(attackerData.equippedItemID);
-    }
 
     const bool bUsingTorch =
         EquippedItem &&
@@ -1408,6 +1440,33 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
     }
 
     ApplyDamage(targetSession->sessionID, damageAmount, EDamageType::Normal);
+}
+
+int GameLogic::GetAttackDamage(const GameData& attackerData, const ItemData* equippedItem) const
+{
+    int baseDamage = 0;
+
+    switch (attackerData.roleType)
+    {
+    case Striker:       baseDamage = 10; break;
+    case Guardian:      baseDamage = 20; break;
+    case Manipulator:   baseDamage = 15; break;
+    default: baseDamage = 10; break;
+    }
+
+    if (!equippedItem) { return baseDamage; }
+
+    switch (equippedItem->ItemKind)
+    {
+    case EItemKind::Sword:    return 15 + baseDamage;
+    case EItemKind::Spear:    return 20 + baseDamage;
+    case EItemKind::Hammer:   return 30 + baseDamage;
+    case EItemKind::Umbrella: return 10 + baseDamage;
+    case EItemKind::Torch:    return 5  + baseDamage;
+    case EItemKind::Grenade:  return 0;
+    case EItemKind::Gun:      return 50;
+    default:                  return baseDamage;
+    }
 }
 
 void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t attackSeq)
@@ -1451,6 +1510,106 @@ void GameLogic::UpdateBuildingMap(float deltaTime)
     }
 }
 
+bool GameLogic::IsUmbrellaEquipped(Session* player) const
+{
+    if (!ownerRoom || !player)
+    {
+        return false;
+    }
+
+    const GameData& gd = player->gameDatas;
+    if (!gd.isConnected || gd.characterState != Alive || gd.equippedItemID < 0)
+    {
+        return false;
+    }
+
+    ItemData* item = ownerRoom->GetItemData(gd.equippedItemID);
+    if (!item)
+    {
+        return false;
+    }
+
+    return item->bEquipped &&
+        item->ownerUID == player->playerUID &&
+        item->ObjectType == e_ObjectType::WEAPON_ITEM &&
+        item->ItemKind == EItemKind::Umbrella;
+}
+
+void GameLogic::HandleLargeDebrisHit(int sessionID, int debrisID, int subID, int hitKind)
+{
+    if (mapType != 1 || roundState != ERoundState::Playing) { return; }
+
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second) { return; }
+
+    Session* targetSession = it->second;
+    GameData& gd = targetSession->gameDatas;
+    if (!gd.isConnected || gd.characterState != 0) { return; }
+
+    if (IsUmbrellaEquipped(targetSession))
+    {
+        LOG_INFO("[LargeDebrisHit] Blocked by umbrella. debrisID=%d subID=%d kind=%d targetUID=%d",
+            debrisID, subID, hitKind, targetSession->playerUID);
+        return;
+    }
+
+    const int damage = (hitKind == 1) ? 15 : 40; // 청크 15, 큰 본체 40
+
+    LOG_INFO("[LargeDebrisHit] debrisID=%d subID=%d kind=%d targetUID=%d damage=%d",
+        debrisID, subID, hitKind, targetSession->playerUID, damage);
+
+    ApplyDamage(targetSession->sessionID, damage, EDamageType::Rubble);
+}
+
+void GameLogic::HandleDebrisHit(int sessionID, int debrisID)
+{
+    if (mapType != 1 || roundState != ERoundState::Playing) { return; }
+
+    auto playerIt = players.find(sessionID);
+    if (playerIt == players.end()) { return; }
+
+    Session* targetSession = playerIt->second;
+    if (!targetSession) { return;  }
+
+    GameData& targetData = targetSession->gameDatas;
+    if (!targetData.isConnected || targetData.characterState != 0) { return; }
+
+    {
+        std::lock_guard<std::mutex> lock(activeSmallDebrisLock);
+
+        auto debrisIt = activeSmallDebrisIDs.find(debrisID);
+        if (debrisIt == activeSmallDebrisIDs.end())
+        {
+            LOG_INFO("[DebrisHit] Reject duplicate or invalid debrisID=%d session=%d uid=%d",
+                debrisID,
+                targetSession->sessionID,
+                targetSession->playerUID);
+            return;
+        }
+
+        activeSmallDebrisIDs.erase(debrisIt);
+    }
+
+    constexpr int SmallDebrisDamage = 10;
+
+    if (IsUmbrellaEquipped(targetSession))
+    {
+        LOG_INFO("[DebrisHit] Blocked by umbrella. debrisID=%d targetSession=%d targetUID=%d",
+            debrisID,
+            targetSession->sessionID,
+            targetSession->playerUID);
+        return;
+    }
+
+    LOG_INFO("[DebrisHit] debrisID=%d targetSession=%d targetUID=%d damage=%d",
+        debrisID,
+        targetSession->sessionID,
+        targetSession->playerUID,
+        SmallDebrisDamage);
+
+    ApplyDamage(targetSession->sessionID, SmallDebrisDamage, EDamageType::Rubble);
+}
+
 void GameLogic::UpdateDebrisSpawner(float deltaTime)
 {
     debrisSpawnAccumulator += deltaTime;
@@ -1463,8 +1622,9 @@ void GameLogic::UpdateDebrisSpawner(float deltaTime)
         int phaseIdx = (currentMapPhase >= 1 && currentMapPhase <= 3) ? currentMapPhase - 1 : 0;
 
         DebrisSpawnConfig& cfg = debrisPhaseConfigs[phaseIdx];
-        float range = cfg.max_Interval - cfg.min_Interval;
-        nextDebrisSpawnTime = cfg.min_Interval + ((float)rand() / RAND_MAX) * range;
+
+        std::uniform_real_distribution<float> intervalDist(cfg.min_Interval, cfg.max_Interval);
+        nextDebrisSpawnTime = intervalDist(MapRandomEngine);
     }
 }
 
@@ -1473,8 +1633,12 @@ void GameLogic::SpawnDebrisByPhase()
     int phaseIdx = (currentMapPhase >= 1 && currentMapPhase <= 3) ? currentMapPhase - 1 : 0;
     DebrisSpawnConfig& cfg = debrisPhaseConfigs[phaseIdx];
 
-    // Spawn a random count of debris objects for the current phase.
-    int count = cfg.min_Count + (rand() % (cfg.max_Count - cfg.min_Count + 1));
+
+    std::uniform_int_distribution<int> countDist(cfg.min_Count, cfg.max_Count);
+    std::uniform_real_distribution<float> xDist(MapMinX, MapMaxX);
+    std::uniform_real_distribution<float> yDist(MapMinY, MapMaxY);
+
+    int count = countDist(MapRandomEngine);
 
     for (int i = 0; i < count; ++i) {
         SpawnObjectPacket pkt;
@@ -1482,9 +1646,15 @@ void GameLogic::SpawnDebrisByPhase()
         pkt.objectID = nextObjectID++;
 
         // Temporary spawn range until map-authored spawn points are wired in.
-        pkt.x = (float)(rand() % 2000 - 1000);
-        pkt.y = (float)(rand() % 2000 - 1000);
-        pkt.z = 1000.f;
+        pkt.x = xDist(MapRandomEngine);
+        pkt.y = yDist(MapRandomEngine);
+        pkt.z = 5000.f;
+        pkt.lifeRemainTime = 5.f;
+
+        {
+            std::lock_guard<std::mutex> lock(activeSmallDebrisLock);
+            activeSmallDebrisIDs.insert(pkt.objectID);
+        }
 
         ownerRoom->BroadcastToMembers(PKT_S2C_SPAWN_OBJECT_BRD, (const char*)&pkt, sizeof(pkt));
     }
@@ -1519,6 +1689,11 @@ void GameLogic::StartBuildingMap()
     nextDebrisSpawnTime = debrisPhaseConfigs[0].min_Interval;
     bBuildingPhase2Trigger = false;
     bBuildingPhase3Trigger = false;
+
+    {
+        std::lock_guard<std::mutex> lock(activeSmallDebrisLock);
+        activeSmallDebrisIDs.clear();
+    }
 
     ResetMapItemSpawner();
 }
@@ -2458,7 +2633,12 @@ void GameLogic::StartJungleMap()
     junglePoisonFog.x = 0.f;
     junglePoisonFog.y = 0.f;
     junglePoisonFog.z = FixedGroundZ;
-    junglePoisonFog.radius = 3000.f;
+
+    junglePoisonFog.radius = 15000.f;
+    junglePoisonFog.initialInnerRadius = 10000.f;
+    junglePoisonFog.innerRadius = junglePoisonFog.initialInnerRadius;
+    junglePoisonFog.minInnerRadius = 0.f;
+    junglePoisonFog.innerShrinkDuration = 60.f;
 
     junglePoisonFog.activationDelay = 20.0f;
     junglePoisonFog.damageInterval = 1.0f;
@@ -2469,6 +2649,7 @@ void GameLogic::StartJungleMap()
 
 void GameLogic::UpdateJungleMap(float deltaTime)
 {
+    UpdateMapItemSpawner(deltaTime, EItemKind::Gun);
     UpdateJunglePoisonFog(deltaTime);
 }
 
@@ -2485,9 +2666,27 @@ void GameLogic::UpdateJunglePoisonFog(float deltaTime)
 
         junglePoisonFog.bActive = true;
         junglePoisonFog.damageAccumulator = 0.0f;
+        junglePoisonFog.innerRadius = junglePoisonFog.initialInnerRadius;
 
-        LOG_INFO("[JunglePoisonFog] Activated");
         return;
+    }
+
+    float shrinkSpeed = 0.0f;
+    if (currentMapPhase == 2)
+    {
+        shrinkSpeed = 50.0f;
+    }
+    else if (currentMapPhase >= 3)
+    {
+        shrinkSpeed = 150.0f;
+    }
+
+    if (shrinkSpeed > 0.0f)
+    {
+        junglePoisonFog.innerRadius = (std::max)(
+            junglePoisonFog.minInnerRadius,
+            junglePoisonFog.innerRadius - shrinkSpeed * deltaTime
+            );
     }
 
     junglePoisonFog.damageAccumulator += deltaTime;
@@ -2517,6 +2716,15 @@ void GameLogic::ApplyJunglePoisonDamage()
 
         if (!IsInsideJunglePoisonFog(gd)) { continue; }
 
+        LOG_INFO("[PoisonCheck] uid=%d pos=(%.1f, %.1f) outer=%.1f inner=%.1f inside=%d hp=%d",
+            player->playerUID,
+            gd.x,
+            gd.y,
+            junglePoisonFog.radius,
+            junglePoisonFog.innerRadius,
+            IsInsideJunglePoisonFog(gd) ? 1 : 0,
+            gd.currentHP);
+
         ApplyDamage(player->sessionID, junglePoisonFog.damageAmount, EDamageType::Poison);
     }
 }
@@ -2525,9 +2733,15 @@ bool GameLogic::IsInsideJunglePoisonFog(const GameData& gd) const
 {
     const float dx = gd.x - junglePoisonFog.x;
     const float dy = gd.y - junglePoisonFog.y;
-    const float radiusSq = junglePoisonFog.radius * junglePoisonFog.radius;
+    const float distSq = dx * dx + dy * dy;
 
-    return (dx * dx + dy * dy) <= radiusSq;
+    const float outerSq = junglePoisonFog.radius * junglePoisonFog.radius;
+    const float innerSq = junglePoisonFog.innerRadius * junglePoisonFog.innerRadius;
+
+    const bool bInsideOuter = distSq <= outerSq;
+    const bool bInsideSafeHole = junglePoisonFog.innerRadius > 0.f && distSq < innerSq;
+
+    return bInsideOuter && !bInsideSafeHole;
 }
 
 void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHolePacket& pkt)
@@ -2577,6 +2791,102 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
         pkt.x,
         pkt.y,
         pkt.z);
+}
+
+void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
+{
+    if (!ownerRoom) { return; }
+
+    auto attackerIt = players.find(sessionID);
+    if (attackerIt == players.end()) { return; }
+
+    Session* attacker = attackerIt->second;
+    if (!attacker || attacker->bFrozen) { return; }
+
+    GameData& attackerData = attacker->gameDatas;
+    if (!attackerData.isConnected || attackerData.characterState != Alive) { return; }
+
+    if (attackerData.equippedItemID != pkt.ItemID) { return; }
+
+    ItemData* item = ownerRoom->GetItemData(pkt.ItemID);
+    if (!item || !item->bEquipped || item->ownerUID != attacker->playerUID)
+    {
+        return;
+    }
+
+    if (item->ItemKind != EItemKind::Gun) { return; }
+
+    Session* target = nullptr;
+    for (const auto& pair : players)
+    {
+        Session* candidate = pair.second;
+        if (candidate && candidate->playerUID == pkt.TargetID)
+        {
+            target = candidate;
+            break;
+        }
+    }
+
+    if (!target || target == attacker) { return; }
+
+    GameData& targetData = target->gameDatas;
+    if (!targetData.isConnected || targetData.characterState != Alive) { return; }
+
+    if (attacker->teamID != -1 && attacker->teamID == target->teamID)
+    {
+        return;
+    }
+
+    const float dx = targetData.x - attackerData.x;
+    const float dy = targetData.y - attackerData.y;
+    const float dz = targetData.z - attackerData.z;
+    const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+    constexpr float GunTraceDistance = 10000.0f;
+    constexpr float ServerTolerance = 300.0f;
+    if (dist > GunTraceDistance + ServerTolerance) { return; }
+
+    const float dirLen = std::sqrt(
+        pkt.DirX * pkt.DirX +
+        pkt.DirY * pkt.DirY +
+        pkt.DirZ * pkt.DirZ
+    );
+    if (dirLen <= 0.001f) { return; }
+
+    const float nx = pkt.DirX / dirLen;
+    const float ny = pkt.DirY / dirLen;
+    const float nz = pkt.DirZ / dirLen;
+
+    const float toLen = (std::max)(dist, 0.001f);
+    const float tx = dx / toLen;
+    const float ty = dy / toLen;
+    const float tz = dz / toLen;
+
+    const float dot = nx * tx + ny * ty + nz * tz;
+    constexpr float MinAimDot = 0.985f;
+    if (dot < MinAimDot) { return; }
+
+    constexpr int GunDamage = 50;
+    ApplyDamage(target->sessionID, GunDamage, EDamageType::Normal);
+
+    attacker->gameDatas.equippedItemID = -1;
+}
+
+
+
+// ------------------------------------
+// ---------   Map Control   ----------
+// -------  SkyIsland  Station  -------
+// ------------------------------------
+
+void GameLogic::StartSkyIslandMap()
+{
+    ResetMapItemSpawner();
+}
+
+void GameLogic::UpdateSkyIslandMap(float deltaTime)
+{
+    UpdateMapItemSpawner(deltaTime, EItemKind::CloudGrenade);
 }
 
 

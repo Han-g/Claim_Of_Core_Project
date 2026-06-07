@@ -43,6 +43,9 @@ void PacketProcessor::InitHandler()
 	m_FuncHandlerMap[PKT_C2S_ATTACK_HIT_REPORT] = &PacketProcessor::Handle_Attack_HitReport;
 	m_FuncHandlerMap[PKT_C2S_ITEMPICKUP_KEYINPUT] = &PacketProcessor::Handle_ItemPickup_KeyInput;
 	m_FuncHandlerMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
+	m_FuncHandlerMap[PKT_C2S_OBJECT_HIT_REQ] = &PacketProcessor::Handle_Object_HitReq;
+	m_FuncHandlerMap[PKT_C2S_HITSCAN_SHOT_REQ] = &PacketProcessor::Handle_Hitscan_ShotReq;
+
 
 	m_FuncHandlerMap[PKT_C2S_ICE_FLOOR_STAND_REQ] = &PacketProcessor::Handle_IceFloor_StandReq;
 	m_FuncHandlerMap[PKT_C2S_GRENADE_BLACKHOLE_REQ] = &PacketProcessor::Handle_Grenade_SpawnReq;
@@ -205,6 +208,8 @@ void PacketProcessor::Handle_Character_SelectReq(IOCPServer* server, Session* se
 
 	room->BroadcastToMembers(PKT_S2C_CHARACTER_SELECT_BRD, reinterpret_cast<const char*>(&pkt), sizeof(pkt));
 
+	server->BroadcastRoomInfo(session);
+
 	LOG_INFO("[RoleSelect] session=%d uid=%d role=%d",
 		session->sessionID, session->playerUID, roleType);
 }
@@ -339,6 +344,50 @@ void PacketProcessor::Handle_ItemDrop_KeyInput(IOCPServer* server, Session* sess
 	if (!logic) { return; }
 
 	logic->DropCurrentItem(session->sessionID, pkt.itemID);
+}
+
+void PacketProcessor::Handle_Object_HitReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+
+	ObjectHitPacket pkt{};
+	if (!reader.Read(pkt))
+	{
+		return;
+	}
+
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic)
+	{
+		return;
+	}
+
+	LOG_INFO("[ObjectHitReq] session=%d objectID=%d objectType=%d subID=%d hitKind=%d",
+		session->sessionID,
+		pkt.objectID,
+		pkt.objectType,
+		pkt.subID,
+		pkt.hitKind);
+
+	if (pkt.objectType == static_cast<int32_t>(EMapEventType::SmallDebris))
+	{
+		logic->HandleDebrisHit(session->sessionID, pkt.objectID);
+	}
+
+	else if (pkt.objectType == static_cast<int32_t>(EMapEventType::LargeDebris))
+	{
+		logic->HandleLargeDebrisHit(session->sessionID, pkt.objectID, pkt.subID, pkt.hitKind);
+	}
+}
+
+void PacketProcessor::Handle_Hitscan_ShotReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	HitscanShotPacket pkt{};
+	if (!reader.Read(pkt)) { return; }
+
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	logic->HandleHitscanShot(session->sessionID, pkt);
 }
 
 void PacketProcessor::Handle_IceFloor_StandReq(IOCPServer* server, Session* session, PacketReader& reader)

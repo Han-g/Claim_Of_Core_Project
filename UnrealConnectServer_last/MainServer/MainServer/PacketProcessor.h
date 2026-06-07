@@ -42,6 +42,9 @@ private:
 	static void Handle_Attack_HitReport(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Object_HitReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Hitscan_ShotReq(IOCPServer* server, Session* session, PacketReader& reader);
+
 
 	static void Handle_IceFloor_StandReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Grenade_SpawnReq(IOCPServer* server, Session* session, PacketReader& reader);

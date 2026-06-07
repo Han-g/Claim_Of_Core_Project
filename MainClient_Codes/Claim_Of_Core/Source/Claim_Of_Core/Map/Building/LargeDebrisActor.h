@@ -100,12 +100,28 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Debris")
 	bool IsLanded() const { return bLanded; }
 
+
 public:
 	virtual void BreakChunk(int32 ChunkIndex, bool bFromImpact = false) override;
+
+	void SetLargeDebrisID(int32 InID) { LargeDebrisID = InID; }
 
 protected:
 	virtual void DropUnsupportedChunks() override;
 	virtual void OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact) override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
+	int32 LargeDebrisID = -1;
+
+	TSet<int32> ReportedHitKeys;
+
+	UFUNCTION()
+	void OnLargeDebrisHit(
+		UPrimitiveComponent* HitComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		FVector NormalImpulse,
+		const FHitResult& Hit);
 
 public:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Debris")

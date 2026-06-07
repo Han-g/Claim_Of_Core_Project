@@ -666,6 +666,15 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
     }
     case PKT_S2C_GAME_RESULT_BRD:
     {
+        if (PayloadSize < sizeof(FRoundChangePacket)) { break; }
+
+        FRoundChangePacket Packet{};
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FRoundChangePacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::RoundResult;
+        Evt.RoundChange = Packet;
+        PushEvent(MoveTemp(Evt));
 
         break;
     }

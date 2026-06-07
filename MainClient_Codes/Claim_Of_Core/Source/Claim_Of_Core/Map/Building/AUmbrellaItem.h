@@ -13,5 +13,14 @@ UCLASS()
 class CLAIM_OF_CORE_API AAUmbrellaItem : public ABaseItem
 {
 	GENERATED_BODY()
-	
+
+public:
+	AAUmbrellaItem();
+
+protected:
+	virtual void BeginPlay() override;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Umbrella")
+	float VisualScaleMultiplier = 5.0f;
 };

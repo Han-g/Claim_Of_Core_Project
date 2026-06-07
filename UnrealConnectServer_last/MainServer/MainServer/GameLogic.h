@@ -14,6 +14,7 @@ struct Session;
 struct AttackHitReportPacket;
 struct RoundChangePacket;
 struct GrenadeBlackHolePacket;
+struct HitscanShotPacket;
 struct GameData;
 
 enum ERecCharacterState { Alive, Dead };
@@ -69,6 +70,8 @@ enum class EItemKind {
 	Umbrella = 4,
 	Torch = 5,
 	Grenade = 6,
+	Gun = 7,
+	CloudGrenade = 8
 };
 
 enum class e_ObjectType {
@@ -173,7 +176,13 @@ struct JunglePoisonFogData {
 	float x = 0.f;
 	float y = 0.f;
 	float z = 500.f;
-	float radius = 3000.f;
+
+	float radius = 15000.f;
+	float innerRadius = 10000.f;
+	float initialInnerRadius = 10000.f;
+	float minInnerRadius = 500.f;
+	float innerShrinkDuration = 60.f;
+	float activeElapsed = 0.f;
 
 	float activationDelay = 20.0f;
 	float activationTimer = 0.0f;
@@ -311,6 +320,7 @@ public:
 	void Heal(int sessionID, int healAmount);				// Restores HP up to max HP and broadcasts the result.
 	void ResetHP(int sessionID);							// Restores HP to max HP and broadcasts the updated status.
 	void SetCurrentHP(int sessionID, int newHP);			// Sets the internal HP value after clamping it to the valid range.
+	bool CheckFallDeath(Session* player);
 
 	// State System
 	void EndGameRoundByElimination(int eliminatedTeamID);
@@ -395,6 +405,7 @@ public:
 	// Validates and processes an attack input from the given player.
 	void HandleAttackInput(int sessionID);
 	void HandleAttackHitReport(int sessionID, const AttackHitReportPacket& pkt);
+	int GetAttackDamage(const GameData& attackerData, const ItemData* equippedItem) const;
 	// Broadcast Attack Calculation Result.
 	void BroadcastAttackAction(int attackerUID, int attackType, uint32_t attackSeq);
 	// Applies validated damage from one player to another target.
@@ -439,7 +450,9 @@ public:
 	void UpdateBuildingMap(float deltaTime);
 
 	void SpawnSmallDebris(int spawnerID);                   // Spawns small debris and broadcasts the event.
-	void HandleDebrisHit(int debrisID, int targetID);       // Applies debris hit damage and broadcasts the result.
+	void HandleLargeDebrisHit(int sessionID, int debrisID, int subID, int hitKind);
+	void HandleDebrisHit(int sessionID, int debrisID);       // Applies debris hit damage and broadcasts the result.
+	bool IsUmbrellaEquipped(Session* player) const;
 	void DestroyDebris(int debrisID);                       // Removes debris and broadcasts the destruction.
 
 	// Phase 1: every 6-10 seconds, 1 spawn / Phase 2: every 3-6 seconds, 1-2 spawns / Phase 3: every 2-4 seconds, 2 spawns
@@ -572,12 +585,24 @@ public:
 
 	void HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHolePacket& pkt);
 
+	void HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt);
+
+
+public:
+	// ------------------------------------
+	// ---------   Map Control   ----------
+	// -------  SkyIsland  Station  -------
+	// ------------------------------------
+	void StartSkyIslandMap();
+	void UpdateSkyIslandMap(float deltaTime);
+
+
 private:
 	// ------------ Building Map Statement ------------
 	DebrisSpawnConfig debrisPhaseConfigs[3] = {
 		{6.f, 10.f, 1, 1},
 		{3.f,  6.f, 1, 2},
-		{2.f,  4.f, 2, 2},
+		{1.f,  2.5f, 2, 5},
 	};
 
 	float debrisSpawnAccumulator = 0.f;
@@ -588,6 +613,8 @@ private:
 	bool bBuildingPhase2Trigger = false;
 	bool bBuildingPhase3Trigger = false;
 
+	std::unordered_set<int> activeSmallDebrisIDs;
+	std::mutex activeSmallDebrisLock;
 
 	// ------------ IceCave Map Statement ------------
 	std::vector<IcicleData> icicles;

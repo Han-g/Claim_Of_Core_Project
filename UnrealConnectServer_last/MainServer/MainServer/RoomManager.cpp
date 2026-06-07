@@ -32,15 +32,6 @@ void Room::InitGameLogic(GameLogic* logic)
 
             GameData& pd = member->gameDatas;
             pd.userUID = member->playerUID;
-            /*pd.maxHP = 100;
-            //pd.currentHP = 100;
-            //pd.characterState = 0;
-            //pd.roleType = 0;
-            //pd.baseWalkSpeed = 500.f;
-            //// Reset spawn-related player data to default values until map-specific spawn points are wired in.
-            pd.x = 0; pd.y = 0; pd.z = 0;*/
-
-            //InitCharacter(member, logic);
         }
     }
 
@@ -64,9 +55,11 @@ void Room::InitCharacter(Session* member, GameLogic* logic)
     gd.userUID = member->playerUID;
     gd.isConnected = true;
     gd.characterState = 0; // Alive
+    gd.teamType = member->teamID;
 
     logic->ApplyRoleStats(member->sessionID);
     gd.currentHP = gd.maxHP;
+    gd.equippedItemID = -1;
 
     const Vector3 spawn = GetRespawnLocation(slot);
 
@@ -197,6 +190,7 @@ bool Room::ChangeMemberSlot(Session* member, int targetSlot)
     UsedSlots[targetSlot] = true;
     member->roomSlot = targetSlot;
     member->teamID = TeamCalculateBySlot(targetSlot);
+    member->gameDatas.teamType = member->teamID;
 
     return true;
 }
@@ -457,11 +451,6 @@ bool Room::BroadcastGameDatas()
     std::vector<GameData> roomSnapshot;
     for (Session* member : m_Members) {
         if (member->gameDatas.isConnected) {
-            /*LOG_INFO("[SnapshotOut] uid=%d pos=(%.1f, %.1f, %.1f) anim=%d state=%d",
-                member->gameDatas.userUID,
-                member->gameDatas.x, member->gameDatas.y, member->gameDatas.z,
-                member->gameDatas.animationNum,
-                member->gameDatas.characterState);*/
             roomSnapshot.push_back(member->gameDatas);
         }
     }
@@ -848,7 +837,7 @@ void RoomManager::GameStart(Session* client)
     // Switch the room into PLAYING state.
     room->SetState(ERoomState::PLAYING);
     
-    std::vector<int> AvailableMaps = { 1, 2, 3, 4, /*5*/ }; // 1: Building, 2: IceCave, 3: Space, 4: Jungle, 5: SkyIsland
+    std::vector<int> AvailableMaps = { 1, 2, 3, 4, 5 }; // 1: Building, 2: IceCave, 3: Space, 4: Jungle, 5: SkyIsland
 
     std::random_device rd;
     std::mt19937 gen(rd());

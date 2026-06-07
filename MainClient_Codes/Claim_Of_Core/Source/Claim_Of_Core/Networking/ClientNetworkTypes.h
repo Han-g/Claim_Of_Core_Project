@@ -76,9 +76,10 @@ enum PacketID : uint16 {
     PKT_C2S_ITEMDROP_KEYINPUT = 552,
     PKT_C2S_OBJECT_HIT_REQ = 553,
     PKT_C2S_ATTACK_HIT_REPORT = 554,
+    PKT_C2S_HITSCAN_SHOT_REQ = 555,
 
-    PKT_C2S_ICE_FLOOR_STAND_REQ = 555,
-    PKT_C2S_GRENADE_BLACKHOLE_REQ = 556,
+    PKT_C2S_ICE_FLOOR_STAND_REQ = 556,
+    PKT_C2S_GRENADE_BLACKHOLE_REQ = 557,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,
     PKT_S2C_DESPAWN_ITEM_BRD = 131,
@@ -110,6 +111,7 @@ struct GameData {
 
     int characterState = -1;    // 0=Alive, 1=Dead
     int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
+    int teamType = -1;          // -1=None, 0=Red, 1=Blue
 
     int animationNum = 0;
     int equippedItemID = -1;
@@ -124,6 +126,8 @@ enum class EClientItemKind : int32
     Umbrella = 4,
     Torch = 5,
     Grenade = 6,
+    Gun = 7,
+    CloudGrenade = 8
 };
 
 // ============================================================
@@ -187,6 +191,22 @@ struct FSpawnObjectPacket {
     float lifeRemainTime;
 };
 
+struct FObjectHitPacket
+{
+    int32_t objectID;
+    int32_t objectType;
+    int32_t subID;      // chunkIndex, 본체면 -1
+    int32_t hitKind;    // 0=LargeBody, 1=Chunk
+};
+
+struct FHitscanShotPacket
+{
+    int32 ItemID;
+    int32 TargetID;
+    float StartX, StartY, StartZ;
+    float DirX, DirY, DirZ;
+};
+
 struct FIceFloorStandPacket
 {
     int32_t FloorID;
@@ -221,6 +241,24 @@ struct FPhaseChangePacket {
     float blackHoleZ = -1;
 };
 
+struct FRoundResultPacket
+{
+    int32_t winnerTeamID;
+    int32_t endReason;
+    int32_t team1Score;
+    int32_t team2Score;
+};
+
+struct FRoundChangePacket
+{
+    int32_t currentRound;
+    int32_t maxRound;
+    int32_t currentMap;
+    int32_t nextRoundStartSec;
+
+    FRoundResultPacket result;
+};
+
 struct FMovePacket {
     float X, Y, Z;
     float Yaw;
@@ -238,7 +276,7 @@ struct FItemPacket
     float X, Y, Z;
 };
 
-enum class EDamageType : int32_t { Normal, Poison, Rubble };
+enum class EDamageType : int32_t { Normal, Poison, Rubble, Fall };
 
 struct FDamageApplyPacket { int32 TargetID; int32 Damage; int32 RemainHP; EDamageType DamageType; };
 
@@ -315,6 +353,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleChanged, const FRoleChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameTimeSynced, float);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundPrepare, const FRoundPreparePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, const FPhaseChangePacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundResult, const FRoundChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapEventTriggered, const FMapEventPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnObjectSpawned, const FSpawnObjectPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAttackActionReceived, const FAttackActionPacket&);
@@ -376,6 +415,7 @@ enum class ENetEventType : uint8
     MapEventTriggered,
     ObjectSpawned,
     PhaseChanged,
+    RoundResult,
     ItemSpawned,
     ItemOwnershipChanged,
     StatusEffect,
@@ -405,6 +445,7 @@ struct FNetEvent
     FRoundPreparePacket  RoundPrepare;
     FRoleChangePacket    RoleChange;
     FPhaseChangePacket   PhaseChange;
+    FRoundChangePacket   RoundChange;
     FMapEventPacket      MapEvent;
     FSpawnObjectPacket   SpawnObject;
     FAttackActionPacket  AttackAction;

@@ -2,6 +2,8 @@
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "UI/NetworkInstance.h"
+#include "Sub/MyCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 #include "GameFramework/Character.h"
@@ -36,12 +38,12 @@ void ASmallDebrisActor::BeginPlay()
 
 	if (CollisionComp)
 	{
-		//CollisionComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
+		CollisionComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
 	}
 
 	if (MeshComp)
 	{
-		//MeshComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
+		MeshComp->OnComponentHit.AddDynamic(this, &ASmallDebrisActor::OnDebrisHit);
 	}
 }
 
@@ -62,21 +64,37 @@ void ASmallDebrisActor::OnDebrisHit(
 		return;
 	}
 
-	// 플레이어 맞았을 때 데미지
-	if (!bHasDamagedPlayer && OtherActor->IsA<ACharacter>())
+	AMyCharacter* HitCharacter = Cast<AMyCharacter>(OtherActor);
+	if (!bHasDamagedPlayer && HitCharacter && HitCharacter->IsLocallyControlled())
 	{
-		UGameplayStatics::ApplyDamage(
-			OtherActor,
-			Damage,
-			GetInstigatorController(),
-			this,
-			nullptr
-		);
+		if (HitCharacter->IsUmbrellaEquipped())
+		{
+			bHasHitSomething = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("[SmallDebris] Blocked by Umbrella: %s ObjectID=%d"),
+				*OtherActor->GetName(),
+				ObjectID);
+
+			StartDestroyTimer();
+			return;
+		}
+
+		if (ObjectID < 0)
+		{
+			return;
+		}
+
+		if (UNetworkInstance* NetworkInstance = GetWorld()->GetGameInstance<UNetworkInstance>())
+		{
+			NetworkInstance->RequestObjectHit(ObjectID, 2, -1, 0); // SmallDebris == 2
+		}
 
 		bHasDamagedPlayer = true;
 		bHasHitSomething = true;
 
-		UE_LOG(LogTemp, Warning, TEXT("[SmallDebris] Hit Player: %s"), *OtherActor->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("[SmallDebris] Hit Player: %s ObjectID=%d"),
+			*OtherActor->GetName(),
+			ObjectID);
 
 		if (bDestroyOnPlayerHit)
 		{

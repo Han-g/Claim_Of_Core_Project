@@ -52,6 +52,6 @@ protected:
 	void InitializeGameState();
 	void HandlePhaseLogic();
 
-	void PrepareDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors);
+	void PrepareDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors, int32 BaseID);
 	void ActivateDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors);
 };

@@ -162,6 +162,10 @@ void ClientNetworking::PumpEvents()
             OnGameStart.Broadcast();
             break;
 
+        case ENetEventType::RoundResult:
+            OnRoundResult.Broadcast(Evt.RoundChange);
+            break;
+
         case ENetEventType::MatchEnd:
             OnMatchEnd.Broadcast();
             break;
@@ -453,6 +457,46 @@ void ClientNetworking::AttackHitReportRequest(uint32 AttackSeq, int32 TargetID, 
     Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FAttackHitReportPacket));
 
     EnqueueSendCommand(PKT_C2S_ATTACK_HIT_REPORT, Payload);
+}
+
+void ClientNetworking::ObjectHitRequest(int32 ObjectID, int32 ObjectType, int32 SubID, int32 HitKind)
+{
+    FObjectHitPacket Packet{};
+    Packet.objectID = ObjectID;
+    Packet.objectType = ObjectType;
+    Packet.subID = SubID;
+    Packet.hitKind = HitKind;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FObjectHitPacket));
+
+    EnqueueSendCommand(PKT_C2S_OBJECT_HIT_REQ, Payload);
+}
+
+void ClientNetworking::HitscanShotRequest(int32 ItemID, int32 TargetID, const FVector& TraceStart, const FVector& TraceDirection)
+{
+    const FVector ShotDirection = TraceDirection.GetSafeNormal();
+    if (ItemID < 0 || TargetID <= 0 || ShotDirection.IsNearlyZero())
+    {
+        return;
+    }
+
+    FHitscanShotPacket Packet{};
+    Packet.ItemID = ItemID;
+    Packet.TargetID = TargetID;
+
+    Packet.StartX = TraceStart.X;
+    Packet.StartY = TraceStart.Y;
+    Packet.StartZ = TraceStart.Z;
+
+    Packet.DirX = ShotDirection.X;
+    Packet.DirY = ShotDirection.Y;
+    Packet.DirZ = ShotDirection.Z;
+
+    TArray<uint8> Payload;
+    Payload.Append(reinterpret_cast<const uint8*>(&Packet), sizeof(FHitscanShotPacket));
+
+    EnqueueSendCommand(PKT_C2S_HITSCAN_SHOT_REQ, Payload);
 }
 
 void ClientNetworking::SendMoveInput(const FMovePacket& MoveData)

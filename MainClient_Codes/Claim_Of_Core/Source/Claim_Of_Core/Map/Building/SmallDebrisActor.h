@@ -15,6 +15,9 @@ class CLAIM_OF_CORE_API ASmallDebrisActor : public AActor
 public:
 	ASmallDebrisActor();
 
+	void SetObjectID(int32 InObjectID) { ObjectID = InObjectID; }
+	int32 GetObjectID() const { return ObjectID; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -43,6 +46,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
 	bool bHasDamagedPlayer = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
+	int32 ObjectID = -1;
 
 	FTimerHandle TimerHandle_Destroy;
 

@@ -11,6 +11,7 @@
 
 class ClientNetworking;
 class URoomWidget;
+class URoundWinWidget;
 class AMyCharacter;
 class ABaseItem;
 class ASmallDebrisActor;
@@ -77,6 +78,8 @@ public:
 	void RequestJumpInput();
 	void RequestItemPickup(int32 ItemID);
 	void RequestItemDrop(int32 ItemID);
+	void RequestObjectHit(int32 ObjectID, int32 ObjectType, int32 SubID, int32 HitKind);
+	void RequestHitscanShot( int32 ItemID, int32 TargetID, const FVector& TraceStart, const FVector& TraceDirection );
 
 	void RequestIceFloorStanding(int32 FloorID, int32 PieceIndex);
 	void RequestGrenadeBlackHoleSpawn(int32 ItemID, const FVector& SpawnLocation);
@@ -92,6 +95,7 @@ public:
 	void HandleRegisterResult(bool bSuccess);
 	void HandleRoomListUpdate(const TArray<FRoomInfoData>& RoomList);
 	void HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMemberInfo>& playerList);
+	void HandleRoleChanged(const FRoleChangePacket& Packet);
 	void HandleGameStart();
 	void HandleMatchEnd();
 
@@ -114,6 +118,7 @@ public:
 	void HandleRespawned(const FRespawnPacket& Packet);
 	void HandleGameTimeSynced(float SyncedGameTime);
 	void HandlePhaseChanged(const FPhaseChangePacket& Packet);
+	void HandleRoundResult(const FRoundChangePacket& Packet);
 	void HandleMapEventTriggered(const FMapEventPacket& Packet);
 	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
 
@@ -139,6 +144,12 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UUserWidget> RoundPrepareWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<URoundWinWidget> RoundWinWidgetClass;
+
+	UPROPERTY()
+	URoundWinWidget* RoundWinWidgetInstance = nullptr;
 
 	UPROPERTY()
 	UUserWidget* RoundPrepareWidgetInstance = nullptr;
@@ -209,6 +220,10 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<ABaseItem> GrenadeItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> GunItemClass;
+
 
 	TMap<int32, TWeakObjectPtr<ABaseItem>> SpawnedItems;
 

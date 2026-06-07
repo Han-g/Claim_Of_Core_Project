@@ -1,6 +1,8 @@
 #include "LargeDebrisActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Containers/Queue.h"
+#include "Sub/MyCharacter.h"
+#include "NetworkInstance.h"
 #include "TimerManager.h"
 
 ALargeDebrisActor::ALargeDebrisActor()
@@ -15,7 +17,9 @@ void ALargeDebrisActor::BeginPlay()
 
 	for (UStaticMeshComponent* MeshComp : ChunkMeshes)
 	{
-		if (!MeshComp) continue;
+		if (!MeshComp) { continue; }
+
+		MeshComp->OnComponentHit.AddDynamic(this, &ALargeDebrisActor::OnLargeDebrisHit);
 
 		MeshComp->SetNotifyRigidBodyCollision(true);
 		MeshComp->SetSimulatePhysics(false);
@@ -44,6 +48,7 @@ void ALargeDebrisActor::PrepareDebris()
 	bLanded = false;
 	CurrentFallSpeed = 0.f;
 	PendingBreakChunks.Empty();
+	ReportedHitKeys.Empty();
 	GetWorldTimerManager().ClearTimer(SequentialBreakTimerHandle);
 
 	SetActorHiddenInGame(true);
@@ -383,5 +388,46 @@ void ALargeDebrisActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFrom
 			10.0f,
 			false
 		);
+	}
+}
+
+void ALargeDebrisActor::OnLargeDebrisHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (!bDebrisActivated || LargeDebrisID < 0) { return; }
+
+	AMyCharacter* HitCharacter = Cast<AMyCharacter>(OtherActor);
+	if (!HitCharacter || !HitCharacter->IsLocallyControlled()) { return; }
+
+	const int32 ChunkIndex = FindChunkIndexByComponent(HitComponent);
+
+	const bool bBrokenChunk =
+		ChunkIndex != INDEX_NONE &&
+		ChunkData.IsValidIndex(ChunkIndex) &&
+		ChunkData[ChunkIndex].bBroken;
+
+	// 착지 후 고정된 큰 잔해물에 비비는 것은 데미지 제외, 깨진 청크만 데미지.
+	if (bLanded && !bBrokenChunk)
+	{
+		return;
+	}
+
+	const int32 SubID = bBrokenChunk ? ChunkIndex : -1;
+	const int32 HitKind = bBrokenChunk ? 1 : 0;
+
+	const int32 HitKey = LargeDebrisID * 1000 + (SubID + 1);
+	if (ReportedHitKeys.Contains(HitKey)) { return; }
+	ReportedHitKeys.Add(HitKey);
+
+	if (HitCharacter->IsUmbrellaEquipped())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LargeDebris] Blocked by Umbrella: %s DebrisID=%d"),
+			*OtherActor->GetName(),
+			LargeDebrisID);
+		return;
+	}
+
+	if (UNetworkInstance* NetworkInstance = GetWorld()->GetGameInstance<UNetworkInstance>())
+	{
+		NetworkInstance->RequestObjectHit(LargeDebrisID, 3, SubID, HitKind); // LargeDebris == 3
 	}
 }

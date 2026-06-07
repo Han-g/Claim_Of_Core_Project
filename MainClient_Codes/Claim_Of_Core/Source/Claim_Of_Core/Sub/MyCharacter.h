@@ -8,8 +8,9 @@
 struct FInputActionValue;
 
 class ABaseItem;
-class FLifetimeProperty;
 class AVineClimbActor;
+class AGunItem;
+class FLifetimeProperty;
 
 class UAnimInstance;
 class UAnimMontage;
@@ -24,6 +25,7 @@ class USpringArmComponent;
 class UPrimitiveComponent;
 class UBoxComponent;
 class UNiagaraSystem;
+class UMaterialInstanceDynamic;
 
 UENUM(BlueprintType)
 enum class ERecCharacterState : uint8
@@ -38,6 +40,14 @@ enum class ERecRoleType : uint8
 	Striker     UMETA(DisplayName = "Striker"),
 	Guardian    UMETA(DisplayName = "Guardian"),
 	Manipulator UMETA(DisplayName = "Manipulator"),
+};
+
+UENUM(BlueprintType)
+enum class ERecTeamType : uint8
+{
+	None = 255 UMETA(DisplayName = "None"),
+	Red =  0   UMETA(DisplayName = "Red"),
+	Blue = 1   UMETA(DisplayName = "Blue"),
 };
 
 UENUM(BlueprintType)
@@ -103,7 +113,7 @@ protected:
 	UInputAction* AttackAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	UInputAction* KnockbackAction;
+	UInputAction* AimAction;
 
 public:
 	AMyCharacter();
@@ -113,16 +123,39 @@ public:
 	void PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSeq);
 
 	void SetRoleFromNetwork(int32 InRoleType);
+	void SetTeamFromNetwork(int32 InTeamType);
 	void SetHPFromNetwork(int32 InHP);
 	void SetStateFromNetwork(int32 InState);
 	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
 	void ApplyLocalServerCorrection(float X, float Y, float Z, float Yaw);
+	void ApplyTeamVisual();
+	void UpdateTeamOutlinePostProcess();
 
 	void LockUntilInitialSnapshot();
 	void UnlockAfterInitialSnapshot();
 
+	bool IsSameTeam(AMyCharacter* OtherCharacter) const { return OtherCharacter->TeamType == TeamType; }
+
 private:
 	int32 NetworkPlayerUID = -1;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Team", meta = (AllowPrivateAccess = "true"))
+	ERecTeamType TeamType = ERecTeamType::None;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	TObjectPtr<UMaterialInterface> TeamOutlinePostProcessMaterial;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	FLinearColor RedTeamOutlineColor = FLinearColor(1.0f, 0.02f, 0.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	FLinearColor BlueTeamOutlineColor = FLinearColor(0.0f, 0.28f, 1.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	float TeamOutlineThickness = 4.0f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> TeamOutlinePostProcessMID;
 
 protected:
 	virtual void BeginPlay() override;
@@ -209,6 +242,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Status|PoisonFog")
 	bool IsInPoisonFog() const { return bPoisonFogVisionEffectActive; }
 
+
 	UFUNCTION(BlueprintCallable, Category = "Climb")
 	void EnterVineClimb(AVineClimbActor* VineActor);
 
@@ -217,6 +251,19 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Climb")
 	bool IsVineClimbing() const { return bIsVineClimbing; }
+
+
+	UFUNCTION(BlueprintPure, Category = "Aim")
+	bool IsAiming() const { return bAiming; }
+
+	UFUNCTION(BlueprintCallable, Category = "Aim")
+	void StartAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Aim")
+	void EndAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void ConsumeCurrentItem(ABaseItem* ItemToConsume);
 
 private:
 	UPROPERTY(VisibleInstanceOnly, Category = "PoisonFog")
@@ -257,6 +304,15 @@ private:
 	UPROPERTY(VisibleInstanceOnly, Category = "Climb")
 	bool bIsVineClimbing = false;
 
+	UPROPERTY(VisibleInstanceOnly, Category = "Aim")
+	bool bAiming = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Aim")
+	float AimCameraArmLength = 500.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Aim")
+	FVector AimCameraSocketOffset = FVector(0.f, 150.f, 45.f);
+
 	TWeakObjectPtr<AVineClimbActor> CurrentVineClimbActor;
 
 	bool CanStartVineClimb() const;
@@ -291,6 +347,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Role")
 	ERecRoleType GetRoleType() const { return RoleType; }
+
+	UFUNCTION(BlueprintPure, Category = "Item")
+	bool IsUmbrellaEquipped() const;
 
 	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
 	void ActivateRoleSkill();
