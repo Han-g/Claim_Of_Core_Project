@@ -12,6 +12,7 @@ class AVineClimbActor;
 class AGunItem;
 class FLifetimeProperty;
 
+class USoundBase;
 class UAnimInstance;
 class UAnimMontage;
 class UInputAction;
@@ -165,6 +166,7 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	
 	virtual void Jump() override;
+	virtual void Landed(const FHitResult& Hit) override;
 
 	virtual float TakeDamage(
 		float DamageAmount,
@@ -199,6 +201,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Input")
 	virtual void DoJumpEnd();
+
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> HitSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> BaseAttackSound;
 
 	// Ice Map Gimmicks
 	void UpdateFrozenOverlay();

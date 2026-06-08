@@ -60,13 +60,19 @@ void UNetworkInstance::Init()
 		TEXT("ServerIP");
 #endif
 
-	if (GConfig) {
-		GConfig->GetString(
+	if (GConfig)
+	{
+		const bool bLoaded = GConfig->GetString(
 			TEXT("ServerSettings"),
-			TEXT("ServerIP"),
+			ServerIPKey,
 			ServerIPAddress,
 			GGameIni
 		);
+
+		UE_LOG(LogTemp, Display, TEXT("ServerIPKey=%s, Loaded=%d, ServerIPAddress=%s"),
+			ServerIPKey,
+			bLoaded,
+			*ServerIPAddress);
 	}
 
 	// Bind delegates (all fire on game thread via PumpEvents)

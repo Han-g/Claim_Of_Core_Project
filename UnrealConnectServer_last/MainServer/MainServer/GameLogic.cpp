@@ -337,8 +337,8 @@ bool GameLogic::TrySelectMap()
 
     std::uniform_int_distribution<int> dist( 0, static_cast<int>(remainingMaps.size()) - 1  );
 
-    //----------------------------- Map index Setting --------------------------------
-    const int index = 4;//dist(MapRandomEngine);
+    //----------------------------- Map Setting --------------------------------
+    const int index = 3;//dist(MapRandomEngine);
 
     selectedMapType = remainingMaps[index];
 
@@ -2634,8 +2634,8 @@ void GameLogic::StartJungleMap()
     junglePoisonFog.y = 0.f;
     junglePoisonFog.z = FixedGroundZ;
 
-    junglePoisonFog.radius = 15000.f;
-    junglePoisonFog.initialInnerRadius = 10000.f;
+    junglePoisonFog.radius = 20000.f;
+    junglePoisonFog.initialInnerRadius = 18000.f;
     junglePoisonFog.innerRadius = junglePoisonFog.initialInnerRadius;
     junglePoisonFog.minInnerRadius = 0.f;
     junglePoisonFog.innerShrinkDuration = 60.f;
@@ -2674,11 +2674,11 @@ void GameLogic::UpdateJunglePoisonFog(float deltaTime)
     float shrinkSpeed = 0.0f;
     if (currentMapPhase == 2)
     {
-        shrinkSpeed = 50.0f;
+        shrinkSpeed = 75.0f;
     }
     else if (currentMapPhase >= 3)
     {
-        shrinkSpeed = 150.0f;
+        shrinkSpeed = 225.0f;
     }
 
     if (shrinkSpeed > 0.0f)

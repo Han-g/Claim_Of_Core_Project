@@ -3,6 +3,7 @@
 #include "../Map/IceCave/IceFloorTile.h"
 #include "../Map/Jungle/VineClimbActor.h"
 #include "../Map/Jungle/GunItem.h"
+#include "../Map/SkyIsland/SkyCloudPlatform.h"
 
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
@@ -27,6 +28,7 @@
 
 #include "Materials/MaterialInstanceDynamic.h"
 
+#include "Sound/SoundBase.h"
 #include "Net/UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
@@ -395,6 +397,10 @@ void AMyCharacter::CheckIceFloor()
 		return;
 	}
 
+	AActor* HitActor = Hit.GetActor();
+	AActor* ComponentOwner = Hit.GetComponent() ? Hit.GetComponent()->GetOwner() : nullptr;
+
+
 	AIceFloorTile* IceFloorTile = Cast<AIceFloorTile>(Hit.GetActor());
 
 	if (!IceFloorTile && Hit.GetComponent())
@@ -402,26 +408,34 @@ void AMyCharacter::CheckIceFloor()
 		IceFloorTile = Cast<AIceFloorTile>(Hit.GetComponent()->GetOwner());
 	}
 
-	if (!IceFloorTile)
+	if (IceFloorTile)
+	{
+		SetIceMovement(true);
+
+		const int32 PieceIndex = IceFloorTile->GetPieceIndexFromComponent(Hit.GetComponent());
+		if (PieceIndex >= 0)
+		{
+			if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+			{
+				NetInst->RequestIceFloorStanding(0, PieceIndex);
+			}
+		}
+	}
+	else
 	{
 		SetIceMovement(false);
-		return;
 	}
 
-	// Ice Floor Local Distruction 
-	//IceFloorTile->NotifyPlayerStandingOnPiece(this, Hit.GetComponent());
+	ASkyCloudPlatform* CloudPlatform = Cast<ASkyCloudPlatform>(HitActor);
+	if (!CloudPlatform)
+	{
+		CloudPlatform = Cast<ASkyCloudPlatform>(ComponentOwner);
+	}
 
-
-	// Ice Floor Server Distruction 
-	SetIceMovement(true);
-	const int32 PieceIndex = IceFloorTile->GetPieceIndexFromComponent(Hit.GetComponent());
-	if (PieceIndex >= 0)
-{
-    if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
-    {
-        NetInst->RequestIceFloorStanding(0, PieceIndex);
-    }
-}
+	if (CloudPlatform && CloudPlatform->ActorHasTag(TEXT("CloudPlatform")))
+	{
+		CloudPlatform->NotifyPlayerStanding(this);
+	}
 }
 
 void AMyCharacter::SetIceMovement(bool bNew)
@@ -1655,6 +1669,28 @@ void AMyCharacter::Jump()
 	Super::Jump();
 }
 
+void AMyCharacter::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+
+	if (IsDead() || !Hit.GetActor())
+	{
+		return;
+	}
+
+	AActor* HitActor = Hit.GetActor();
+
+	if (!HitActor->ActorHasTag(TEXT("CloudPlatform")))
+	{
+		return;
+	}
+
+	if (ASkyCloudPlatform* CloudPlatform = Cast<ASkyCloudPlatform>(HitActor))
+	{
+		CloudPlatform->NotifyPlayerLanded(this);
+	}
+}
+
 void AMyCharacter::SelfDamagePressed()
 {
 	if (!IsLocallyControlled())
@@ -2395,9 +2431,23 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 	//HandCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	const float AttackPlayRate = 1.4f;
 	const float PlayedLength = AnimInstance->Montage_Play(AttackMontage, AttackPlayRate);
+
 	if (PlayedLength <= 0.f)
 	{
 		CurrentAttackSeq = 0;
+
+		USoundBase* AttackSound = BaseAttackSound;
+
+		if (CurrentItem && CurrentItem->GetSwingSound())
+		{
+			AttackSound = CurrentItem->GetSwingSound();
+		}
+
+		if (AttackSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
+		}
+
 		return;
 	}
 
@@ -2856,6 +2906,11 @@ void AMyCharacter::PlayHitFeedback(bool bPlayLocalDamageFlash)
 	if (bPlayLocalDamageFlash)
 	{
 		StartDamageFlash();
+
+		if (HitSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetActorLocation());
+		}
 	}
 }
 

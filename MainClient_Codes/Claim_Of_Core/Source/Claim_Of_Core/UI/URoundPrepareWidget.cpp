@@ -44,8 +44,7 @@ void URoundPrepareWidget::SetSelectedMap(int32 MapType)
 		}
 	}
 
-
-	RemainingTime = 10.0f;
+	RemainingTime = 5.0f;
 	bCountingDown = true;
 	UpdateCounterText();
 }

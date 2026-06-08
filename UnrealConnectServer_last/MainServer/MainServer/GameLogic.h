@@ -177,9 +177,9 @@ struct JunglePoisonFogData {
 	float y = 0.f;
 	float z = 500.f;
 
-	float radius = 15000.f;
-	float innerRadius = 10000.f;
-	float initialInnerRadius = 10000.f;
+	float radius = 20000.f;
+	float innerRadius = 18000.f;
+	float initialInnerRadius = 18000.f;
 	float minInnerRadius = 500.f;
 	float innerShrinkDuration = 60.f;
 	float activeElapsed = 0.f;
@@ -296,7 +296,7 @@ private:
 	int selectedMapType = 0;
 
 	float matchFlowRemainTime = 0.0f;
-	float mapSelectTime = 10.0f;
+	float mapSelectTime = 5.0f;
 
 	std::mt19937 MapRandomEngine{ std::random_device{}() };
 

@@ -9,7 +9,7 @@
 class AMyCharacter;
 class UAnimMontage;
 class USphereComponent;
-
+class USoundBase;
 
 UENUM(BlueprintType)
 enum class EItemAnimPoseType : uint8
@@ -99,6 +99,14 @@ public:
 
 	UPROPERTY()
 	AMyCharacter* OwnerCharacter;
+
+	// Sound
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Sound")
+	TObjectPtr<USoundBase> SwingSound;
+
+	UFUNCTION(BlueprintPure, Category = "Item|Sound")
+	USoundBase* GetSwingSound() const { return SwingSound; }
 
 	// Role
 
