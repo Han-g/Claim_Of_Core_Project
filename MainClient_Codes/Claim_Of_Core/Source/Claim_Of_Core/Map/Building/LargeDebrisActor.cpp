@@ -37,6 +37,14 @@ void ALargeDebrisActor::Tick(float DeltaTime)
 		return;
 	}
 
+	UpdateBrokenChunkDamageState(DeltaTime);
+
+	if (bLanded || !bUseActorFall)
+	{
+		return;
+	}
+
+
 	UpdateActorFall(DeltaTime);
 }
 
@@ -49,6 +57,9 @@ void ALargeDebrisActor::PrepareDebris()
 	CurrentFallSpeed = 0.f;
 	PendingBreakChunks.Empty();
 	ReportedHitKeys.Empty();
+	DamageDisabledBrokenChunks.Empty();
+	BrokenChunkDamageEndTimes.Empty();
+	BrokenChunkStillTimes.Empty();
 	GetWorldTimerManager().ClearTimer(SequentialBreakTimerHandle);
 
 	SetActorHiddenInGame(true);
@@ -256,6 +267,8 @@ void ALargeDebrisActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)
 		MeshComp->SetAngularDamping(4.2f);
 
 		MeshComp->SetPhysicsLinearVelocity(FVector(0.f, 0.f, -30.f));
+
+		EnableBrokenChunkDamage(ChunkIndex);
 	}
 
 	BP_OnChunkBroken(ChunkIndex);
@@ -374,6 +387,84 @@ void ALargeDebrisActor::ProcessNextChunkBreak()
 	}
 }
 
+void ALargeDebrisActor::EnableBrokenChunkDamage(int32 ChunkIndex)
+{
+	if (!IsValidChunkIndex(ChunkIndex)) { return; }
+
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+
+	DamageDisabledBrokenChunks.Remove(ChunkIndex);
+	BrokenChunkStillTimes.FindOrAdd(ChunkIndex) = 0.f;
+	BrokenChunkDamageEndTimes.FindOrAdd(ChunkIndex) = Now + BrokenChunkDamageLifeTime;
+}
+
+void ALargeDebrisActor::DisableBrokenChunkDamage(int32 ChunkIndex)
+{
+	DamageDisabledBrokenChunks.Add(ChunkIndex);
+	BrokenChunkDamageEndTimes.Remove(ChunkIndex);
+	BrokenChunkStillTimes.Remove(ChunkIndex);
+}
+
+bool ALargeDebrisActor::CanBrokenChunkDealDamage(int32 ChunkIndex) const
+{
+	if (!IsValidChunkIndex(ChunkIndex)) { return false; }
+	if (DamageDisabledBrokenChunks.Contains(ChunkIndex)) { return false; }
+
+	const float* EndTime = BrokenChunkDamageEndTimes.Find(ChunkIndex);
+	if (!EndTime) { return false; }
+
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	return Now <= *EndTime;
+}
+
+void ALargeDebrisActor::UpdateBrokenChunkDamageState(float DeltaTime)
+{
+	const float Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+
+	TArray<int32> ChunksToDisable;
+
+	for (const TPair<int32, float>& Pair : BrokenChunkDamageEndTimes)
+	{
+		const int32 ChunkIndex = Pair.Key;
+
+		if (!IsValidChunkIndex(ChunkIndex) || !ChunkData[ChunkIndex].bBroken)
+		{
+			ChunksToDisable.Add(ChunkIndex);
+			continue;
+		}
+
+		if (Now >= Pair.Value)
+		{
+			ChunksToDisable.Add(ChunkIndex);
+			continue;
+		}
+
+		UStaticMeshComponent* MeshComp = ChunkMeshes[ChunkIndex];
+		if (!MeshComp || !MeshComp->IsSimulatingPhysics())
+		{
+			ChunksToDisable.Add(ChunkIndex);
+			continue;
+		}
+
+		const bool bStopped =
+			MeshComp->GetPhysicsLinearVelocity().SizeSquared() <= FMath::Square(BrokenChunkStopSpeedThreshold) &&
+			MeshComp->GetPhysicsAngularVelocityInDegrees().SizeSquared() <= FMath::Square(BrokenChunkStopAngularSpeedThreshold);
+
+		float& StillTime = BrokenChunkStillTimes.FindOrAdd(ChunkIndex);
+		StillTime = bStopped ? StillTime + DeltaTime : 0.f;
+
+		if (StillTime >= BrokenChunkStopConfirmTime)
+		{
+			ChunksToDisable.Add(ChunkIndex);
+		}
+	}
+
+	for (int32 ChunkIndex : ChunksToDisable)
+	{
+		DisableBrokenChunkDamage(ChunkIndex);
+	}
+}
+
 void ALargeDebrisActor::OnChunkBrokenInternal(int32 BrokenChunkIndex, bool bFromImpact)
 {
 	DropUnsupportedChunks();
@@ -414,17 +505,22 @@ void ALargeDebrisActor::OnLargeDebrisHit(UPrimitiveComponent* HitComponent, AAct
 	const int32 SubID = bBrokenChunk ? ChunkIndex : -1;
 	const int32 HitKind = bBrokenChunk ? 1 : 0;
 
+	if (bBrokenChunk && !CanBrokenChunkDealDamage(ChunkIndex))
+	{
+		return;
+	}
+
 	const int32 HitKey = LargeDebrisID * 1000 + (SubID + 1);
 	if (ReportedHitKeys.Contains(HitKey)) { return; }
 	ReportedHitKeys.Add(HitKey);
 
-	if (HitCharacter->IsUmbrellaEquipped())
+	/*if (HitCharacter->IsUmbrellaEquipped())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[LargeDebris] Blocked by Umbrella: %s DebrisID=%d"),
 			*OtherActor->GetName(),
 			LargeDebrisID);
 		return;
-	}
+	}*/
 
 	if (UNetworkInstance* NetworkInstance = GetWorld()->GetGameInstance<UNetworkInstance>())
 	{

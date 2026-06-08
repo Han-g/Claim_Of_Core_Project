@@ -79,6 +79,7 @@ public:
     FOnRoundResult            OnRoundResult;
     FOnMapEventTriggered      OnMapEventTriggered;
     FOnItemSpawned            OnItemSpawned;
+    FOnItemDespawned          OnItemDespawned;
     FOnObjectSpawned          OnObjectSpawned;
     FOnAttackActionReceived   OnAttackAction;
     FOnSyncAnimationReceived  OnSyncAnimation;

@@ -281,7 +281,7 @@ public:
 	void EndMatch();
 
 private:
-	int maxRound = 3;
+	int maxRound = 5;
 	int currentRound = 0;
 
 	std::vector<int> availableMaps;
@@ -478,6 +478,10 @@ public:
 	// Resets a breakable object back to its initial state.
 	void ResetBreakable(int objectID);
 
+	bool IsUmbrellaDebrisIgnoreActive(Session* player) const;
+	bool DestroyEquippedUmbrella(Session* player);
+	bool TryBlockDebrisDamageWithUmbrella(Session* player, int debrisID, int subID, int hitKind, bool bConsumeOnBlock);
+
 
 	// ------------------------------------
 	// ---------   Map Control   ----------
@@ -616,6 +620,9 @@ private:
 	std::unordered_set<int> activeSmallDebrisIDs;
 	std::mutex activeSmallDebrisLock;
 
+	float UmbrellaDebrisIgnoreDuration = 3.0f;
+	std::unordered_map<int, float> umbrellaDebrisIgnoreUntilByUID;
+
 	// ------------ IceCave Map Statement ------------
 	std::vector<IcicleData> icicles;
 	std::vector<IceFloorTileData> floorTiles;
@@ -645,14 +652,14 @@ private:
 	std::vector<SpaceBlackHoleData> SpaceBlackHoles;
 
 	Vector3 SpaceBlackHoleCenter = { 0.f, 0.f, 500.f };
-	Vector3 Outside1_BlackHoleCenter = {  11000.f,      0.f, 1000.f };
-	Vector3 Outside2_BlackHoleCenter = { -11000.f,      0.f, 1000.f };
-	Vector3 Outside3_BlackHoleCenter = {      0.f, -11000.f, 1000.f };
+	Vector3 Outside1_BlackHoleCenter = {  18000.f,      0.f, 1000.f };
+	Vector3 Outside2_BlackHoleCenter = { -18000.f,      0.f, 1000.f };
+	Vector3 Outside3_BlackHoleCenter = {      0.f, -18000.f, 1000.f };
 
-	float SpaceBlackHolePullRadius   = 12000.f;
+	float SpaceBlackHolePullRadius   = 19000.f;
 	float SpaceBlackHoleMinDistance  =  150.f;
-	float SpaceBlackHolePullStrength = 1600.f;
-	float SpaceBlackHoleMaxPullSpeed = 1400.f;
+	float SpaceBlackHolePullStrength = 4000.f;
+	float SpaceBlackHoleMaxPullSpeed = 3000.f;
 
 	int nextGrenadeBlackHoleObjectID = 1000;
 

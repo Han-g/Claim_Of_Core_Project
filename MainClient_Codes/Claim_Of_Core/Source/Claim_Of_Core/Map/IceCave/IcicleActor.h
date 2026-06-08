@@ -50,10 +50,10 @@ protected:
 	float Damage = 20.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Icicle")
-	float DestroyDelay = 3.0f;
+	float DestroyDelay = 7.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Icicle")
-	bool bDestroyAfterHitGround = true;
+	bool bDestroyAfterHitGround = false;
 
 	FTimerHandle WarningTimerHandle;
 	FTimerHandle DestroyTimerHandle;

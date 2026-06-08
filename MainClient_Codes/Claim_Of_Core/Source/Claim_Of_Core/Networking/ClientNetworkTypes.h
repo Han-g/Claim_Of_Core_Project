@@ -363,6 +363,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnSnapshotReceived, const TArray<GameData>&
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatusEffect, const FStatusEffectPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemSpawned, const FItemPacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemDespawned, const FItemPacket&);
 DECLARE_MULTICAST_DELEGATE(FOnMatchEnd);
 
 // ============================================================
@@ -417,6 +418,7 @@ enum class ENetEventType : uint8
     PhaseChanged,
     RoundResult,
     ItemSpawned,
+    ItemDespawned,
     ItemOwnershipChanged,
     StatusEffect,
     MatchEnd,
@@ -452,5 +454,6 @@ struct FNetEvent
     FSyncAnimationPacket SyncAnimation;
     FItemPacket          ItemOwnership;
     FItemPacket          ItemSpawn;
+    FItemPacket          ItemDespawn;
     FStatusEffectPacket  StatusEffect;
 };

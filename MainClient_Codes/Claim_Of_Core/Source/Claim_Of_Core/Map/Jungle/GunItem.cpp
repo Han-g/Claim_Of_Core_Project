@@ -17,6 +17,8 @@ AGunItem::AGunItem()
 	KnockbackPower = 0.f;
 	Range = 0.f;
 	Radius = 0.f;
+
+	ItemAnimPoseType = EItemAnimPoseType::Gun;
 }
 
 void AGunItem::OnStartUse()
@@ -33,8 +35,17 @@ void AGunItem::OnStartUse()
 		OwnerCharacter ? (OwnerCharacter->IsAiming() ? 1 : 0) : -1);
 
 	bHasFired = true;
+
+	AMyCharacter* CachedOwner = OwnerCharacter;
+	ABaseItem::OnStartUse();
+
 	FireHitscan();
-	OwnerCharacter->ConsumeCurrentItem(this);
+
+	if (CachedOwner)
+	{
+		CachedOwner->ConsumeCurrentItem(this);
+	}
+
 	Destroy();
 }
 
@@ -140,31 +151,24 @@ void AGunItem::FireHitscan()
 		}
 	}
 
-	if (!bBlockerHit && !TargetCharacter)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("[JungleOneShotGun] Trace missed"));
-		return;
-	}
+	const bool bValidTarget = TargetCharacter && !bTargetBlocked;
+	const int32 TargetID = bValidTarget ? TargetCharacter->GetNetworkPlayerUID() : -1;
 
 	UE_LOG(
 		LogTemp,
 		Warning,
-		TEXT("[JungleOneShotGun] Blocker=%s Target=%s Blocked=%s"),
+		TEXT("[JungleOneShotGun] Blocker=%s Target=%s Blocked=%s Consumed=%s"),
 		*GetNameSafe(bBlockerHit ? BlockerHit.GetActor() : nullptr),
 		*GetNameSafe(TargetCharacter),
-		bTargetBlocked ? TEXT("true") : TEXT("false")
+		bTargetBlocked ? TEXT("true") : TEXT("false"),
+		bValidTarget ? TEXT("hit") : TEXT("miss")
 	);
-
-	if (!TargetCharacter || bTargetBlocked)
-	{
-		return;
-	}
 
 	if (UNetworkInstance* NetInst = World->GetGameInstance<UNetworkInstance>())
 	{
 		NetInst->RequestHitscanShot(
 			GetItemID(),
-			TargetCharacter->GetNetworkPlayerUID(),
+			TargetID,
 			TraceStart,
 			FollowCamera->GetForwardVector()
 		);

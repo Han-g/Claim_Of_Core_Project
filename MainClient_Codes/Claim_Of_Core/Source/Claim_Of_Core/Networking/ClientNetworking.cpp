@@ -196,6 +196,10 @@ void ClientNetworking::PumpEvents()
             OnItemSpawned.Broadcast(Evt.ItemSpawn);
             break;
 
+        case ENetEventType::ItemDespawned:
+            OnItemDespawned.Broadcast(Evt.ItemDespawn);
+            break;
+
         case ENetEventType::StateChange:
             UE_LOG(LogTemp, Display, TEXT("State Change received"));
             OnStateChanged.Broadcast(Evt.StateChange);
@@ -476,7 +480,7 @@ void ClientNetworking::ObjectHitRequest(int32 ObjectID, int32 ObjectType, int32 
 void ClientNetworking::HitscanShotRequest(int32 ItemID, int32 TargetID, const FVector& TraceStart, const FVector& TraceDirection)
 {
     const FVector ShotDirection = TraceDirection.GetSafeNormal();
-    if (ItemID < 0 || TargetID <= 0 || ShotDirection.IsNearlyZero())
+    if (ItemID < 0 || ShotDirection.IsNearlyZero())
     {
         return;
     }

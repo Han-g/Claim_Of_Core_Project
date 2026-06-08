@@ -2763,6 +2763,13 @@ void AMyCharacter::LockUntilInitialSnapshot()
 			PC->SetIgnoreLookInput(true);
 		}
 	}
+
+	SetActorHiddenInGame(true);
+
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
 }
 
 void AMyCharacter::UnlockAfterInitialSnapshot()
@@ -2781,6 +2788,13 @@ void AMyCharacter::UnlockAfterInitialSnapshot()
 			PC->SetIgnoreMoveInput(false);
 			PC->SetIgnoreLookInput(false);
 		}
+	}
+
+	SetActorHiddenInGame(false);
+
+	if (UCapsuleComponent* Capsule = GetCapsuleComponent())
+	{
+		Capsule->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	}
 }
 

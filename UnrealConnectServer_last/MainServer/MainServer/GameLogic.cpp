@@ -299,7 +299,7 @@ void GameLogic::BeginRoundPrepare()
 
     RoundPreparePacket pkt{};
     pkt.currentRound = currentRound;
-    pkt.maxRound = maxRound;
+    pkt.maxRound = availableMaps.size();
     pkt.team1Score = team1Score;
     pkt.team2Score = team2Score;
     pkt.mapSelectTime = mapSelectTime;
@@ -338,7 +338,7 @@ bool GameLogic::TrySelectMap()
     std::uniform_int_distribution<int> dist( 0, static_cast<int>(remainingMaps.size()) - 1  );
 
     //----------------------------- Map Setting --------------------------------
-    const int index = 3;//dist(MapRandomEngine);
+    const int index = 4;//dist(MapRandomEngine);
 
     selectedMapType = remainingMaps[index];
 
@@ -603,6 +603,7 @@ bool GameLogic::CheckFallDeath(Session* player)
     case 2: fallDeathZ = -3000.0f; break; // IceCave
     case 3: fallDeathZ = -5000.0f; break; // Space
     case 4: fallDeathZ = -3000.0f; break; // Jungle
+    case 5: fallDeathZ = -5000.0f; break; // SkyIsland
     default:  return false;
     }
 
@@ -1546,7 +1547,7 @@ void GameLogic::HandleLargeDebrisHit(int sessionID, int debrisID, int subID, int
     GameData& gd = targetSession->gameDatas;
     if (!gd.isConnected || gd.characterState != 0) { return; }
 
-    if (IsUmbrellaEquipped(targetSession))
+    if (TryBlockDebrisDamageWithUmbrella(targetSession, debrisID, subID, hitKind, true))
     {
         LOG_INFO("[LargeDebrisHit] Blocked by umbrella. debrisID=%d subID=%d kind=%d targetUID=%d",
             debrisID, subID, hitKind, targetSession->playerUID);
@@ -1606,6 +1607,11 @@ void GameLogic::HandleDebrisHit(int sessionID, int debrisID)
         targetSession->sessionID,
         targetSession->playerUID,
         SmallDebrisDamage);
+
+    if (TryBlockDebrisDamageWithUmbrella(targetSession, debrisID, -1, 0, false))
+    {
+        return;
+    }
 
     ApplyDamage(targetSession->sessionID, SmallDebrisDamage, EDamageType::Rubble);
 }
@@ -2776,7 +2782,7 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
     blackHole.center = { pkt.x, pkt.y, pkt.z };
     blackHole.pullRadius = 1500.0f;
     blackHole.minDistance = 60.0f;
-    blackHole.pullStrength = 3000.0f;
+    blackHole.pullStrength = 15000.0f;
     blackHole.maxPullSpeed = 1000.0f;
     blackHole.bActive = true;
     blackHole.lifeRemainTime = 4.0f;
@@ -2809,12 +2815,19 @@ void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
     if (attackerData.equippedItemID != pkt.ItemID) { return; }
 
     ItemData* item = ownerRoom->GetItemData(pkt.ItemID);
-    if (!item || !item->bEquipped || item->ownerUID != attacker->playerUID)
+
+    if (!item || !item->bEquipped || item->ownerUID != attacker->playerUID) { return; }
+    if (item->ItemKind != EItemKind::Gun) { return; }
+
+    item->bEquipped = false;
+    item->ownerUID = -1;
+    attackerData.equippedItemID = -1;
+
+    if (pkt.TargetID <= 0)
     {
+        LOG_INFO("[GunShot] consumed by miss. session=%d itemID=%d", sessionID, pkt.ItemID);
         return;
     }
-
-    if (item->ItemKind != EItemKind::Gun) { return; }
 
     Session* target = nullptr;
     for (const auto& pair : players)
@@ -2868,8 +2881,6 @@ void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
 
     constexpr int GunDamage = 50;
     ApplyDamage(target->sessionID, GunDamage, EDamageType::Normal);
-
-    attacker->gameDatas.equippedItemID = -1;
 }
 
 
@@ -3025,4 +3036,76 @@ EItemKind GameLogic::PickRandomBasicItemKind()
     };
 
     return basicItems[RandomInt(0, 2)];
+}
+
+bool GameLogic::IsUmbrellaDebrisIgnoreActive(Session* player) const
+{
+    if (!player) { return false; }
+
+    auto it = umbrellaDebrisIgnoreUntilByUID.find(player->playerUID);
+    return it != umbrellaDebrisIgnoreUntilByUID.end() && elapsedTime <= it->second;
+}
+
+bool GameLogic::DestroyEquippedUmbrella(Session* player)
+{
+    if (!ownerRoom || !player) { return false; }
+
+    GameData& gd = player->gameDatas;
+    const int umbrellaItemID = gd.equippedItemID;
+    if (umbrellaItemID < 0) { return false; }
+
+    ItemData* item = ownerRoom->GetItemData(umbrellaItemID);
+    if (!item || !item->bEquipped || item->ownerUID != player->playerUID || item->ItemKind != EItemKind::Umbrella)
+    {
+        return false;
+    }
+
+    ItemPacket pkt{};
+    pkt.itemID = item->ObjectID;
+    pkt.itemKind = static_cast<int32_t>(item->ItemKind);
+    pkt.ownerUID = -1;
+    pkt.bEquipped = 0;
+    pkt.x = gd.x;
+    pkt.y = gd.y;
+    pkt.z = gd.z;
+
+    item->bEquipped = false;
+    item->ownerUID = -1;
+    gd.equippedItemID = -1;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_DESPAWN_ITEM_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+
+    return true;
+}
+
+bool GameLogic::TryBlockDebrisDamageWithUmbrella(Session* player, int debrisID, int subID, int hitKind, bool bConsumeOnBlock)
+{
+    if (IsUmbrellaDebrisIgnoreActive(player))
+    {
+        return true;
+    }
+
+    if (!IsUmbrellaEquipped(player))
+    {
+        return false;
+    }
+
+    if (bConsumeOnBlock)
+    {
+        if (!DestroyEquippedUmbrella(player))
+        {
+            return false;
+        }
+
+        umbrellaDebrisIgnoreUntilByUID[player->playerUID] = elapsedTime + UmbrellaDebrisIgnoreDuration;
+    }
+
+    LOG_INFO("[Umbrella] Block debris damage. debrisID=%d subID=%d kind=%d uid=%d consume=%d",
+        debrisID, subID, hitKind, player->playerUID, bConsumeOnBlock ? 1 : 0);
+
+    return true;
 }

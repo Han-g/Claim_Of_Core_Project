@@ -547,6 +547,19 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+    case PKT_S2C_DESPAWN_ITEM_BRD:
+    {
+        if (PayloadSize < sizeof(FItemPacket)) { break; }
+
+        FItemPacket Packet;
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FItemPacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::ItemDespawned;
+        Evt.ItemDespawn = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
     case PKT_S2C_STATE_CHANGE_BRD:
     {
         if (PayloadSize < sizeof(FStateChangePacket)) { break; }

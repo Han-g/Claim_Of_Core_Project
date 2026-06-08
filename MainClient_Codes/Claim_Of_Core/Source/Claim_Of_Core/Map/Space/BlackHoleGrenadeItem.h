@@ -27,10 +27,10 @@ protected:
     TSubclassOf<ABlackHoleActor> BlackHoleClass;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BlackHole Grenade|Throw")
-    float ThrowSpeed = 1800.f;
+    float ThrowSpeed = 3500.f;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BlackHole Grenade|Throw")
-    float ThrowUpwardSpeed = 350.f;
+    float ThrowUpwardSpeed = 800.f;
 
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BlackHole Grenade|Throw")
     float ThrowSpawnForwardOffset = 120.f;

@@ -111,7 +111,12 @@ void AIcicleActor::BreakIcicle()
 	CurrentState = EIcicleState::Broken;
 
 	IcicleMesh->SetSimulatePhysics(false);
-	IcicleMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	IcicleMesh->SetEnableGravity(false);
+	IcicleMesh->SetPhysicsLinearVelocity(FVector::ZeroVector);
+	IcicleMesh->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+
+	IcicleMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	IcicleMesh->SetCollisionProfileName(TEXT("BlockAll"));
 	DamageCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	BP_OnBroken();

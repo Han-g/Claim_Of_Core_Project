@@ -104,6 +104,7 @@ void UNetworkInstance::Init()
 	
 	Client->OnStatusEffect.AddUObject(this, &UNetworkInstance::HandleStatusEffect);
 	Client->OnItemSpawned.AddUObject(this, &UNetworkInstance::HandleItemSpawned);
+	Client->OnItemDespawned.AddUObject(this, &UNetworkInstance::HandleItemDespawned);
 	
 	// Start worker thread + connect
 	Client->Start(ServerIPAddress, 9000);
@@ -524,7 +525,7 @@ void UNetworkInstance::RequestHitscanShot(int32 ItemID, int32 TargetID, const FV
 		return;
 	}
 
-	if (ItemID < 0 || TargetID <= 0 || TraceDirection.IsNearlyZero())
+	if (ItemID < 0 || TraceDirection.IsNearlyZero())
 	{
 		return;
 	}
@@ -1170,6 +1171,31 @@ void UNetworkInstance::HandleItemSpawned(const FItemPacket& Packet)
 	}
 
 	SpawnedItems.Add(Packet.ItemID, NewItem);
+}
+
+void UNetworkInstance::HandleItemDespawned(const FItemPacket& Packet)
+{
+	ABaseItem* Item = FindItemByID(Packet.ItemID);
+	if (!Item)
+	{
+		SpawnedItems.Remove(Packet.ItemID);
+		return;
+	}
+
+	if (AMyCharacter* OwnerCharacter = Item->GetOwnerCharacter())
+	{
+		OwnerCharacter->ConsumeCurrentItem(Item);
+	}
+	else
+	{
+		Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+		Item->SetOwnerCharacter(nullptr);
+	}
+
+	SpawnedItems.Remove(Packet.ItemID);
+	Item->Destroy();
+
+	UE_LOG(LogTemp, Display, TEXT("[ItemDespawn] ItemID=%d"), Packet.ItemID);
 }
 
 void UNetworkInstance::HandleStatusUpdated(const FStatusUpdatePacket& Packet)

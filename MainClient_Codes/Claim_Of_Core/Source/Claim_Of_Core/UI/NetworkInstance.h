@@ -113,6 +113,7 @@ public:
 	void HandleDamageApplied(const FDamageApplyPacket& Packet);
 	void HandleItemOwnershipChanged(const FItemPacket& Packet);
 	void HandleItemSpawned(const FItemPacket& Packet);
+	void HandleItemDespawned(const FItemPacket& Packet);
 	void HandleStatusUpdated(const FStatusUpdatePacket& Packet);
 	void HandleStateChanged(const FStateChangePacket& Packet);
 	void HandleRespawned(const FRespawnPacket& Packet);

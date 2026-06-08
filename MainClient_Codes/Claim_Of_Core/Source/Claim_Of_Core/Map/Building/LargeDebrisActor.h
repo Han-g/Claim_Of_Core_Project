@@ -76,6 +76,22 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris|SequentialBreak")
 	TArray<int32> PendingBreakChunks;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Damage")
+	float BrokenChunkDamageLifeTime = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Damage")
+	float BrokenChunkStopSpeedThreshold = 8.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Damage")
+	float BrokenChunkStopAngularSpeedThreshold = 8.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debris|Damage")
+	float BrokenChunkStopConfirmTime = 0.25f;
+
+	TSet<int32> DamageDisabledBrokenChunks;
+	TMap<int32, float> BrokenChunkDamageEndTimes;
+	TMap<int32, float> BrokenChunkStillTimes;
+
 	FTimerHandle SequentialBreakTimerHandle;
 
 protected:
@@ -86,6 +102,11 @@ protected:
 
 	void StartSequentialUnsupportedBreak();
 	void ProcessNextChunkBreak();
+
+	void EnableBrokenChunkDamage(int32 ChunkIndex);
+	void DisableBrokenChunkDamage(int32 ChunkIndex);
+	void UpdateBrokenChunkDamageState(float DeltaTime);
+	bool CanBrokenChunkDealDamage(int32 ChunkIndex) const;
 
 public:
 	UFUNCTION(BlueprintCallable, Category = "Debris")
