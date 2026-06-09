@@ -4,8 +4,12 @@
 #include "Map/SkyIsland/SkyCloudPlatform.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
+
 #include "Sub/MyCharacter.h"
 
 // Sets default values
@@ -104,12 +108,69 @@ void ASkyCloudPlatform::Tick(float DeltaTime)
 
 	if (bPlatformVisible)
 	{
+		UpdateOneWayCollision();
 		UpdateVisible(DeltaTime);
 	}
 	else
 	{
 		UpdateHidden(DeltaTime);
 	}
+}
+
+void ASkyCloudPlatform::UpdateOneWayCollision()
+{
+	if (!CloudMeshComponent || !bPlatformVisible)
+	{
+		return;
+	}
+
+	if (!bUseOneWayCollision)
+	{
+		CloudMeshComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
+		return;
+	}
+
+	AMyCharacter* LocalCharacter = Cast<AMyCharacter>(
+		UGameplayStatics::GetPlayerCharacter(this, 0)
+	);
+
+	const bool bShouldBlock =
+		LocalCharacter &&
+		!LocalCharacter->IsDead() &&
+		ShouldBlockPawnCollisionForCharacter(LocalCharacter);
+
+	CloudMeshComponent->SetCollisionResponseToChannel(
+		ECC_Pawn,
+		bShouldBlock ? ECR_Block : ECR_Ignore
+	);
+}
+
+bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const
+{
+	if (!Character || !CloudMeshComponent)
+	{
+		return false;
+	}
+
+	const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+	const UCharacterMovementComponent* MoveComp = Character->GetCharacterMovement();
+
+	if (!Capsule || !MoveComp)
+	{
+		return false;
+	}
+
+	const float PlatformTopZ = CloudMeshComponent->Bounds.GetBox().Max.Z;
+	const float CharacterBottomZ =
+		Character->GetActorLocation().Z - Capsule->GetScaledCapsuleHalfHeight();
+
+	const bool bCharacterAbovePlatform =
+		CharacterBottomZ >= PlatformTopZ - OneWayTopTolerance;
+
+	const bool bDescendingOrStanding =
+		MoveComp->Velocity.Z <= OneWayVelocityTolerance;
+
+	return bCharacterAbovePlatform && bDescendingOrStanding;
 }
 
 void ASkyCloudPlatform::UpdateVisible(float DeltaTime)
@@ -212,7 +273,14 @@ void ASkyCloudPlatform::ApplyPlatformEnabled(bool bEnabled)
 
 	CloudMeshComponent->SetVisibility(bEnabled, true);
 	CloudMeshComponent->SetHiddenInGame(!bEnabled, true);
-	CloudMeshComponent->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+	CloudMeshComponent->SetCollisionEnabled(
+		bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision
+	);
+
+	if (bEnabled)
+	{
+		UpdateOneWayCollision();
+	}
 }
 
 float ASkyCloudPlatform::GetCurrentVisibleDuration() const

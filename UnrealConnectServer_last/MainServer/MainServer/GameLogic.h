@@ -366,6 +366,14 @@ public:
 		return mapType == 3 ? SpaceServerJumpZVelocity : ServerJumpZVelocity;
 	}
 
+	void HandleRoleSkillRequest(int sessionID);
+	void UpdateRoleSkillStates(float deltaTime);
+	void EndRoleSkill(Session* player);
+	void BroadcastRoleSkillState(Session* player, bool bActive, float duration);
+
+	float GetRoleSkillDuration(int roleType) const;
+	float GetRoleSkillSpeedMultiplier(int roleType, bool bActive) const;
+
 private:
 	int MaxHP = 100;
 	int CurrentHP = 100;
@@ -481,7 +489,8 @@ public:
 	bool IsUmbrellaDebrisIgnoreActive(Session* player) const;
 	bool DestroyEquippedUmbrella(Session* player);
 	bool TryBlockDebrisDamageWithUmbrella(Session* player, int debrisID, int subID, int hitKind, bool bConsumeOnBlock);
-
+	void BroadcastItemOwnershipChanged(const ItemData& item);
+	void BroadcastItemDespawned(const ItemData& item);
 
 	// ------------------------------------
 	// ---------   Map Control   ----------

@@ -349,12 +349,12 @@ Vector3 Room::GetRespawnLocation(int slot)
 
     static const Vector3 SkyIslandSpawnTable[6] =
     {
-        {  5000.f, -1500.f, 2000.f },
-        {  5000.f,     0.f, 2000.f },
-        {  5000.f,  1500.f, 2000.f },
-        { -5000.f, -1500.f, 2000.f },
-        { -5000.f,     0.f, 2000.f },
-        { -5000.f,  1500.f, 2000.f }
+        {  5000.f, -1500.f, 10000.f },
+        {  5000.f,     0.f, 10000.f },
+        {  5000.f,  1500.f, 10000.f },
+        { -5000.f, -1500.f, 10000.f },
+        { -5000.f,     0.f, 10000.f },
+        { -5000.f,  1500.f, 10000.f }
     };
 
     const Vector3* spawnTable = BuildingSpawnTable;

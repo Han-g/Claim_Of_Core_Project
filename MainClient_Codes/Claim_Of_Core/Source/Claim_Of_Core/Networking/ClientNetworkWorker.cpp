@@ -521,6 +521,19 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+    case PKT_S2C_ROLE_SKILL_BRD:
+    {
+        if (PayloadSize < sizeof(FRoleSkillPacket)) { break; }
+
+        FRoleSkillPacket Packet;
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FRoleSkillPacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::RoleSkillStateChanged;
+        Evt.RoleSkill = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
     case PKT_S2C_ITEM_OWNERSHIP_BRD:
     {
         if (PayloadSize < sizeof(FItemPacket)) { break; }

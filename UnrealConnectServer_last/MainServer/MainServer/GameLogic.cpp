@@ -46,6 +46,8 @@ void GameLogic::Update(float deltaTime)
     }
 
     if (roundState != ERoundState::Playing) { return; }
+
+    UpdateRoleSkillStates(deltaTime);
     
     // Adapt Player Movement
     for (auto& Pair : players)
@@ -281,6 +283,8 @@ void GameLogic::BeginRoundPrepare()
     currentMapPhase = 0;
     roundState = ERoundState::Waiting;
 
+    umbrellaDebrisIgnoreUntilByUID.clear();
+
     matchFlowState = EMatchFlow::MapSelectedWait;
     matchFlowRemainTime = mapSelectTime;
 
@@ -338,7 +342,7 @@ bool GameLogic::TrySelectMap()
     std::uniform_int_distribution<int> dist( 0, static_cast<int>(remainingMaps.size()) - 1  );
 
     //----------------------------- Map Setting --------------------------------
-    const int index = 4;//dist(MapRandomEngine);
+    const int index = 1;//dist(MapRandomEngine);
 
     selectedMapType = remainingMaps[index];
 
@@ -512,19 +516,28 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount, EDamageType damageT
     GameData& gd = targetSession->gameDatas;
     if (damageAmount <= 0 || gd.characterState == 1) { return; } // non-positive damage or already dead
 
+    int finalDamageAmount = damageAmount;
+
+    if (damageType != EDamageType::Fall &&
+        gd.roleSkillActive != 0 &&
+        gd.roleType == Guardian)
+    {
+        finalDamageAmount = (std::max)(1, static_cast<int>(std::round(damageAmount * 0.6f)));
+    }
+
     const int prevHP = gd.currentHP;
-    SetCurrentHP(sessionID, gd.currentHP - damageAmount);
+    SetCurrentHP(sessionID, gd.currentHP - finalDamageAmount);
 
     LOG_INFO("[ATK_TRACE][4_ServerDamage] targetSession=%d targetUID=%d damage=%d hpBefore=%d hpAfter=%d",
         sessionID,
         targetSession->playerUID,
-        damageAmount,
+        finalDamageAmount,
         prevHP,
         gd.currentHP);
 
     // Broadcast the damage result to all clients in the room.
     // PKT_S2C_DAMAGE_APPLY_BRD: target session, damage, remaining HP
-    BroadcastDamageApply(targetSession->playerUID, damageAmount, gd.currentHP, damageType);
+    BroadcastDamageApply(targetSession->playerUID, finalDamageAmount, gd.currentHP, damageType);
 
     if (prevHP > 0 && gd.currentHP <= 0)
     {
@@ -790,7 +803,10 @@ void GameLogic::ApplyRoleStats(int sessionID)
     if (it == players.end()) { return; }
 
     GameData& gd = it->second->gameDatas;
-    gd.baseWalkSpeed = 2000.f * GetRoleSpeedMultiplier(gd.roleType);
+    gd.baseWalkSpeed =
+        2000.f *
+        GetRoleSpeedMultiplier(gd.roleType) *
+        GetRoleSkillSpeedMultiplier(gd.roleType, gd.roleSkillActive != 0);
 
     // Apply role-specific max HP values.
     switch (gd.roleType) {
@@ -1118,6 +1134,8 @@ void GameLogic::UpdatePlayerVertical(Session* player, float deltaTime, bool bJum
 
     GameData& gd = player->gameDatas;
 
+    const int maxJumpCount = (gd.roleSkillActive != 0 && gd.roleType == Manipulator) ? 2 : 1;
+
     const float GroundActorZ = FixedGroundZ + ServerCapsuleHalfHeight;
 
     if (!player->isGrounded && gd.z <= GroundActorZ + GroundSnapTolerance)
@@ -1128,11 +1146,19 @@ void GameLogic::UpdatePlayerVertical(Session* player, float deltaTime, bool bJum
         player->JumpCount = 0;
     }
 
-    if (bJumpRequested && player->isGrounded)
+    if (bJumpRequested)
     {
-        player->VerticalVelocity = GetCurrentServerJumpZVelocity();
-        player->isGrounded = false;
-        player->JumpCount = 1;
+        if (player->isGrounded)
+        {
+            player->VerticalVelocity = GetCurrentServerJumpZVelocity();
+            player->isGrounded = false;
+            player->JumpCount = 1;
+        }
+        else if (player->JumpCount < maxJumpCount)
+        {
+            player->VerticalVelocity = GetCurrentServerJumpZVelocity();
+            player->JumpCount++;
+        }
     }
 
     if (!player->isGrounded)
@@ -1172,6 +1198,99 @@ Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const
     return desiredPos;
 }
 
+void GameLogic::HandleRoleSkillRequest(int sessionID)
+{
+    if (roundState != ERoundState::Playing) { return; }
+
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second) { return; }
+
+    Session* player = it->second;
+    GameData& gd = player->gameDatas;
+    if (!gd.isConnected || gd.characterState != Alive) { return; }
+    if (gd.roleSkillActive != 0) { return; }
+
+    const float duration = GetRoleSkillDuration(gd.roleType);
+    if (duration <= 0.f) { return; }
+
+    gd.roleSkillActive = 1;
+    gd.roleSkillRemainTime = duration;
+
+    ApplyRoleStats(sessionID);
+    BroadcastRoleSkillState(player, true, duration);
+}
+
+void GameLogic::UpdateRoleSkillStates(float deltaTime)
+{
+    for (auto& pair : players)
+    {
+        Session* player = pair.second;
+        if (!player) { continue; }
+
+        GameData& gd = player->gameDatas;
+        if (gd.roleSkillActive == 0) { continue; }
+
+        gd.roleSkillRemainTime -= deltaTime;
+        if (gd.roleSkillRemainTime <= 0.f || gd.characterState != Alive)
+        {
+            EndRoleSkill(player);
+        }
+    }
+}
+
+void GameLogic::EndRoleSkill(Session* player)
+{
+    if (!player) { return; }
+
+    GameData& gd = player->gameDatas;
+    if (gd.roleSkillActive == 0) { return; }
+
+    gd.roleSkillActive = 0;
+    gd.roleSkillRemainTime = 0.f;
+
+    ApplyRoleStats(player->sessionID);
+    BroadcastRoleSkillState(player, false, 0.f);
+}
+
+void GameLogic::BroadcastRoleSkillState(Session* player, bool bActive, float duration)
+{
+    if (!ownerRoom || !player) { return; }
+
+    RoleSkillPacket pkt{};
+    pkt.targetID = player->playerUID;
+    pkt.roleType = player->gameDatas.roleType;
+    pkt.active = bActive ? 1 : 0;
+    pkt.duration = duration;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_ROLE_SKILL_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+float GameLogic::GetRoleSkillDuration(int roleType) const
+{
+    switch (roleType)
+    {
+    case Striker: return 8.0f;
+    case Guardian: return 8.0f;
+    case Manipulator: return 10.0f;
+    default: return 0.0f;
+    }
+}
+
+float GameLogic::GetRoleSkillSpeedMultiplier(int roleType, bool bActive) const
+{
+    if (!bActive) { return 1.0f; }
+
+    switch (roleType)
+    {
+    case Striker: return 1.45f;
+    case Guardian: return 0.65f;
+    default: return 1.0f;
+    }
+}
 
 
 void GameLogic::HandleAttackInput(int sessionID)
@@ -1192,6 +1311,11 @@ void GameLogic::HandleAttackInput(int sessionID)
     if (gd.equippedItemID != -1 && ownerRoom)
     {
         EquippedItem = ownerRoom->GetItemData(gd.equippedItemID);
+    }
+
+    if (EquippedItem && EquippedItem->ItemKind == EItemKind::Gun)
+    {
+        attackType = 3; // Gun
     }
 
     if (EquippedItem && EquippedItem->ItemKind == EItemKind::Torch)
@@ -1455,19 +1579,29 @@ int GameLogic::GetAttackDamage(const GameData& attackerData, const ItemData* equ
     default: baseDamage = 10; break;
     }
 
-    if (!equippedItem) { return baseDamage; }
+    int damage = baseDamage;
 
-    switch (equippedItem->ItemKind)
+    if (equippedItem)
     {
-    case EItemKind::Sword:    return 15 + baseDamage;
-    case EItemKind::Spear:    return 20 + baseDamage;
-    case EItemKind::Hammer:   return 30 + baseDamage;
-    case EItemKind::Umbrella: return 10 + baseDamage;
-    case EItemKind::Torch:    return 5  + baseDamage;
-    case EItemKind::Grenade:  return 0;
-    case EItemKind::Gun:      return 50;
-    default:                  return baseDamage;
+        switch (equippedItem->ItemKind)
+        {
+        case EItemKind::Sword:    damage = 15 + baseDamage; break;
+        case EItemKind::Spear:    damage = 20 + baseDamage; break;
+        case EItemKind::Hammer:   damage = 30 + baseDamage; break;
+        case EItemKind::Umbrella: damage = 10 + baseDamage; break;
+        case EItemKind::Torch:    damage = 5 + baseDamage; break;
+        case EItemKind::Grenade:  damage = 0; break;
+        case EItemKind::Gun:      damage = 50; break;
+        default:                  damage = baseDamage; break;
+        }
     }
+
+    if (damage > 0 && attackerData.roleSkillActive != 0 && attackerData.roleType == Striker)
+    {
+        damage = static_cast<int>(std::round(damage * 1.5f));
+    }
+
+    return damage;
 }
 
 void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t attackSeq)
@@ -2819,9 +2953,22 @@ void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
     if (!item || !item->bEquipped || item->ownerUID != attacker->playerUID) { return; }
     if (item->ItemKind != EItemKind::Gun) { return; }
 
+    {
+        std::lock_guard<std::mutex> lock(attacker->AttackStateLock);
+
+        attacker->attackSeq++;
+        attacker->isAttack = true;
+        attacker->attackRemainTime = 1.2f;
+        attacker->hasAttackHit = false;
+    }
+
+    BroadcastAttackAction(attacker->playerUID, 3, attacker->attackSeq);
+
     item->bEquipped = false;
     item->ownerUID = -1;
     attackerData.equippedItemID = -1;
+
+    BroadcastItemDespawned(*item);
 
     if (pkt.TargetID <= 0)
     {
@@ -3060,24 +3207,11 @@ bool GameLogic::DestroyEquippedUmbrella(Session* player)
         return false;
     }
 
-    ItemPacket pkt{};
-    pkt.itemID = item->ObjectID;
-    pkt.itemKind = static_cast<int32_t>(item->ItemKind);
-    pkt.ownerUID = -1;
-    pkt.bEquipped = 0;
-    pkt.x = gd.x;
-    pkt.y = gd.y;
-    pkt.z = gd.z;
-
     item->bEquipped = false;
     item->ownerUID = -1;
     gd.equippedItemID = -1;
 
-    ownerRoom->BroadcastToMembers(
-        PKT_S2C_DESPAWN_ITEM_BRD,
-        reinterpret_cast<const char*>(&pkt),
-        sizeof(pkt)
-    );
+    BroadcastItemDespawned(*item);
 
     return true;
 }
@@ -3108,4 +3242,44 @@ bool GameLogic::TryBlockDebrisDamageWithUmbrella(Session* player, int debrisID, 
         debrisID, subID, hitKind, player->playerUID, bConsumeOnBlock ? 1 : 0);
 
     return true;
+}
+
+void GameLogic::BroadcastItemOwnershipChanged(const ItemData& item)
+{
+    if (!ownerRoom) { return; }
+
+    ItemPacket pkt{};
+    pkt.itemID = item.ObjectID;
+    pkt.itemKind = static_cast<int32_t>(item.ItemKind);
+    pkt.ownerUID = item.ownerUID;
+    pkt.bEquipped = item.bEquipped ? 1 : 0;
+    pkt.x = item.x;
+    pkt.y = item.y;
+    pkt.z = item.z;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_ITEM_OWNERSHIP_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+void GameLogic::BroadcastItemDespawned(const ItemData& item)
+{
+    if (!ownerRoom) { return; }
+
+    ItemPacket pkt{};
+    pkt.itemID = item.ObjectID;
+    pkt.itemKind = static_cast<int32_t>(item.ItemKind);
+    pkt.ownerUID = -1;
+    pkt.bEquipped = 0;
+    pkt.x = item.x;
+    pkt.y = item.y;
+    pkt.z = item.z;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_DESPAWN_ITEM_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
 }

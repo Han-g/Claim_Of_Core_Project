@@ -92,6 +92,8 @@ void UNetworkInstance::Init()
 	Client->OnSnapshotReceived.AddUObject(this, &UNetworkInstance::HandleSnapshotReceived);
 	Client->OnAttackAction.AddUObject(this, &UNetworkInstance::HandleAttackActionReceived);
 	Client->OnDamageApplied.AddUObject(this, &UNetworkInstance::HandleDamageApplied);
+	Client->OnRoleSkillStateChanged.AddUObject(this, &UNetworkInstance::HandleRoleSkillState);
+
 	Client->OnStatusUpdated.AddUObject(this, &UNetworkInstance::HandleStatusUpdated);
 	Client->OnStateChanged.AddUObject(this, &UNetworkInstance::HandleStateChanged);
 	Client->OnRespawned.AddUObject(this, &UNetworkInstance::HandleRespawned);
@@ -493,6 +495,15 @@ void UNetworkInstance::RequestJumpInput()
 	Client->SendJumpInput();
 }
 
+void UNetworkInstance::RequestRoleSkillActivate()
+{
+	if (Client.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[RoleSkill][ClientReq] Send C2S"));
+		Client->RoleSkillRequest();
+	}
+}
+
 void UNetworkInstance::RequestItemPickup(int32 ItemID)
 {
 	if (!Client.IsValid()) { return; }
@@ -678,6 +689,8 @@ void UNetworkInstance::HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMe
 {
 	if (!bSuccess) { return; }
 
+	CachedRoomMembers = playerList;
+
 	const bool bFirstEnter = (RoomWidgetInstance == nullptr);
 
 	if (LobbyWidgetInstance) {
@@ -722,6 +735,15 @@ void UNetworkInstance::HandleRoleChanged(const FRoleChangePacket& Packet)
 	if (Client.IsValid() && Packet.TargetID == Client->ClientPlayerData.userUID)
 	{
 		CachedSelectedRoleType = Packet.NewRoleType;
+	}
+
+	for (FRoomMemberInfo& Member : CachedRoomMembers)
+	{
+		if (Member.userUID == Packet.TargetID)
+		{
+			Member.roleType = Packet.NewRoleType;
+			break;
+		}
 	}
 
 	if (AMyCharacter* Character = FindCharacterByUID(Packet.TargetID))
@@ -1082,6 +1104,17 @@ void UNetworkInstance::HandleDamageApplied(const FDamageApplyPacket& Packet)
 			Packet.Damage,
 			Packet.RemainHP,
 			*GetNameSafe(Character));
+	}
+}
+
+void UNetworkInstance::HandleRoleSkillState(const FRoleSkillPacket& Packet)
+{
+	if (AMyCharacter* Character = FindCharacterByUID(Packet.targetID))
+	{
+		Character->SetRoleFromNetwork(Packet.roleType);
+		Character->SetRoleSkillStateFromNetwork(Packet.active != 0, Packet.duration);
+		UE_LOG(LogTemp, Warning, TEXT("[RoleSkill][ClientApply] UID=%d Active=%d Duration=%.2f"),
+			Packet.targetID, Packet.active, Packet.duration);
 	}
 }
 
@@ -1557,17 +1590,31 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 
 void UNetworkInstance::HandleStatusEffect(const FStatusEffectPacket& Packet)
 {
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FreezeClient][Packet] TargetUID=%d EffectType=%d Active=%d Duration=%.2f"),
+		Packet.TargetID,
+		Packet.EffectType,
+		Packet.Active,
+		Packet.Duration);
+
 	AMyCharacter* Character = FindCharacterByUID(Packet.TargetID);
 	if (!Character)
 	{
 		return;
 	}
 
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FreezeClient][FindOK] Character=%s UID=%d Local=%d FrozenBefore=%d"),
+		*GetNameSafe(Character),
+		Character->GetNetworkPlayerUID(),
+		Character->IsLocallyControlled() ? 1 : 0,
+		Character->IsFrozen() ? 1 : 0);
+
 	if (Packet.EffectType == 0)
 	{
 		if (Packet.Active != 0)
 		{
-			Character->ApplyFreeze();
+			Character->ApplyFreezeFromServer();
 		}
 		else
 		{
@@ -1705,4 +1752,16 @@ TSubclassOf<ABaseItem> UNetworkInstance::GetItemClassByKind(int32 ItemKind) cons
 		case EClientItemKind::Gun:		return GunItemClass;
 		default:                        return nullptr;
 	}
+}
+
+int32 UNetworkInstance::GetCachedRoleTypeByRoomSlot(int32 RoomSlot) const
+{
+	const FRoomMemberInfo* FoundMember = CachedRoomMembers.FindByPredicate(
+		[RoomSlot](const FRoomMemberInfo& Member)
+		{
+			return Member.roomSlot == RoomSlot;
+		}
+	);
+
+	return FoundMember ? FoundMember->roleType : -1;
 }

@@ -168,6 +168,7 @@ enum PacketID {
 
     PKT_C2S_ICE_FLOOR_STAND_REQ = 556,
     PKT_C2S_GRENADE_BLACKHOLE_REQ = 557,
+    PKT_C2S_ROLE_SKILL_REQ = 558,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,           // Instruct spawning a specific item on the map
     PKT_S2C_DESPAWN_ITEM_BRD = 131,         // Instruct removing a specific item from the map
@@ -182,6 +183,7 @@ enum PacketID {
     PKT_S2C_STATUS_EFFECT_BRD = 153,
     PKT_S2C_ROUND_PREPARE_BRD = 154,
     PKT_S2C_MATCH_END_BRD = 155,
+    PKT_S2C_ROLE_SKILL_BRD = 156,
 };
 
 struct PacketHeader {
@@ -203,6 +205,9 @@ struct GameData {
     int characterState = -1;    // 0=Alive, 1=Dead
     int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
     int teamType = -1;          // -1=None, 0=Red, 1=Blue
+
+    int roleSkillActive = 0;
+    float roleSkillRemainTime = 0.f;
 
 	int animationNum = 0;
     int equippedItemID = -1;
@@ -372,6 +377,14 @@ struct RespawnPacket {
 struct RoleChangePacket {
     int32_t targetID;
     int32_t newRoleType;  // 0=Striker, 1=Guardian, 2=Manipulator
+};
+
+struct RoleSkillPacket
+{
+    int32_t targetID;  // playerUID
+    int32_t roleType;  // 0 Striker, 1 Guardian, 2 Manipulator
+    int32_t active;    // 1 active, 0 end
+    float duration;
 };
 
 

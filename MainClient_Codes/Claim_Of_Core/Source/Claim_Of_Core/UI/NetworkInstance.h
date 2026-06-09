@@ -76,6 +76,7 @@ public:
 	void RequestAttackInput(int32 AttackType = 0);
 	void RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, int32 AttackType);
 	void RequestJumpInput();
+	void RequestRoleSkillActivate();
 	void RequestItemPickup(int32 ItemID);
 	void RequestItemDrop(int32 ItemID);
 	void RequestObjectHit(int32 ObjectID, int32 ObjectType, int32 SubID, int32 HitKind);
@@ -111,6 +112,7 @@ public:
 
 	void HandleAttackActionReceived(const FAttackActionPacket& Packet);
 	void HandleDamageApplied(const FDamageApplyPacket& Packet);
+	void HandleRoleSkillState(const FRoleSkillPacket& Packet);
 	void HandleItemOwnershipChanged(const FItemPacket& Packet);
 	void HandleItemSpawned(const FItemPacket& Packet);
 	void HandleItemDespawned(const FItemPacket& Packet);
@@ -246,6 +248,13 @@ private:
 
 	TMap<int32, TWeakObjectPtr<ABlackHoleActor>> SpawnedBlackHoles;
 
+public:
+	UFUNCTION(BlueprintPure, Category = "Network|Room")
+	int32 GetCachedRoleTypeByRoomSlot(int32 RoomSlot) const;
+
 	// Test Checker
 	bool bClientOnlyTestMode = false;
+
+private:
+	TArray<FRoomMemberInfo> CachedRoomMembers;
 };

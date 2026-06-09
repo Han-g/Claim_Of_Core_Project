@@ -80,6 +80,7 @@ enum PacketID : uint16 {
 
     PKT_C2S_ICE_FLOOR_STAND_REQ = 556,
     PKT_C2S_GRENADE_BLACKHOLE_REQ = 557,
+    PKT_C2S_ROLE_SKILL_REQ = 558,
 
     PKT_S2C_SPAWN_ITEM_BRD = 130,
     PKT_S2C_DESPAWN_ITEM_BRD = 131,
@@ -93,6 +94,7 @@ enum PacketID : uint16 {
     PKT_S2C_STATUS_EFFECT_BRD = 153, 
     PKT_S2C_ROUND_PREPARE_BRD = 154,
     PKT_S2C_MATCH_END_BRD = 155,
+    PKT_S2C_ROLE_SKILL_BRD = 156,
 };
 
 // ============================================================
@@ -112,6 +114,9 @@ struct GameData {
     int characterState = -1;    // 0=Alive, 1=Dead
     int roleType = -1;          // 0=Striker, 1=Guardian, 2=Manipulator
     int teamType = -1;          // -1=None, 0=Red, 1=Blue
+
+    int roleSkillActive = 0;
+    float roleSkillRemainTime = 0.f;
 
     int animationNum = 0;
     int equippedItemID = -1;
@@ -288,6 +293,8 @@ struct FRespawnPacket { int32 TargetID; float X, Y, Z; int32 HP; };
 
 struct FRoleChangePacket { int32 TargetID; int32 NewRoleType; };
 
+struct FRoleSkillPacket { int32_t targetID; int32_t roleType; int32_t active; float duration; };
+
 struct FSyncGameTimePacket { float GameTime; };
 
 struct FAttackPacket { int32 attackType; };
@@ -350,6 +357,8 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnStatusUpdated, const FStatusUpdatePacket&
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnStateChanged, const FStateChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRespawned, const FRespawnPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleChanged, const FRoleChangePacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleSkillStateChanged, const FRoleSkillPacket&);
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameTimeSynced, float);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundPrepare, const FRoundPreparePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, const FPhaseChangePacket&);
@@ -395,6 +404,7 @@ enum class ENetEventType : uint8
     Connected,
     ConnectFailed,
     Disconnected,
+
     LoginResult,
     RegisterResult,
     RoomListUpdated,
@@ -403,16 +413,21 @@ enum class ENetEventType : uint8
     RoundPrepare,
     MapSelected,
     GameStart,
+
     SnapshotReceived,
+    AccessAllow,
+
     AttackAction,
     DamageApply,
+    RoleSkillStateChanged,
     StateChange,
     StatusUpdate,
     Respawn,
     SyncAnimation,
-    AccessAllow,
-    GameTimeSynced,
+
     RoleChanged,
+    GameTimeSynced,
+
     MapEventTriggered,
     ObjectSpawned,
     PhaseChanged,
@@ -451,6 +466,7 @@ struct FNetEvent
     FMapEventPacket      MapEvent;
     FSpawnObjectPacket   SpawnObject;
     FAttackActionPacket  AttackAction;
+    FRoleSkillPacket     RoleSkill;
     FSyncAnimationPacket SyncAnimation;
     FItemPacket          ItemOwnership;
     FItemPacket          ItemSpawn;

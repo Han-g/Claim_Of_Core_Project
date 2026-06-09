@@ -215,6 +215,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Status")
 	void ApplyFreeze();
 
+	void ApplyFreezeFromServer();
+
 	UFUNCTION(BlueprintCallable, Category = "Status")
 	void EndFreeze();
 
@@ -275,6 +277,8 @@ public:
 	void ConsumeCurrentItem(ABaseItem* ItemToConsume);
 
 private:
+	void ApplyFreezeInternal(bool bIgnoreStatusImmunity, const TCHAR* SourceName);
+
 	UPROPERTY(VisibleInstanceOnly, Category = "PoisonFog")
 	bool bPoisonFogVisionEffectActive = false;
 
@@ -464,6 +468,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void ReportAttackHitToServer(AMyCharacter* Victim);
+
+	void SetRoleSkillStateFromNetwork(bool bActive, float Duration);
+
 
 private:
 	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")

@@ -188,6 +188,10 @@ void ClientNetworking::PumpEvents()
             OnDamageApplied.Broadcast(Evt.DamageApply);
             break;
 
+        case ENetEventType::RoleSkillStateChanged:
+            OnRoleSkillStateChanged.Broadcast(Evt.RoleSkill);
+            break;
+
         case ENetEventType::ItemOwnershipChanged:
             OnItemOwnershipChanged.Broadcast(Evt.ItemOwnership);
             break;
@@ -415,6 +419,11 @@ void ClientNetworking::ReadyToggleRequest()
 void ClientNetworking::GameStartRequest()
 {
     EnqueueSendCommand(PKT_C2S_GAME_START_REQ);
+}
+
+void ClientNetworking::RoleSkillRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ROLE_SKILL_REQ);
 }
 
 void ClientNetworking::ItemPickupRequest(int32 ItemID)

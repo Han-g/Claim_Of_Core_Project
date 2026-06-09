@@ -41,6 +41,7 @@ void PacketProcessor::InitHandler()
 	m_FuncHandlerMap[PKT_C2S_JUMP_KEYINPUT] = &PacketProcessor::Handle_Jump_KeyInput;
 	m_FuncHandlerMap[PKT_C2S_ATTACK_KEYINPUT] = &PacketProcessor::Handle_Attack_KeyInput;
 	m_FuncHandlerMap[PKT_C2S_ATTACK_HIT_REPORT] = &PacketProcessor::Handle_Attack_HitReport;
+	m_FuncHandlerMap[PKT_C2S_ROLE_SKILL_REQ] = &PacketProcessor::Handle_RoleSkillReq;
 	m_FuncHandlerMap[PKT_C2S_ITEMPICKUP_KEYINPUT] = &PacketProcessor::Handle_ItemPickup_KeyInput;
 	m_FuncHandlerMap[PKT_C2S_ITEMDROP_KEYINPUT] = &PacketProcessor::Handle_ItemDrop_KeyInput;
 	m_FuncHandlerMap[PKT_C2S_OBJECT_HIT_REQ] = &PacketProcessor::Handle_Object_HitReq;
@@ -322,6 +323,15 @@ void PacketProcessor::Handle_Attack_HitReport(IOCPServer* server, Session* sessi
 	if (!logic) { return; }
 
 	logic->HandleAttackHitReport(session->sessionID, pkt);
+}
+
+void PacketProcessor::Handle_RoleSkillReq(IOCPServer* server, Session* session, PacketReader& reader)
+{
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	LOG_INFO("[RoleSkill][RecvReq] session=%d uid=%d", session->sessionID, session->playerUID);
+	logic->HandleRoleSkillRequest(session->sessionID);
 }
 
 void PacketProcessor::Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader)

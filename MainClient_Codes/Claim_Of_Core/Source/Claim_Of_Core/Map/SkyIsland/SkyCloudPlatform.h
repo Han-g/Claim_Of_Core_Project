@@ -109,6 +109,18 @@ protected:
 	UPROPERTY()
 	TArray<TObjectPtr<UMaterialInterface>> OriginalMaterials;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
+	bool bUseOneWayCollision = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
+	float OneWayTopTolerance = 80.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
+	float OneWayVelocityTolerance = 10.f;
+
+	void UpdateOneWayCollision();
+	bool ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const;
+
 	FVector InitialScale = FVector::OneVector;
 	FVector InitialLocation = FVector::ZeroVector;
 

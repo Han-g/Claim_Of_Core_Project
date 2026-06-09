@@ -40,6 +40,7 @@ private:
 	static void Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Attack_HitReport(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_RoleSkillReq(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
 	static void Handle_Object_HitReq(IOCPServer* server, Session* session, PacketReader& reader);

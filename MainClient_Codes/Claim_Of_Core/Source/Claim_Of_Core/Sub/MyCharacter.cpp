@@ -84,7 +84,7 @@ AMyCharacter::AMyCharacter()
 	HandCollision->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnAttackOverlap);
 
 	FrozenOverlayMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrozenOverlayMesh"));
-	FrozenOverlayMeshComponent->SetupAttachment(GetMesh());
+	FrozenOverlayMeshComponent->SetupAttachment(GetCapsuleComponent());
 	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FrozenOverlayMeshComponent->SetGenerateOverlapEvents(false);
 	FrozenOverlayMeshComponent->SetHiddenInGame(true);
@@ -92,13 +92,15 @@ AMyCharacter::AMyCharacter()
 	FrozenOverlayMeshComponent->SetCastShadow(false);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> FrozenOverlayMeshFinder(
-		TEXT("/Game/Game/Map/Background/IceCave/Mesh/Crystal.Crystal")
+		TEXT("/Game/Game/Map/Background/IceCave/Mesh/FrozenMesh.FrozenMesh")
 	);
 
 	if (FrozenOverlayMeshFinder.Succeeded())
 	{
 		FrozenOverlayMesh = FrozenOverlayMeshFinder.Object;
+		FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
 	}
+
 
 	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
 	HPTextComponent->SetupAttachment(GetMesh());
@@ -162,6 +164,11 @@ void AMyCharacter::BeginPlay()
 	InitialActorScale3D = GetActorScale3D();
 	BaseJumpMaxCount = JumpMaxCount;
 
+	if (FrozenOverlayMeshComponent)
+	{
+		FrozenOverlayMeshComponent->SetRenderCustomDepth(bFrozen);
+	}
+
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
@@ -170,6 +177,9 @@ void AMyCharacter::BeginPlay()
 	UpdateRoleText();
 	UpdateLowHPEffectState();
 	ApplyCharacterState();
+
+	bFrozen = false;
+	UpdateFrozenOverlay();
 }
 
 void AMyCharacter::Tick(float DeltaTime)
@@ -819,6 +829,8 @@ void AMyCharacter::ApplyCharacterState()
 	{
 		ApplyAliveState();
 	}
+
+	UpdateFrozenOverlay();
 }
 
 void AMyCharacter::ApplyDamage(int32 DamageAmount)
@@ -1247,6 +1259,19 @@ void AMyCharacter::UpdateFrozenOverlay()
 		return;
 	}
 
+	if (!FrozenOverlayMesh)
+	{
+		FrozenOverlayMesh = FrozenOverlayMeshComponent->GetStaticMesh();
+	}
+
+	if (!FrozenOverlayMesh)
+	{
+		FrozenOverlayMesh = LoadObject<UStaticMesh>(
+			nullptr,
+			TEXT("/Game/Game/Map/Background/IceCave/Mesh/FrozenMesh.FrozenMesh")
+		);
+	}
+
 	if (FrozenOverlayMesh)
 	{
 		FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
@@ -1258,16 +1283,56 @@ void AMyCharacter::UpdateFrozenOverlay()
 	}
 
 	FrozenOverlayMeshComponent->SetRelativeLocation(FrozenOverlayRelativeLocation);
-	FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
+	//FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
 	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FrozenOverlayMeshComponent->SetHiddenInGame(!bFrozen);
+	FrozenOverlayMeshComponent->SetRenderCustomDepth(bFrozen);
 	FrozenOverlayMeshComponent->SetVisibility(bFrozen, true);
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FreezeClient][OverlayBounds] WorldLoc=%s BoundsOrigin=%s BoundsExtent=%s Hidden=%d Visible=%d RecentlyRendered=%d Stencil=%d"),
+		*FrozenOverlayMeshComponent->GetComponentLocation().ToString(),
+		*FrozenOverlayMeshComponent->Bounds.Origin.ToString(),
+		*FrozenOverlayMeshComponent->Bounds.BoxExtent.ToString(),
+		FrozenOverlayMeshComponent->bHiddenInGame ? 1 : 0,
+		FrozenOverlayMeshComponent->IsVisible() ? 1 : 0,
+		FrozenOverlayMeshComponent->WasRecentlyRendered(0.2f) ? 1 : 0,
+		FrozenOverlayMeshComponent->CustomDepthStencilValue);
 }
 
 void AMyCharacter::ApplyFreeze()
 {
-	if (IsDead() || !CanReceiveStatusEffect(ERecStatusEffectType::Freeze))
+	ApplyFreezeInternal(false, TEXT("Local"));
+}
+
+void AMyCharacter::ApplyFreezeFromServer()
+{
+	ApplyFreezeInternal(true, TEXT("Server"));
+}
+
+void AMyCharacter::ApplyFreezeInternal(bool bIgnoreStatusImmunity, const TCHAR* SourceName)
+{
+	const bool bDead = IsDead();
+	const bool bCanReceive = CanReceiveStatusEffect(ERecStatusEffectType::Freeze);
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FreezeClient][ApplyFreeze Enter] Source=%s Character=%s UID=%d Dead=%d CanReceive=%d IgnoreImmunity=%d MeshAsset=%s Comp=%s"),
+		SourceName ? SourceName : TEXT("Unknown"),
+		*GetNameSafe(this),
+		GetNetworkPlayerUID(),
+		bDead ? 1 : 0,
+		bCanReceive ? 1 : 0,
+		bIgnoreStatusImmunity ? 1 : 0,
+		*GetNameSafe(FrozenOverlayMesh),
+		*GetNameSafe(FrozenOverlayMeshComponent));
+
+	if (bDead || (!bIgnoreStatusImmunity && !bCanReceive))
 	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[FreezeClient][ApplyFreeze Blocked] Source=%s Dead=%d CanReceive=%d"),
+			SourceName ? SourceName : TEXT("Unknown"),
+			bDead ? 1 : 0,
+			bCanReceive ? 1 : 0);
 		return;
 	}
 
@@ -1293,6 +1358,13 @@ void AMyCharacter::ApplyFreeze()
 	}
 
 	UpdateFrozenOverlay();
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[FreezeClient][ApplyFreeze Done] Frozen=%d CompVisible=%d StaticMesh=%s"),
+		bFrozen ? 1 : 0,
+		FrozenOverlayMeshComponent && FrozenOverlayMeshComponent->IsVisible() ? 1 : 0,
+		FrozenOverlayMeshComponent ? *GetNameSafe(FrozenOverlayMeshComponent->GetStaticMesh()) : TEXT("NoComp"));
+
 }
 
 void AMyCharacter::EndFreeze()
@@ -1713,7 +1785,10 @@ void AMyCharacter::ActivateRoleSkillPressed()
 		return;
 	}
 
-	ActivateRoleSkill();
+	if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+	{
+		NetInst->RequestRoleSkillActivate();
+	}
 }
 
 void AMyCharacter::UpdateLocalPostProcessEffects()
@@ -2399,6 +2474,11 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 		return; 
 	}
 
+	if (AttackType == 3 && IsLocallyControlled())
+	{
+		return;
+	}
+
 	UAnimInstance* AnimInstance = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr;
 	const FRoleVisualData& Data = GetVisualData(RoleType);
 
@@ -2709,7 +2789,7 @@ void AMyCharacter::ApplyTeamVisual()
 
 	if (FrozenOverlayMeshComponent)
 	{
-		FrozenOverlayMeshComponent->SetRenderCustomDepth(bEnableOutline);
+		FrozenOverlayMeshComponent->SetRenderCustomDepth(bEnableOutline && bFrozen);
 		FrozenOverlayMeshComponent->SetCustomDepthStencilValue(StencilValue);
 	}
 }
@@ -3272,4 +3352,18 @@ void AMyCharacter::ReportAttackHitToServer(AMyCharacter* Victim)
 			CurrentAttackType
 		);
 	}
+}
+
+void AMyCharacter::SetRoleSkillStateFromNetwork(bool bActive, float Duration)
+{
+	bRoleSkillActive = bActive;
+
+	ApplyRoleStats();
+	ApplyRoleSkillState();
+	UpdateRoleText();
+
+	UE_LOG(LogTemp, Warning, TEXT("[RoleSkill][StateApplied] Role=%d Active=%d JumpMaxCount=%d"),
+		static_cast<int32>(RoleType),
+		bRoleSkillActive ? 1 : 0,
+		JumpMaxCount);
 }
