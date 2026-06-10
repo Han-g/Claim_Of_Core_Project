@@ -717,6 +717,11 @@ public:
 	void SetAnimationFromNetwork(int32 InAnimationNum) { 
 		NetworkAnimationNum = InAnimationNum; 
 	}
+
+	void SetSkillCoolTimeFromNetwork(float RemainTime) {
+		CurrentCoolTime = FMath::Max(0.f, RemainTime);
+	}
+
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 

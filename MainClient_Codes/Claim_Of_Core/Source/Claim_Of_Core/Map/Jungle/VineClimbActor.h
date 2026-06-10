@@ -8,6 +8,7 @@
 
 class UBoxComponent;
 class UPrimitiveComponent;
+class UStaticMeshComponent;
 
 UCLASS()
 class CLAIM_OF_CORE_API AVineClimbActor : public AActor
@@ -22,12 +23,17 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	virtual void OnConstruction(const FTransform& Transform);
+
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	USceneComponent* SceneRoot;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	UBoxComponent* ClimbBox;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UStaticMeshComponent* VineStaticMesh;
 
 private:
 	UFUNCTION()

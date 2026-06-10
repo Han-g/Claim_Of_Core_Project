@@ -984,6 +984,7 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			LocalCharacter->SetTeamFromNetwork(Data.teamType);
 			LocalCharacter->SetHPFromNetwork(Data.currentHP);
 			LocalCharacter->SetStateFromNetwork(Data.characterState);
+			LocalCharacter->SetSkillCoolTimeFromNetwork(Data.roleSkillCooldownRemainTime);
 			
 			if (!bLocalInitialTransformApplied)
 			{

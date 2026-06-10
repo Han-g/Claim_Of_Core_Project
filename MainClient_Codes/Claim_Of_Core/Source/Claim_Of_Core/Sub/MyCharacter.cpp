@@ -223,14 +223,6 @@ void AMyCharacter::Tick(float DeltaTime)
 					if (bHit)
 					{
 						UPrimitiveComponent* HitComp = Hit.GetComponent();
-
-						/*UE_LOG(LogTemp, Warning,
-							TEXT("[CameraProbeHit] Actor=%s Comp=%s ChannelResponse=%d Location=%s"),
-							*GetNameSafe(Hit.GetActor()),
-							*GetNameSafe(HitComp),
-							HitComp ? static_cast<int32>(HitComp->GetCollisionResponseToChannel(ECC_Camera)) : -1,
-							*Hit.ImpactPoint.ToString()
-						);*/
 					}
 				}
 			}
@@ -370,6 +362,11 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (Axis != 0.f)
 	{
 		SpectateMoveVertical(Axis, DeltaTime);
+	}
+
+	if (CurrentCoolTime > 0.f)
+	{
+		CurrentCoolTime = FMath::Max(0.f, CurrentCoolTime - DeltaTime);
 	}
 }
 
@@ -1120,8 +1117,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindKey(EKeys::E, IE_Pressed, this, &AMyCharacter::SpectateDownPressed);
 	PlayerInputComponent->BindKey(EKeys::E, IE_Released, this, &AMyCharacter::SpectateDownReleased);
 
-	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AMyCharacter::ResurrectPressed);
-	PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMyCharacter::CycleRolePressed);
+	//PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AMyCharacter::ResurrectPressed);
+	//PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMyCharacter::CycleRolePressed);
 	PlayerInputComponent->BindKey(EKeys::C, IE_Pressed, this, &AMyCharacter::ActivateRoleSkillPressed);
 
 	PlayerInputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this, &AMyCharacter::SpectateConfirmPressed);
@@ -1784,6 +1781,32 @@ void AMyCharacter::ActivateRoleSkillPressed()
 	{
 		return;
 	}
+
+	if (CurrentCoolTime > 0.f)
+	{
+		UE_LOG(LogTemp, Display,
+			TEXT("[RoleSkill][ClientBlockedCooldown] uid=%d role=%d cooldown=%.2f active=%d"),
+			NetworkPlayerUID,
+			static_cast<int32>(RoleType),
+			CurrentCoolTime,
+			bRoleSkillActive ? 1 : 0);
+		return;
+	}
+
+	if (bRoleSkillActive)
+	{
+		UE_LOG(LogTemp, Display,
+			TEXT("[RoleSkill][ClientBlockedActive] uid=%d role=%d"),
+			NetworkPlayerUID,
+			static_cast<int32>(RoleType));
+		return;
+	}
+
+	UE_LOG(LogTemp, Display,
+		TEXT("[RoleSkill][ClientSendReq] uid=%d role=%d cooldown=%.2f"),
+		NetworkPlayerUID,
+		static_cast<int32>(RoleType),
+		CurrentCoolTime);
 
 	if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
 	{

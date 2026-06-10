@@ -117,6 +117,7 @@ struct GameData {
 
     int roleSkillActive = 0;
     float roleSkillRemainTime = 0.f;
+    float roleSkillCooldownRemainTime = 0.f;
 
     int animationNum = 0;
     int equippedItemID = -1;

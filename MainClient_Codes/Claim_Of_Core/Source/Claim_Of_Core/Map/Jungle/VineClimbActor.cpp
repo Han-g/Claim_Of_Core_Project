@@ -17,7 +17,7 @@ AVineClimbActor::AVineClimbActor()
 	ClimbBox = CreateDefaultSubobject<UBoxComponent>(TEXT("ClimbBox"));
 	ClimbBox->SetupAttachment(SceneRoot);
 
-	ClimbBox->SetBoxExtent(FVector(80.f, 80.f, 500.f));
+	ClimbBox->SetBoxExtent(FVector(160.f, 160.f, 500.f));
 	ClimbBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	ClimbBox->SetCollisionObjectType(ECC_WorldDynamic);
 	ClimbBox->SetCollisionResponseToAllChannels(ECR_Ignore);
@@ -25,6 +25,11 @@ AVineClimbActor::AVineClimbActor()
 	ClimbBox->SetGenerateOverlapEvents(true);
 	ClimbBox->OnComponentBeginOverlap.AddDynamic(this, &AVineClimbActor::OnClimbBoxBeginOverlap);
 	ClimbBox->OnComponentEndOverlap.AddDynamic(this, &AVineClimbActor::OnClimbBoxEndOverlap);
+
+	VineStaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VineStaticMesh"));
+	VineStaticMesh->SetupAttachment(SceneRoot);
+	VineStaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	VineStaticMesh->SetGenerateOverlapEvents(false);
 
 #if WITH_EDITORONLY_DATA
 	ClimbBox->ShapeColor = FColor::Green;
@@ -38,6 +43,36 @@ void AVineClimbActor::BeginPlay()
 	Super::BeginPlay();
 	
 }
+
+void AVineClimbActor::OnConstruction(const FTransform& Transform)
+{
+	Super::OnConstruction(Transform);
+
+	if (!VineStaticMesh || !VineStaticMesh->GetStaticMesh())
+	{
+		return;
+	}
+
+	FVector Min;
+	FVector Max;
+	VineStaticMesh->GetLocalBounds(Min, Max);
+
+	const FVector MeshExtent = (Max - Min) * 0.5f;
+	const FVector MeshCenter = (Min + Max) * 0.5f;
+	const FVector MeshScale = VineStaticMesh->GetRelativeScale3D().GetAbs();
+
+	ClimbBox->SetRelativeLocation(
+		VineStaticMesh->GetRelativeLocation() + MeshCenter * MeshScale
+	);
+
+	ClimbBox->SetBoxExtent(FVector(
+		FMath::Max(80.f, MeshExtent.X * MeshScale.X),
+		FMath::Max(80.f, MeshExtent.Y * MeshScale.Y),
+		MeshExtent.Z * MeshScale.Z
+	));
+}
+
+
 
 void AVineClimbActor::OnClimbBoxBeginOverlap(
 	UPrimitiveComponent* OverlappedComponent,

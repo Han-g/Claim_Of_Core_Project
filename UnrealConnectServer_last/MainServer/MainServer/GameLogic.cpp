@@ -48,6 +48,7 @@ void GameLogic::Update(float deltaTime)
     if (roundState != ERoundState::Playing) { return; }
 
     UpdateRoleSkillStates(deltaTime);
+    UpdateRoleSkillCooldowns(deltaTime);
     
     // Adapt Player Movement
     for (auto& Pair : players)
@@ -341,10 +342,11 @@ bool GameLogic::TrySelectMap()
 
     std::uniform_int_distribution<int> dist( 0, static_cast<int>(remainingMaps.size()) - 1  );
 
-    //----------------------------- Map Setting --------------------------------
-    const int index = 1;//dist(MapRandomEngine);
+    const int index = dist(MapRandomEngine);
 
-    selectedMapType = remainingMaps[index];
+    //----------------------------- Map Setting --------------------------------
+    // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
+    selectedMapType = 4;// remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 
@@ -1200,21 +1202,70 @@ Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const
 
 void GameLogic::HandleRoleSkillRequest(int sessionID)
 {
-    if (roundState != ERoundState::Playing) { return; }
+    if (roundState != ERoundState::Playing)
+    {
+        LOG_INFO("[RoleSkill][RejectRoundState] session=%d", sessionID);
+        return;
+    }
 
     auto it = players.find(sessionID);
-    if (it == players.end() || !it->second) { return; }
+    if (it == players.end() || !it->second)
+    {
+        LOG_INFO("[RoleSkill][RejectInvalidSession] session=%d", sessionID);
+        return;
+    }
 
     Session* player = it->second;
     GameData& gd = player->gameDatas;
-    if (!gd.isConnected || gd.characterState != Alive) { return; }
-    if (gd.roleSkillActive != 0) { return; }
+
+    LOG_INFO("[RoleSkill][RecvReq] session=%d uid=%d role=%d active=%d remain=%.2f cooldown=%.2f state=%d connected=%d",
+        sessionID,
+        player->playerUID,
+        gd.roleType,
+        gd.roleSkillActive,
+        gd.roleSkillRemainTime,
+        gd.roleSkillCooldownRemainTime,
+        gd.characterState,
+        gd.isConnected ? 1 : 0);
+
+    if (!gd.isConnected || gd.characterState != Alive)
+    {
+        LOG_INFO("[RoleSkill][RejectState] session=%d uid=%d state=%d connected=%d",
+            sessionID, player->playerUID, gd.characterState, gd.isConnected ? 1 : 0);
+        return;
+    }
+
+    if (gd.roleSkillActive != 0)
+    {
+        LOG_INFO("[RoleSkill][RejectActive] session=%d uid=%d role=%d remain=%.2f",
+            sessionID, player->playerUID, gd.roleType, gd.roleSkillRemainTime);
+        return;
+    }
+
+    if (gd.roleSkillCooldownRemainTime > 0.f)
+    {
+        LOG_INFO("[RoleSkill][RejectCooldown] session=%d uid=%d role=%d cooldown=%.2f",
+            sessionID, player->playerUID, gd.roleType, gd.roleSkillCooldownRemainTime);
+        return;
+    }
 
     const float duration = GetRoleSkillDuration(gd.roleType);
-    if (duration <= 0.f) { return; }
+    if (duration <= 0.f)
+    {
+        LOG_INFO("[RoleSkill][RejectInvalidDuration] session=%d uid=%d role=%d duration=%.2f",
+            sessionID, player->playerUID, gd.roleType, duration);
+        return;
+    }
 
     gd.roleSkillActive = 1;
     gd.roleSkillRemainTime = duration;
+
+    LOG_INFO("[RoleSkill][Activate] session=%d uid=%d role=%d duration=%.2f cooldown=%.2f",
+        sessionID,
+        player->playerUID,
+        gd.roleType,
+        gd.roleSkillRemainTime,
+        gd.roleSkillCooldownRemainTime);
 
     ApplyRoleStats(sessionID);
     BroadcastRoleSkillState(player, true, duration);
@@ -1247,6 +1298,13 @@ void GameLogic::EndRoleSkill(Session* player)
 
     gd.roleSkillActive = 0;
     gd.roleSkillRemainTime = 0.f;
+    gd.roleSkillCooldownRemainTime = GetRoleSkillCooldown(gd.roleType);
+
+    LOG_INFO("[RoleSkill][EndStartCooldown] session=%d uid=%d role=%d cooldown=%.2f",
+        player->sessionID,
+        player->playerUID,
+        gd.roleType,
+        gd.roleSkillCooldownRemainTime);
 
     ApplyRoleStats(player->sessionID);
     BroadcastRoleSkillState(player, false, 0.f);
@@ -1289,6 +1347,35 @@ float GameLogic::GetRoleSkillSpeedMultiplier(int roleType, bool bActive) const
     case Striker: return 1.45f;
     case Guardian: return 0.65f;
     default: return 1.0f;
+    }
+}
+
+void GameLogic::UpdateRoleSkillCooldowns(float deltaTime)
+{
+    for (auto& pair : players)
+    {
+        Session* player = pair.second;
+        if (!player) { continue; }
+
+        GameData& gd = player->gameDatas;
+        if (gd.roleSkillCooldownRemainTime <= 0.f) { continue; }
+
+        gd.roleSkillCooldownRemainTime -= deltaTime;
+        if (gd.roleSkillCooldownRemainTime < 0.f)
+        {
+            gd.roleSkillCooldownRemainTime = 0.f;
+        }
+    }
+}
+
+float GameLogic::GetRoleSkillCooldown(int roleType) const
+{
+    switch (roleType)
+    {
+    case Striker: return 30.0f;
+    case Guardian: return 30.0f;
+    case Manipulator: return 30.0f;
+    default: return 0.0f;
     }
 }
 
@@ -2446,7 +2533,7 @@ void GameLogic::UpdateTorchThaw(float deltaTime)
 
 void GameLogic::HandleIceFloorStanding(int sessionID, int floorID, int pieceIndex)
 {
-    if (roundState != ERoundState::Playing)
+    if (roundState != ERoundState::Playing || mapType != 2)
     {
         return;
     }

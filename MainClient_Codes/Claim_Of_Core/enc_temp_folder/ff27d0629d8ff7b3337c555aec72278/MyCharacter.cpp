@@ -84,7 +84,7 @@ AMyCharacter::AMyCharacter()
 	HandCollision->OnComponentBeginOverlap.AddDynamic(this, &AMyCharacter::OnAttackOverlap);
 
 	FrozenOverlayMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FrozenOverlayMesh"));
-	FrozenOverlayMeshComponent->SetupAttachment(GetMesh());
+	FrozenOverlayMeshComponent->SetupAttachment(GetCapsuleComponent());
 	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FrozenOverlayMeshComponent->SetGenerateOverlapEvents(false);
 	FrozenOverlayMeshComponent->SetHiddenInGame(true);
@@ -164,9 +164,6 @@ void AMyCharacter::BeginPlay()
 	InitialActorScale3D = GetActorScale3D();
 	BaseJumpMaxCount = JumpMaxCount;
 
-	bFrozen = false;
-	UpdateFrozenOverlay();
-
 	if (FrozenOverlayMeshComponent)
 	{
 		FrozenOverlayMeshComponent->SetRenderCustomDepth(bFrozen);
@@ -180,6 +177,9 @@ void AMyCharacter::BeginPlay()
 	UpdateRoleText();
 	UpdateLowHPEffectState();
 	ApplyCharacterState();
+
+	bFrozen = false;
+	UpdateFrozenOverlay();
 }
 
 void AMyCharacter::Tick(float DeltaTime)
@@ -223,14 +223,6 @@ void AMyCharacter::Tick(float DeltaTime)
 					if (bHit)
 					{
 						UPrimitiveComponent* HitComp = Hit.GetComponent();
-
-						/*UE_LOG(LogTemp, Warning,
-							TEXT("[CameraProbeHit] Actor=%s Comp=%s ChannelResponse=%d Location=%s"),
-							*GetNameSafe(Hit.GetActor()),
-							*GetNameSafe(HitComp),
-							HitComp ? static_cast<int32>(HitComp->GetCollisionResponseToChannel(ECC_Camera)) : -1,
-							*Hit.ImpactPoint.ToString()
-						);*/
 					}
 				}
 			}
@@ -370,6 +362,11 @@ void AMyCharacter::Tick(float DeltaTime)
 	if (Axis != 0.f)
 	{
 		SpectateMoveVertical(Axis, DeltaTime);
+	}
+
+	if (CurrentCoolTime > 0.f)
+	{
+		CurrentCoolTime = FMath::Max(0.f, CurrentCoolTime - DeltaTime);
 	}
 }
 
@@ -829,6 +826,8 @@ void AMyCharacter::ApplyCharacterState()
 	{
 		ApplyAliveState();
 	}
+
+	UpdateFrozenOverlay();
 }
 
 void AMyCharacter::ApplyDamage(int32 DamageAmount)
@@ -1118,8 +1117,8 @@ void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindKey(EKeys::E, IE_Pressed, this, &AMyCharacter::SpectateDownPressed);
 	PlayerInputComponent->BindKey(EKeys::E, IE_Released, this, &AMyCharacter::SpectateDownReleased);
 
-	PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AMyCharacter::ResurrectPressed);
-	PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMyCharacter::CycleRolePressed);
+	//PlayerInputComponent->BindKey(EKeys::R, IE_Pressed, this, &AMyCharacter::ResurrectPressed);
+	//PlayerInputComponent->BindKey(EKeys::P, IE_Pressed, this, &AMyCharacter::CycleRolePressed);
 	PlayerInputComponent->BindKey(EKeys::C, IE_Pressed, this, &AMyCharacter::ActivateRoleSkillPressed);
 
 	PlayerInputComponent->BindKey(EKeys::SpaceBar, IE_Pressed, this, &AMyCharacter::SpectateConfirmPressed);
@@ -1281,21 +1280,21 @@ void AMyCharacter::UpdateFrozenOverlay()
 	}
 
 	FrozenOverlayMeshComponent->SetRelativeLocation(FrozenOverlayRelativeLocation);
-	FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
+	//FrozenOverlayMeshComponent->SetRelativeScale3D(FrozenOverlayRelativeScale);
 	FrozenOverlayMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	FrozenOverlayMeshComponent->SetHiddenInGame(!bFrozen);
 	FrozenOverlayMeshComponent->SetRenderCustomDepth(bFrozen);
 	FrozenOverlayMeshComponent->SetVisibility(bFrozen, true);
 
 	UE_LOG(LogTemp, Warning,
-		TEXT("[FreezeClient][Overlay] Frozen=%d OverlayMesh=%s CompMesh=%s Visible=%d Registered=%d RelLoc=%s RelScale=%s"),
-		bFrozen ? 1 : 0,
-		*GetNameSafe(FrozenOverlayMesh),
-		FrozenOverlayMeshComponent ? *GetNameSafe(FrozenOverlayMeshComponent->GetStaticMesh()) : TEXT("NoComp"),
-		FrozenOverlayMeshComponent && FrozenOverlayMeshComponent->IsVisible() ? 1 : 0,
-		FrozenOverlayMeshComponent && FrozenOverlayMeshComponent->IsRegistered() ? 1 : 0,
-		FrozenOverlayMeshComponent ? *FrozenOverlayMeshComponent->GetRelativeLocation().ToString() : TEXT("NoComp"),
-		FrozenOverlayMeshComponent ? *FrozenOverlayMeshComponent->GetRelativeScale3D().ToString() : TEXT("NoComp"));
+		TEXT("[FreezeClient][OverlayBounds] WorldLoc=%s BoundsOrigin=%s BoundsExtent=%s Hidden=%d Visible=%d RecentlyRendered=%d Stencil=%d"),
+		*FrozenOverlayMeshComponent->GetComponentLocation().ToString(),
+		*FrozenOverlayMeshComponent->Bounds.Origin.ToString(),
+		*FrozenOverlayMeshComponent->Bounds.BoxExtent.ToString(),
+		FrozenOverlayMeshComponent->bHiddenInGame ? 1 : 0,
+		FrozenOverlayMeshComponent->IsVisible() ? 1 : 0,
+		FrozenOverlayMeshComponent->WasRecentlyRendered(0.2f) ? 1 : 0,
+		FrozenOverlayMeshComponent->CustomDepthStencilValue);
 }
 
 void AMyCharacter::ApplyFreeze()
@@ -1312,6 +1311,7 @@ void AMyCharacter::ApplyFreezeInternal(bool bIgnoreStatusImmunity, const TCHAR* 
 {
 	const bool bDead = IsDead();
 	const bool bCanReceive = CanReceiveStatusEffect(ERecStatusEffectType::Freeze);
+
 	UE_LOG(LogTemp, Warning,
 		TEXT("[FreezeClient][ApplyFreeze Enter] Source=%s Character=%s UID=%d Dead=%d CanReceive=%d IgnoreImmunity=%d MeshAsset=%s Comp=%s"),
 		SourceName ? SourceName : TEXT("Unknown"),
@@ -1777,7 +1777,7 @@ void AMyCharacter::SelfDamagePressed()
 
 void AMyCharacter::ActivateRoleSkillPressed()
 {
-	if (!IsLocallyControlled())
+	if (!IsLocallyControlled() || CurrentCoolTime > 0.f || bRoleSkillActive)
 	{
 		return;
 	}

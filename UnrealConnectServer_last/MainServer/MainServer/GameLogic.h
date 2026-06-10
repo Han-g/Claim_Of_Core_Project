@@ -373,6 +373,8 @@ public:
 
 	float GetRoleSkillDuration(int roleType) const;
 	float GetRoleSkillSpeedMultiplier(int roleType, bool bActive) const;
+	void UpdateRoleSkillCooldowns(float deltaTime);
+	float GetRoleSkillCooldown(int roleType) const;
 
 private:
 	int MaxHP = 100;
@@ -648,7 +650,7 @@ private:
 	float NormalMoveAcceleration = 16000.0f;
 	float IceMoveAcceleration = 4500.0f;
 
-	float NormalBrakingDeceleration = 18000.0f;
+	float NormalBrakingDeceleration = 25000.0f;
 	float IceBrakingDeceleration = 700.0f;
 
 	float IceMaxSpeedMultiplier = 1.05f;
