@@ -1196,76 +1196,70 @@ bool GameLogic::CanOccupyPosition(const Vector3& pos, float radius) const
 
 Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const
 {
-    // Temporary Treat
-    return desiredPos;
+    Vector3 resolved = desiredPos;
+
+    // Space mapÀº Á¦¿Ü
+    if (mapType == 3) {
+        return resolved;
+    }
+
+    else if (mapType == 4) {
+        float JungleMapMinX = MapMinX * 1.5;
+        float JungleMapMaxX = MapMaxX * 1.5;
+        float JungleMapMinY = MapMinY * 1.5;
+        float JungleMapMaxY = MapMaxY * 1.5;
+        resolved.x = (std::max)(JungleMapMinX + radius, (std::min)(resolved.x, JungleMapMaxX - radius));
+        resolved.y = (std::max)(JungleMapMinY + radius, (std::min)(resolved.y, JungleMapMaxY - radius));
+    }
+    
+    else {
+        resolved.x = (std::max)(MapMinX + radius, (std::min)(resolved.x, MapMaxX - radius));
+        resolved.y = (std::max)(MapMinY + radius, (std::min)(resolved.y, MapMaxY - radius));
+    }
+
+    return resolved;
 }
 
 void GameLogic::HandleRoleSkillRequest(int sessionID)
 {
     if (roundState != ERoundState::Playing)
     {
-        LOG_INFO("[RoleSkill][RejectRoundState] session=%d", sessionID);
         return;
     }
 
     auto it = players.find(sessionID);
     if (it == players.end() || !it->second)
     {
-        LOG_INFO("[RoleSkill][RejectInvalidSession] session=%d", sessionID);
         return;
     }
 
     Session* player = it->second;
     GameData& gd = player->gameDatas;
 
-    LOG_INFO("[RoleSkill][RecvReq] session=%d uid=%d role=%d active=%d remain=%.2f cooldown=%.2f state=%d connected=%d",
-        sessionID,
-        player->playerUID,
-        gd.roleType,
-        gd.roleSkillActive,
-        gd.roleSkillRemainTime,
-        gd.roleSkillCooldownRemainTime,
-        gd.characterState,
-        gd.isConnected ? 1 : 0);
-
     if (!gd.isConnected || gd.characterState != Alive)
     {
-        LOG_INFO("[RoleSkill][RejectState] session=%d uid=%d state=%d connected=%d",
-            sessionID, player->playerUID, gd.characterState, gd.isConnected ? 1 : 0);
         return;
     }
 
     if (gd.roleSkillActive != 0)
     {
-        LOG_INFO("[RoleSkill][RejectActive] session=%d uid=%d role=%d remain=%.2f",
-            sessionID, player->playerUID, gd.roleType, gd.roleSkillRemainTime);
         return;
     }
 
     if (gd.roleSkillCooldownRemainTime > 0.f)
     {
-        LOG_INFO("[RoleSkill][RejectCooldown] session=%d uid=%d role=%d cooldown=%.2f",
-            sessionID, player->playerUID, gd.roleType, gd.roleSkillCooldownRemainTime);
         return;
     }
 
     const float duration = GetRoleSkillDuration(gd.roleType);
     if (duration <= 0.f)
     {
-        LOG_INFO("[RoleSkill][RejectInvalidDuration] session=%d uid=%d role=%d duration=%.2f",
-            sessionID, player->playerUID, gd.roleType, duration);
         return;
     }
 
     gd.roleSkillActive = 1;
     gd.roleSkillRemainTime = duration;
-
-    LOG_INFO("[RoleSkill][Activate] session=%d uid=%d role=%d duration=%.2f cooldown=%.2f",
-        sessionID,
-        player->playerUID,
-        gd.roleType,
-        gd.roleSkillRemainTime,
-        gd.roleSkillCooldownRemainTime);
+    gd.roleSkillCooldownRemainTime = GetRoleSkillCooldown(gd.roleType);
 
     ApplyRoleStats(sessionID);
     BroadcastRoleSkillState(player, true, duration);
@@ -1298,13 +1292,7 @@ void GameLogic::EndRoleSkill(Session* player)
 
     gd.roleSkillActive = 0;
     gd.roleSkillRemainTime = 0.f;
-    gd.roleSkillCooldownRemainTime = GetRoleSkillCooldown(gd.roleType);
-
-    LOG_INFO("[RoleSkill][EndStartCooldown] session=%d uid=%d role=%d cooldown=%.2f",
-        player->sessionID,
-        player->playerUID,
-        gd.roleType,
-        gd.roleSkillCooldownRemainTime);
+    //gd.roleSkillCooldownRemainTime = GetRoleSkillCooldown(gd.roleType);
 
     ApplyRoleStats(player->sessionID);
     BroadcastRoleSkillState(player, false, 0.f);

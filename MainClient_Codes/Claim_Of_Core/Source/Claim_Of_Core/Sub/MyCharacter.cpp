@@ -1141,7 +1141,30 @@ void AMyCharacter::TestFunc()
 
 void AMyCharacter::Move(const FInputActionValue& Value)
 {
-	if (IsDead() || bDeathSequenceLocked || bFrozen)
+	const FVector2D MovementVector = Value.Get<FVector2D>();
+	const float Right = MovementVector.X;
+	const float Forward = MovementVector.Y;
+
+	if (IsDead())
+	{
+		CachedMoveRight = 0.f;
+		CachedMoveForward = 0.f;
+
+		if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
+		{
+			MoveComp->StopMovementImmediately();
+			MoveComp->Velocity = FVector::ZeroVector;
+		}
+
+		if (bCanSpectate)
+		{
+			SpectateMove(Right, Forward);
+		}
+
+		return;
+	}
+
+	if (bDeathSequenceLocked || bFrozen)
 	{
 		CachedMoveRight = 0.f;
 		CachedMoveForward = 0.f;
@@ -1155,38 +1178,26 @@ void AMyCharacter::Move(const FInputActionValue& Value)
 		return;
 	}
 
-	const FVector2D MovementVector = Value.Get<FVector2D>();
-	const float Right = MovementVector.X;
-	const float Forward = MovementVector.Y;
-
 	CachedMoveRight = Right;
 	CachedMoveForward = Forward;
 
 	DoMove(Right, Forward);
-
-	/*UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>();
-	if (!NetInst) return;
-
-	FMovePacket Packet;
-	const FVector Pos = GetActorLocation();
-
-	Packet.X = Pos.X;
-	Packet.Y = Pos.Y;
-	Packet.Z = Pos.Z;
-	Packet.Yaw = GetControlRotation().Yaw;
-
-	Packet.VelocityX = Right;
-	Packet.VelocityY = Forward;
-
-	NetInst->SendMoveInputToServer(Packet);*/
 }
 
-void AMyCharacter::StopMove(const FInputActionValue& Value)
+void AMyCharacter::StopMoveInput()
 {
 	CachedMoveRight = 0.f;
 	CachedMoveForward = 0.f;
 
-	if (bIsVineClimbing) { UpdateVineClimbMovement(); }
+	if (bIsVineClimbing)
+	{
+		UpdateVineClimbMovement();
+	}
+}
+
+void AMyCharacter::StopMove(const FInputActionValue& Value)
+{
+	StopMoveInput();
 }
 
 void AMyCharacter::Look(const FInputActionValue& Value)
@@ -1237,8 +1248,14 @@ void AMyCharacter::DoLook(float Yaw, float Pitch)
 		return;
 	}
 
-	if (IsDead() || bCanSpectate)
+	if (IsDead())
 	{
+		if (bCanSpectate && GetController() != nullptr)
+		{
+			AddControllerYawInput(Yaw);
+			AddControllerPitchInput(Pitch);
+		}
+
 		return;
 	}
 
@@ -2185,6 +2202,16 @@ void AMyCharacter::EnterSpectateMode()
 		{
 			CameraBoom->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			bCameraDetached = true;
+
+			FVector SpectateStartLocation = CameraBoom->GetComponentLocation();
+			SpectateStartLocation.Z = FMath::Max(SpectateStartLocation.Z + 800.f, 300.f);
+
+			CameraBoom->SetWorldLocation(
+				SpectateStartLocation,
+				false,
+				nullptr,
+				ETeleportType::TeleportPhysics
+			);
 		}
 
 		ShowSpectatingUI();

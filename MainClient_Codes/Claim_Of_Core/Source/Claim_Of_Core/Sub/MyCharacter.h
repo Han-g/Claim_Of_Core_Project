@@ -181,6 +181,7 @@ protected:
 	void TestFunc();
 
 	void Move(const FInputActionValue& Value);
+	void StopMoveInput();
 	void StopMove(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void Attack();
@@ -515,10 +516,10 @@ private:
 	float DBJPDuration = 10.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
-	float SpectateMoveSpeed = 900.f;
+	float SpectateMoveSpeed = 1800.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
-	float SpectateVerticalSpeed = 700.f;
+	float SpectateVerticalSpeed = 1200.f;
 
 	bool bCameraDetached = false;
 	bool bSpectateUpHeld = false;
