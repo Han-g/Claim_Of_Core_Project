@@ -174,6 +174,36 @@ void GameLogic::EndGameRound()
     BroadcastRoundResult(finishPkt);
 }
 
+void GameLogic::HandlePlayerLeaveDuringGame(int sessionID)
+{
+    auto it = players.find(sessionID);
+    if (it == players.end() || !it->second)
+    {
+        return;
+    }
+
+    Session* player = it->second;
+    GameData& gd = player->gameDatas;
+
+    if (gd.isConnected && gd.characterState == Alive)
+    {
+        HandleDeath(sessionID);
+    }
+
+    gd.isConnected = false;
+    gd.characterState = Dead;
+    gd.roleSkillActive = 0;
+    gd.roleSkillRemainTime = 0.f;
+
+    player->VerticalVelocity = 0.f;
+    player->HorizontalVelocityX = 0.f;
+    player->HorizontalVelocityY = 0.f;
+    player->isGrounded = false;
+    player->JumpCount = 0;
+
+    players.erase(it);
+}
+
 void GameLogic::CountdownTick()
 {
     if (roundState != ERoundState::Playing) { return; }
@@ -346,7 +376,7 @@ bool GameLogic::TrySelectMap()
 
     //----------------------------- Map Setting --------------------------------
     // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
-    selectedMapType = 4;// remainingMaps[index];
+    selectedMapType = remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 

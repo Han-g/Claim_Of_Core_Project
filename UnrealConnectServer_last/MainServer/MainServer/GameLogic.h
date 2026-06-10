@@ -241,6 +241,8 @@ public:
 	// Ends the active round and broadcasts the final state.
 	void EndGameRound();
 
+	void HandlePlayerLeaveDuringGame(int sessionID);
+
 	// Broadcasts the authoritative remaining game time.
 	void BroadcastGameTime(float currentTime);
 	// Broadcasts damage and remaining HP for a target.

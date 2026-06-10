@@ -12,6 +12,7 @@
 class ClientNetworking;
 class URoomWidget;
 class URoundWinWidget;
+class UGameResultWidget;
 class AMyCharacter;
 class ABaseItem;
 class ASmallDebrisActor;
@@ -185,6 +186,17 @@ public:
 	// Item Control Function
 	ABaseItem* FindItemByID(int32 ItemID) const;
 
+	// Game Setting Function
+	void SurrenderAndReturnToLobby();
+	void ReturnToLobbyFromResult();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameResultWidget> GameResultWidgetClass;
+
+	UPROPERTY()
+	UGameResultWidget* GameResultWidgetInstance = nullptr;
+
+	TArray<FRoundChangePacket> CachedRoundResults;
 
 private:
 	// Checker Game Play Setting

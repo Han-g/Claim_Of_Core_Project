@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Claim_Of_CorePlayerController.generated.h"
 
+class UGameSettingInterface;
 class UInputMappingContext;
 class UUserWidget;
 
@@ -22,8 +23,16 @@ class AClaim_Of_CorePlayerController : public APlayerController
 public:
 	// TEST ENTRY FUNC
 	void StartClientOnlyTestPressed(); // Function that to Enter test mode by pressing "-" key
+	void ToggleGameSettingMenu();
+	void OpenGameSettingMenu();
+	void CloseGameSettingMenu();
 	
 protected:
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UGameSettingInterface> GameSettingWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UGameSettingInterface> GameSettingWidgetInstance;
 
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category ="Input|Input Mappings")

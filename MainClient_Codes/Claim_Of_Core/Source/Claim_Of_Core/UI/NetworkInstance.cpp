@@ -22,6 +22,7 @@
 
 #include "GameState/InGame_GameState.h"
 #include "UI/URoundPrepareWidget.h"
+#include "UI/GameResultWidget.h"
 
 UNetworkInstance::UNetworkInstance()
 {
@@ -761,20 +762,6 @@ void UNetworkInstance::HandleGameStart()
 		RoomWidgetInstance = nullptr;
 	}
 
-	/* Game Start For Change GameState
-	APlayerController* PC = GetFirstLocalPlayerController();
-	if (PC) {
-		PC->SetShowMouseCursor(false);
-		PC->SetInputMode(FInputModeGameOnly());
-	}
-
-	if (UWorld* World = GetWorld()) {
-		if (AInGame_GameState* GS = World->GetGameState<AInGame_GameState>()) {
-			GS->ActivateGameplayFromServerStart();
-		}
-	}*/
-
-
 	// Game Start For Change Ingame Level
 	if (!InGameLevel.IsNull())
 	{
@@ -794,10 +781,10 @@ void UNetworkInstance::HandleGameStart()
 		bLocalInitialTransformApplied = false;
 		bPendingInitialSpawnLock = true;
 		bLocalSpawnLockApplied = false;
+		CachedRoundResults.Empty();
 
 		MarkPendingGameplayActivation();
 		UGameplayStatics::OpenLevel(this, LevelName);
-		// 레벨 전환 후 입력 모드는 새 PlayerController의 BeginPlay에서 설정하는 게 자연스러움
 	}
 	else
 	{
@@ -832,8 +819,53 @@ void UNetworkInstance::HandleMatchEnd()
 	bPendingInitialSpawnLock = false;
 	bLocalSpawnLockApplied = false;
 
-	bPendingReturnToLobby = true;
-	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Game/UI/GameLobby")));
+	const int32 FinalTeam1Score = CachedRoundResults.Num() > 0
+		? CachedRoundResults.Last().result.team1Score
+		: 0;
+
+	const int32 FinalTeam2Score = CachedRoundResults.Num() > 0
+		? CachedRoundResults.Last().result.team2Score
+		: 0;
+
+	const int32 WinnerTeamID =
+		FinalTeam1Score > FinalTeam2Score ? 0 :
+		FinalTeam2Score > FinalTeam1Score ? 1 :
+		-1;
+
+	if (RoundWinWidgetInstance)
+	{
+		RoundWinWidgetInstance->RemoveFromParent();
+		RoundWinWidgetInstance = nullptr;
+	}
+
+	if (!GameResultWidgetClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GameResultWidgetClass is not assigned."));
+		return;
+	}
+
+	GameResultWidgetInstance = CreateWidget<UGameResultWidget>(this, GameResultWidgetClass);
+	if (!GameResultWidgetInstance)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GameResultWidgetInstance create failed."));
+		return;
+	}
+	GameResultWidgetInstance->AddToViewport(100);
+	GameResultWidgetInstance->SetGameResultInfo(
+		WinnerTeamID,
+		FinalTeam1Score,
+		FinalTeam2Score,
+		CachedRoundResults
+	);
+
+	if (APlayerController* PC = GetFirstLocalPlayerController())
+	{
+		PC->SetShowMouseCursor(true);
+
+		FInputModeUIOnly InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		PC->SetInputMode(InputMode);
+	}
 }
 
 void UNetworkInstance::HandleConnected()
@@ -1300,6 +1332,18 @@ void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
 
 void UNetworkInstance::HandleRoundResult(const FRoundChangePacket& Packet)
 {
+	CachedRoundResults.RemoveAll([&Packet](const FRoundChangePacket& Saved)
+		{
+			return Saved.currentRound == Packet.currentRound;
+		});
+
+	CachedRoundResults.Add(Packet);
+
+	CachedRoundResults.Sort([](const FRoundChangePacket& A, const FRoundChangePacket& B)
+		{
+			return A.currentRound < B.currentRound;
+		});
+
 	if (RoundWinWidgetInstance)
 	{
 		RoundWinWidgetInstance->RemoveFromParent();
@@ -1738,6 +1782,56 @@ ABaseItem* UNetworkInstance::FindItemByID(int32 ItemID) const
 	}
 
 	return nullptr;
+}
+
+void UNetworkInstance::SurrenderAndReturnToLobby()
+{
+	if (Client.IsValid())
+	{
+		Client->LeaveRoomRequest();
+	}
+
+	bReadySent = false;
+	CachedSelectedRoleType = -1;
+
+	bHasPendingSnapshot = false;
+	PendingSnapshotList.Empty();
+	bLocalInitialTransformApplied = false;
+	bPendingInitialSpawnLock = false;
+	bLocalSpawnLockApplied = false;
+
+	if (RoomWidgetInstance)
+	{
+		RoomWidgetInstance->RemoveFromParent();
+		RoomWidgetInstance = nullptr;
+	}
+
+	if (LobbyWidgetInstance)
+	{
+		LobbyWidgetInstance->RemoveFromParent();
+		LobbyWidgetInstance = nullptr;
+	}
+
+	if (RoundPrepareWidgetInstance)
+	{
+		RoundPrepareWidgetInstance->RemoveFromParent();
+		RoundPrepareWidgetInstance = nullptr;
+	}
+
+	bPendingReturnToLobby = true;
+	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Game/UI/GameLobby")));
+}
+
+void UNetworkInstance::ReturnToLobbyFromResult()
+{
+	if (GameResultWidgetInstance)
+	{
+		GameResultWidgetInstance->RemoveFromParent();
+		GameResultWidgetInstance = nullptr;
+	}
+
+	bPendingReturnToLobby = true;
+	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Game/UI/GameLobby")));
 }
 
 TSubclassOf<ABaseItem> UNetworkInstance::GetItemClassByKind(int32 ItemKind) const

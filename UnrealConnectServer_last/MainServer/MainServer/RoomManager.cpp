@@ -632,6 +632,14 @@ void RoomManager::LeaveRoom(Session* client)
         if (it != m_Rooms.end()) {
             Room* room = it->second;
 
+            if (room->GetState() == ERoomState::PLAYING)
+            {
+                if (GameLogic* logic = room->GetgameLogic())
+                {
+                    logic->HandlePlayerLeaveDuringGame(leavingSessionID);
+                }
+            }
+
             wasOwner = room->IsOwner(leavingSessionID);
             room->RemoveMember(leavingSessionID);
 
