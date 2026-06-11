@@ -290,7 +290,7 @@ struct FStatusUpdatePacket { int32 TargetID; int32 CurrentHP; };
 
 struct FStateChangePacket { int32 TargetID; int32 NewState; };
 
-struct FRespawnPacket { int32 TargetID; float X, Y, Z; int32 HP; };
+struct FRespawnPacket { int32 TargetID; float X, Y, Z; float Rotate; int32 HP; };
 
 struct FRoleChangePacket { int32 TargetID; int32 NewRoleType; };
 

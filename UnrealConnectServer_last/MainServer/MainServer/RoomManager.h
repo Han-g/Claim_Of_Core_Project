@@ -64,7 +64,7 @@ public:
 	void InitRoundCharacters(GameLogic* logic);
 
 	// Returns the spawn location used when players enter or respawn.
-	Vector3 GetRespawnLocation(int slot);
+	Vector3 GetRespawnLocation(int slot) const;
 	float GetSpawnYawBySlot(int slot) const;
 	// Placeholder for future matchmaking-driven room assembly.
 	void MatchMaking();

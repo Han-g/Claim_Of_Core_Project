@@ -3,6 +3,7 @@
 #include "server.h"
 
 #include <random>
+#include <cmath>
 
 void Room::InitRoom(int id, Session* firstMember, IOCPServer* server) {
 	//std::lock_guard<std::mutex> lock(m_RoomLock);
@@ -300,7 +301,7 @@ void Room::InitRoundCharacters(GameLogic* logic)
     }
 }
 
-Vector3 Room::GetRespawnLocation(int slot)
+Vector3 Room::GetRespawnLocation(int slot) const
 {
     if (slot < 0 || slot >= 6)
     {
@@ -309,32 +310,32 @@ Vector3 Room::GetRespawnLocation(int slot)
 
     static const Vector3 BuildingSpawnTable[6] =
     {
-        {  5000.f, -1500.f, 2000.f },
-        {  5000.f,     0.f, 2000.f },
-        {  5000.f,  1500.f, 2000.f },
-        { -5000.f, -1500.f, 2000.f },
-        { -5000.f,     0.f, 2000.f },
-        { -5000.f,  1500.f, 2000.f }
+        { -1500.f,  7000.f, 2000.f },
+        {     0.f,  7000.f, 2000.f },
+        {  1500.f,  7000.f, 2000.f },
+        { -1500.f, -7000.f, 2000.f },
+        {     0.f, -7000.f, 2000.f },
+        {  1500.f, -7000.f, 2000.f }
     };
 
     static const Vector3 IceCaveSpawnTable[6] =
     {
-        {  5000.f, -1500.f, 2000.f },
-        {  5000.f,     0.f, 2000.f },
-        {  5000.f,  1500.f, 2000.f },
-        { -5000.f, -1500.f, 2000.f },
-        { -5000.f,     0.f, 2000.f },
-        { -5000.f,  1500.f, 2000.f }
+        { -1500.f,  7000.f, 2000.f },
+        {     0.f,  7000.f, 2000.f },
+        {  1500.f,  7000.f, 2000.f },
+        { -1500.f, -7000.f, 2000.f },
+        {     0.f, -7000.f, 2000.f },
+        {  1500.f, -7000.f, 2000.f }
     };
 
     static const Vector3 SpaceStationSpawnTable[6] =
     {
-        {  5000.f, -1500.f, 2000.f },
-        {  5000.f,     0.f, 2000.f },
-        {  5000.f,  1500.f, 2000.f },
-        { -5000.f, -1500.f, 2000.f },
-        { -5000.f,     0.f, 2000.f },
-        { -5000.f,  1500.f, 2000.f }
+        {  6500.f, -1500.f, 2000.f },
+        {  6500.f,     0.f, 2000.f },
+        {  6500.f,  1500.f, 2000.f },
+        { -6500.f, -1500.f, 2000.f },
+        { -6500.f,     0.f, 2000.f },
+        { -6500.f,  1500.f, 2000.f }
     };
 
     static const Vector3 JungleSpawnTable[6] =
@@ -349,12 +350,12 @@ Vector3 Room::GetRespawnLocation(int slot)
 
     static const Vector3 SkyIslandSpawnTable[6] =
     {
-        {  5000.f, -1500.f, 10000.f },
-        {  5000.f,     0.f, 10000.f },
-        {  5000.f,  1500.f, 10000.f },
-        { -5000.f, -1500.f, 10000.f },
-        { -5000.f,     0.f, 10000.f },
-        { -5000.f,  1500.f, 10000.f }
+        {  6000.f,  1500.f, 8000.f },
+        { -1500.f,  4500.f, 8000.f },
+        {  2500.f,  5000.f, 8000.f },
+        {  6000.f, -1500.f, 8000.f },
+        { -4000.f, -5500.f, 8000.f },
+        { -1500.f, -4500.f, 8000.f }
     };
 
     const Vector3* spawnTable = BuildingSpawnTable;
@@ -391,22 +392,23 @@ Vector3 Room::GetRespawnLocation(int slot)
 
 float Room::GetSpawnYawBySlot(int slot) const
 {
-    static const float SpawnYawTable[6] =
-    {
-        0.0f,   // slot 0
-        0.0f,   // slot 1
-        0.0f,   // slot 2
-        180.0f, // slot 3
-        180.0f, // slot 4
-        180.0f  // slot 5
-    };
-
     if (slot < 0 || slot >= 6)
     {
         return 0.0f;
     }
 
-    return SpawnYawTable[slot];
+    const Vector3 spawn = GetRespawnLocation(slot);
+    const Vector3 center{ 0.0f, 0.0f, spawn.z };
+
+    const float dx = center.x - spawn.x;
+    const float dy = center.y - spawn.y;
+
+    if (std::abs(dx) < 0.001f && std::abs(dy) < 0.001f)
+    {
+        return 0.0f;
+    }
+
+    return std::atan2(dy, dx) * 180.0f / 3.14159265f;
 }
 
 void Room::MatchMaking()

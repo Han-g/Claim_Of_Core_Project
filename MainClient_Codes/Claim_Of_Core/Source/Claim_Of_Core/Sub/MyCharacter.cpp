@@ -2792,7 +2792,7 @@ void AMyCharacter::ApplyLocalServerCorrection(float X, float Y, float Z, float Y
 	const FVector Current = GetActorLocation();
 	FVector ServerLocation(X, Y, Z);
 
-	ServerLocation.Z = Current.Z;
+	//ServerLocation.Z = Current.Z;
 	const float XYError = FVector::Dist2D(Current, ServerLocation);
 	const float ZError = FMath::Abs(Current.Z - ServerLocation.Z);
 

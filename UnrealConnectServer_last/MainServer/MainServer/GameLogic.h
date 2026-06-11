@@ -252,7 +252,7 @@ public:
 	// Broadcasts a life-state change such as Alive or Dead.
 	void BroadcastStateChange(int targetID, int newState);
 	// Broadcasts respawn position and HP for the target.
-	void BroadcastRespawn(int targetID, float x, float y, float z, int hp);
+	void BroadcastRespawn(int targetID, float x, float y, float z, float rotate,  int hp);
 	// Broadcasts a role change to every room member.
 	void BroadcastRoleChange(int targetID, int newRoleType); 
 

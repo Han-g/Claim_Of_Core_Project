@@ -376,7 +376,7 @@ bool GameLogic::TrySelectMap()
 
     //----------------------------- Map Setting --------------------------------
     // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
-    selectedMapType = remainingMaps[index];
+    selectedMapType = 2;// remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 
@@ -499,7 +499,7 @@ void GameLogic::BroadcastStateChange(int targetID, int newState)
     ownerRoom->BroadcastToMembers(PKT_S2C_STATE_CHANGE_BRD, (const char*)&pkt, sizeof(pkt));
 }
 
-void GameLogic::BroadcastRespawn(int targetID, float x, float y, float z, int hp)
+void GameLogic::BroadcastRespawn(int targetID, float x, float y, float z, float rotate, int hp)
 {
     if (!ownerRoom) { return; }
 
@@ -508,6 +508,7 @@ void GameLogic::BroadcastRespawn(int targetID, float x, float y, float z, int hp
     pkt.x = x;
     pkt.y = y;
     pkt.z = z;
+    pkt.rotate = rotate;
     pkt.hp = hp;
 
     ownerRoom->BroadcastToMembers(PKT_S2C_RESPAWN_BRD, (const char*)&pkt, sizeof(pkt));
@@ -781,6 +782,7 @@ void GameLogic::HandleRespawn(int sessionID)
     // This will eventually use map-specific predefined spawn locations.
     // It currently falls back to the room-provided spawn helper.
     Vector3 spawnPoint = ownerRoom->GetRespawnLocation(slot);
+    gd.rotate = ownerRoom->GetSpawnYawBySlot(slot);
     gd.x = spawnPoint.x;
     gd.y = spawnPoint.y;
     gd.z = spawnPoint.z;
@@ -791,7 +793,7 @@ void GameLogic::HandleRespawn(int sessionID)
     targetSession->IceContactRemainTime = 0.0f;
 
     // PKT_S2C_RESPAWN_BRD: target session, position, and HP
-    BroadcastRespawn(targetSession->playerUID, gd.x, gd.y, gd.z, gd.currentHP);
+    BroadcastRespawn(targetSession->playerUID, gd.x, gd.y, gd.z, gd.rotate, gd.currentHP);
 }
 
 bool GameLogic::IsTeamEliminated(int teamID) const

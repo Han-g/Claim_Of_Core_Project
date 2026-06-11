@@ -1292,7 +1292,7 @@ void UNetworkInstance::HandleRespawned(const FRespawnPacket& Packet)
 	{
 		Character->SetHPFromNetwork(Packet.HP);
 		Character->SetStateFromNetwork(0);
-		Character->ApplyTransformFromNetwork(Packet.X, Packet.Y, Packet.Z, Character->GetActorRotation().Yaw);
+		Character->ApplyTransformFromNetwork(Packet.X, Packet.Y, Packet.Z, Packet.Rotate);
 	}
 }
 

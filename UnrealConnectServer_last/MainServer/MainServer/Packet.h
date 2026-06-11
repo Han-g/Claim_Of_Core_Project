@@ -372,6 +372,7 @@ struct StateChangePacket {
 struct RespawnPacket {
     int32_t targetID;
     float x, y, z;
+    float rotate;
     int32_t hp;
 };
 

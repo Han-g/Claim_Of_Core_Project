@@ -113,10 +113,10 @@ protected:
 	bool bUseOneWayCollision = true;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
-	float OneWayTopTolerance = 80.f;
+	float OneWayTopTolerance = 250.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
-	float OneWayVelocityTolerance = 10.f;
+	float OneWayVelocityTolerance = 80.f;
 
 	void UpdateOneWayCollision();
 	bool ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const;
