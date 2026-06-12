@@ -1,0 +1,794 @@
+﻿#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "TimerManager.h"
+#include "MyCharacter.generated.h"
+
+struct FInputActionValue;
+
+class ABaseItem;
+class AVineClimbActor;
+class AGunItem;
+class FLifetimeProperty;
+
+class USoundBase;
+class UAnimInstance;
+class UAnimMontage;
+class UInputAction;
+class UCameraComponent;
+class UStaticMeshComponent;
+class UStaticMesh;
+class USkeletalMesh;
+class UTextRenderComponent;
+class UMaterialInterface;
+class USpringArmComponent;
+class UPrimitiveComponent;
+class UBoxComponent;
+class UNiagaraSystem;
+class UMaterialInstanceDynamic;
+
+UENUM(BlueprintType)
+enum class ERecCharacterState : uint8
+{
+	Alive UMETA(DisplayName = "Alive"),
+	Dead  UMETA(DisplayName = "Dead"),
+};
+
+UENUM(BlueprintType)
+enum class ERecRoleType : uint8
+{
+	Striker     UMETA(DisplayName = "Striker"),
+	Guardian    UMETA(DisplayName = "Guardian"),
+	Manipulator UMETA(DisplayName = "Manipulator"),
+};
+
+UENUM(BlueprintType)
+enum class ERecTeamType : uint8
+{
+	None = 255 UMETA(DisplayName = "None"),
+	Red =  0   UMETA(DisplayName = "Red"),
+	Blue = 1   UMETA(DisplayName = "Blue"),
+};
+
+UENUM(BlueprintType)
+enum class ERecStatusEffectType : uint8
+{
+	Slow      UMETA(DisplayName = "Slow"),
+	Stun      UMETA(DisplayName = "Stun"),
+	Knockback UMETA(DisplayName = "Knockback"),
+	Freeze	  UMETA(DisplayName = "Freeze"),
+};
+
+USTRUCT(BlueprintType)
+struct FRoleVisualData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<USkeletalMesh> Mesh = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UAnimInstance> AnimBPClass = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
+};
+
+
+UCLASS(Abstract)
+class AMyCharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* HPTextComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* RoleTextComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UTextRenderComponent* DeathUITextComponent;
+
+protected:
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* JumpAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* MoveAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* LookAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* MouseLookAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AttackAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	UInputAction* AimAction;
+
+public:
+	AMyCharacter();
+
+	void SetNetworkPlayerUID(int32 InUID) { NetworkPlayerUID = InUID; };
+	int32 GetNetworkPlayerUID() const { return NetworkPlayerUID; };
+	void PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSeq);
+
+	void SetRoleFromNetwork(int32 InRoleType);
+	void SetTeamFromNetwork(int32 InTeamType);
+	void SetHPFromNetwork(int32 InHP);
+	void SetStateFromNetwork(int32 InState);
+	void ApplyTransformFromNetwork(float X, float Y, float Z, float Yaw);
+	void ApplyLocalServerCorrection(float X, float Y, float Z, float Yaw);
+	void ApplyTeamVisual();
+	void UpdateTeamOutlinePostProcess();
+
+	void LockUntilInitialSnapshot();
+	void UnlockAfterInitialSnapshot();
+
+	bool IsSameTeam(AMyCharacter* OtherCharacter) const { return OtherCharacter->TeamType == TeamType; }
+
+private:
+	int32 NetworkPlayerUID = -1;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Team", meta = (AllowPrivateAccess = "true"))
+	ERecTeamType TeamType = ERecTeamType::None;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	TObjectPtr<UMaterialInterface> TeamOutlinePostProcessMaterial;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	FLinearColor RedTeamOutlineColor = FLinearColor(1.0f, 0.02f, 0.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	FLinearColor BlueTeamOutlineColor = FLinearColor(0.0f, 0.28f, 1.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Team|Outline")
+	float TeamOutlineThickness = 4.0f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> TeamOutlinePostProcessMID;
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
+	virtual void CheckIceFloor();
+	virtual void SetIceMovement(bool bNew);
+	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
+	virtual void Jump() override;
+	virtual void Landed(const FHitResult& Hit) override;
+
+	virtual float TakeDamage(
+		float DamageAmount,
+		struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator,
+		AActor* DamageCauser
+	) override;
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+protected:
+	void TestFunc();
+
+	void Move(const FInputActionValue& Value);
+	void StopMoveInput();
+	void StopMove(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void Attack();
+	void EndAttack();
+
+
+	void KnockbackTest();
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoMove(float Right, float Forward);
+
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoLook(float Yaw, float Pitch);
+
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoJumpStart();
+
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	virtual void DoJumpEnd();
+
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> HitSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> BaseAttackSound;
+
+	// Ice Map Gimmicks
+	void UpdateFrozenOverlay();
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	void ApplyFreeze();
+
+	void ApplyFreezeFromServer();
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	void EndFreeze();
+
+	UFUNCTION(BlueprintPure, Category = "Status")
+	bool IsFrozen() const { return bFrozen; }
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Status|Freeze", meta =
+		(AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> FrozenOverlayMeshComponent;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta =
+		(AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMesh> FrozenOverlayMesh;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta =
+		(AllowPrivateAccess = "true"))
+	TObjectPtr<UMaterialInterface> FrozenOverlayMaterial;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	FVector FrozenOverlayRelativeLocation = FVector::ZeroVector;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Status|Freeze", meta = (AllowPrivateAccess = "true"))
+	FVector FrozenOverlayRelativeScale = FVector(1.15f);
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Status|Freeze")
+	bool bFrozen = false;
+
+
+	// JungleMap Gimmick
+	UFUNCTION(BlueprintCallable, Category = "Status|PoisonFog")
+	void EnterPoisonFog(AActor* FogActor);
+
+	UFUNCTION(BlueprintCallable, Category = "Status|PoisonFog")
+	void ExitPoisonFog(AActor* FogActor);
+
+	UFUNCTION(BlueprintPure, Category = "Status|PoisonFog")
+	bool IsInPoisonFog() const { return bPoisonFogVisionEffectActive; }
+
+
+	UFUNCTION(BlueprintCallable, Category = "Climb")
+	void EnterVineClimb(AVineClimbActor* VineActor);
+
+	UFUNCTION(BlueprintCallable, Category = "Climb")
+	void ExitVineClimb(AVineClimbActor* VineActor);
+
+	UFUNCTION(BlueprintPure, Category = "Climb")
+	bool IsVineClimbing() const { return bIsVineClimbing; }
+
+
+	UFUNCTION(BlueprintPure, Category = "Aim")
+	bool IsAiming() const { return bAiming; }
+
+	UFUNCTION(BlueprintCallable, Category = "Aim")
+	void StartAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Aim")
+	void EndAim();
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void ConsumeCurrentItem(ABaseItem* ItemToConsume);
+
+private:
+	void ApplyFreezeInternal(bool bIgnoreStatusImmunity, const TCHAR* SourceName);
+
+	UPROPERTY(VisibleInstanceOnly, Category = "PoisonFog")
+	bool bPoisonFogVisionEffectActive = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	float PoisonFogPostProcessBlendWeight = 0.70f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	float PoisonFogSaturation = 0.50f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	float PoisonFogVignetteIntensity = 0.82f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "PoisonFog")
+	FLinearColor PoisonFogSceneTint = FLinearColor(1.18f, 0.58f, 1.55f, 1.0f);
+
+	TArray<TWeakObjectPtr<AActor>> PoisonFogVisionSources;
+
+	void CompactPoisonFogVisionSources();
+
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineClimbSpeed = 850.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineClimbInputThreshold = 0.1f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineJumpOffForwardPower = 1000.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Climb")
+	float VineJumpOffUpPower = 700.f;
+
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Climb")
+	bool bCanVineClimb = false;
+	UPROPERTY(VisibleInstanceOnly, Category = "Climb")
+	bool bIsVineClimbing = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Aim")
+	bool bAiming = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Aim")
+	float AimCameraArmLength = 500.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Aim")
+	FVector AimCameraSocketOffset = FVector(0.f, 150.f, 45.f);
+
+	TWeakObjectPtr<AVineClimbActor> CurrentVineClimbActor;
+
+	bool CanStartVineClimb() const;
+	void StartVineClimbing();
+	void StopVineClimbing(bool bRestoreWalking = true);
+	void UpdateVineClimbMovement();
+	void VineInteractPressed();
+	void DetachFromVineAndFall();
+	void JumpOffVine();
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "HP")
+	void ApplyDamage(int32 DamageAmount);
+
+	UFUNCTION(BlueprintCallable, Category = "HP")
+	void Heal(int32 HealAmount);
+
+	UFUNCTION(BlueprintCallable, Category = "HP")
+	void ResetHP();
+
+	UFUNCTION(BlueprintPure, Category = "HP")
+	int32 GetCurrentHP() const { return CurrentHP; }
+
+	UFUNCTION(BlueprintPure, Category = "HP")
+	int32 GetMaxHP() const { return MaxHP; }
+
+	UFUNCTION(BlueprintPure, Category = "State")
+	ERecCharacterState GetCharacterState() const { return CharacterState; }
+
+	UFUNCTION(BlueprintPure, Category = "State")
+	bool IsDead() const { return CharacterState == ERecCharacterState::Dead; }
+
+	UFUNCTION(BlueprintPure, Category = "Role")
+	ERecRoleType GetRoleType() const { return RoleType; }
+
+	UFUNCTION(BlueprintPure, Category = "Item")
+	bool IsUmbrellaEquipped() const;
+
+	UFUNCTION(BlueprintCallable, Category = "RoleSkill")
+	void ActivateRoleSkill();
+
+	UFUNCTION(BlueprintPure, Category = "RoleSkill")
+	bool IsRoleSkillActive() const { return bRoleSkillActive; }
+
+	UFUNCTION(BlueprintPure, Category = "RoleSkill")
+	bool IsStatusEffectImmune() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Status")
+	bool CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const;
+
+	UPROPERTY(ReplicatedUsing = OnRep_RoleType, VisibleInstanceOnly, Category = "Role")
+	ERecRoleType RoleType = ERecRoleType::Guardian;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CharacterState, VisibleInstanceOnly, Category = "State")
+	ERecCharacterState CharacterState = ERecCharacterState::Alive;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Role|Stats")
+	float AttackDamage = 1.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Role|Stats")
+	float KnockbackCoefficient = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Combat")
+	float BaseAttackKnockbackPower = 1200.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData StrikerVisual;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData GuardianVisual;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Role|Visual")
+	FRoleVisualData ManipulatorVisual;
+
+	UFUNCTION()
+	void ApplyKnockback(AActor* Attacker, float KnockbackStrength);
+
+	UFUNCTION()
+	void ApplyHitEvent(AActor* Attacker);
+
+	FTimerHandle AttackTimer;
+
+	// Hit Effects
+	UFUNCTION(BlueprintCallable, Category = "Combat|FX")
+	void PlayHitFeedback(bool bPlayLocalDamageFlash);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	TObjectPtr<UNiagaraSystem> HitNiagaraSystem;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	FVector HitNiagaraRelativeLocation = FVector(0.f, 0.f, 120.f);
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|FX")
+	FVector HitNiagaraScale = FVector(1.f);
+
+	// Attack judgment 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UBoxComponent> HandCollision;
+
+	UPROPERTY()
+	TSet<TObjectPtr<AMyCharacter>> HitActors;
+
+	UFUNCTION()
+	void OnAttackOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult
+	);
+
+	UPROPERTY()
+	ABaseItem* OverlappingItem = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
+	ABaseItem* CurrentItem = nullptr;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Item")
+	FVector CurrentItemAttachBaseScale = FVector::OneVector;
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void SetOverlappingItem(ABaseItem* Item);
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void EquipItem();
+
+	UFUNCTION(BlueprintCallable, Category = "Item")
+	void DropCurrentItem();
+
+	void ApplyEquipItemVisual(ABaseItem* Item);
+	void ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocation);
+	void RefreshCurrentItemAttachOffset();
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void AnimNotify_AttackHit();
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void StartAttackHitWindow(float Duration = 0.2f);
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void ReportAttackHitToServer(AMyCharacter* Victim);
+
+	void SetRoleSkillStateFromNetwork(bool bActive, float Duration);
+
+
+private:
+	UPROPERTY(EditDefaultsOnly, Replicated, Category = "HP")
+	int32 MaxHP = 100;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentHP, VisibleInstanceOnly, Category = "HP")
+	int32 CurrentHP = 100;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Role")
+	float BaseWalkSpeed = 1500.f;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Role")
+	int32 BaseJumpMaxCount = 1;
+
+	UPROPERTY(ReplicatedUsing = OnRep_RoleSkillActive, VisibleInstanceOnly, Category = "RoleSkill")
+	bool bRoleSkillActive = false;
+
+	FTimerHandle RoleSkillTimerHandle;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
+	float DashDuration = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
+	float DashSpeedMultiplier = 1.45f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Striker")
+	float DashDamageMultiplier = 1.50f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardDuration = 5.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardSpeedMultiplier = 0.65f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardScaleMultiplier = 1.25f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Guardian")
+	float HardDamageTakenMultiplier = 0.60f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Manipulator")
+	float DBJPDuration = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
+	float SpectateMoveSpeed = 1800.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
+	float SpectateVerticalSpeed = 1200.f;
+
+	bool bCameraDetached = false;
+	bool bSpectateUpHeld = false;
+	bool bSpectateDownHeld = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	float SpectateInputUnlockDelay = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	float SpectatingUITextDuration = 2.0f;
+
+	FTimerHandle SpectatingUIHideTimerHandle;
+	FTimerHandle SpectateInputUnlockTimerHandle;
+
+	bool bCorpseHidden = false;
+	bool bDeathSequenceLocked = false;
+	bool bCanSpectate = false;
+	bool bAwaitingSpectateInput = false;
+	bool bSpectateInputUnlocked = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	int32 LowHPThreshold = 20;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "LowHP")
+	bool bLowHPEffectActive = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPostProcessBlendWeight = 0.45f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPVignetteIntensity = 0.6f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPSaturation = 0.55f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseSpeed = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseVignetteAmplitude = 0.20f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	float LowHPPulseBlendAmplitude = 0.12f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "LowHP")
+	FLinearColor LowHPSceneTint = FLinearColor(1.18f, 0.78f, 0.78f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashDuration = 0.18f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashBlendWeight = 0.85f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	float DamageFlashVignetteIntensity = 0.85f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DamageFlash")
+	FLinearColor DamageFlashSceneTint = FLinearColor(1.35f, 0.25f, 0.25f, 1.0f);
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
+	bool bDamageFlashActive = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DamageFlash")
+	float DamageFlashElapsed = 0.0f;
+
+	void PlayHitNiagaraFX();
+	void StartDamageFlash();
+	void UpdateDamageFlashEffect(float DeltaTime);
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
+	float DeathCameraTargetArmLength = 650.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCamera")
+	float DeathCameraInterpSpeed = 0.8f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeDuration = 0.30f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeAmplitude = 12.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "DeathCameraShake")
+	float DeathShakeFrequency = 32.0f;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DeathCameraShake")
+	bool bDeathCameraShaking = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "DeathCameraShake")
+	float DeathShakeElapsed = 0.0f;
+
+	FTransform InitialMeshRelativeTransform = FTransform::Identity;
+	FTransform InitialCameraBoomRelativeTransform = FTransform::Identity;
+	FVector InitialActorScale3D = FVector::OneVector;
+	float InitialCameraBoomArmLength = 400.f;
+	FVector InitialCameraBoomSocketOffset = FVector::ZeroVector;
+
+private:
+	void SpectateUpPressed();
+	void SpectateUpReleased();
+	void SpectateDownPressed();
+	void SpectateDownReleased();
+
+	void SpectateMove(float Right, float Forward);
+	void SpectateMoveVertical(float Axis, float DeltaTime);
+
+	void ResurrectPressed();
+	void CycleRolePressed();
+	void SpectateConfirmPressed();
+	void SelfDamagePressed();
+	void ActivateRoleSkillPressed();
+
+	UFUNCTION(Server, Reliable)
+	void ServerApplyDamage(int32 DamageAmount);
+
+	UFUNCTION(Server, Reliable)
+	void ServerHeal(int32 HealAmount);
+
+	UFUNCTION(Server, Reliable)
+	void ServerResetHP();
+
+	UFUNCTION(Server, Reliable)
+	void ServerCycleRole();
+
+	UFUNCTION(Server, Reliable)
+	void ServerActivateRoleSkill();
+
+	UFUNCTION()
+	void OnRep_CurrentHP();
+
+	UFUNCTION()
+	void OnRep_CharacterState();
+
+	UFUNCTION()
+	void OnRep_RoleType();
+
+	UFUNCTION()
+	void OnRep_RoleSkillActive();
+
+	float CurrentCoolTime = 0.0f;
+
+	UFUNCTION(BlueprintPure, Category = "Skill")
+	float GetSkillCoolTime() const;
+
+	void SetCurrentHP(int32 NewHP);
+	void UpdateHPText();
+	void UpdateRoleText();
+
+	static FString RoleTypeToString(ERecRoleType InType);
+	static float GetRoleSpeedMultiplier(ERecRoleType InType);
+	float GetDamageCoefficient() const { return AttackDamage; }
+	float GetKnockbackCoefficient() const { return KnockbackCoefficient; }
+
+	float GetRoleSkillSpeedMultiplier() const;
+	float GetCurrentRoleSkillDuration() const;
+	float GetOutgoingDamageMultiplier() const;
+	float GetIncomingDamageMultiplier() const;
+	FString GetCurrentRoleSkillName() const;
+
+	void ApplyRoleStats();
+	void ApplyRoleVisual();
+	void ApplyRoleSkillState();
+	const FRoleVisualData& GetVisualData(ERecRoleType InRole) const;
+
+	void SetCharacterState(ERecCharacterState NewState);
+	void ApplyCharacterState();
+	void ApplyDeadState();
+	void ApplyAliveState();
+
+	void EnterDeathWaitingState();
+	void EnterSpectateMode();
+	void UnlockSpectateInput();
+
+	void HideCorpse();
+	void ShowCorpse();
+
+	void UpdateLocalPostProcessEffects();
+	void UpdateLowHPEffectState();
+	void UpdateLowHPPulseEffect(float DeltaTime);
+
+	void StartDeathCameraShake();
+	void UpdateDeathCameraShake(float DeltaTime);
+	void StopDeathCameraShake();
+	void UpdateDeathCameraPullback(float DeltaTime);
+
+	void SetDeathVisualsEnabled(bool bEnabled);
+	void SetPlayerControlLocked(bool bLocked);
+
+	void UpdateDeathUI();
+	void ShowSpectatingUI();
+	void HideDeathUI();
+
+	void EndRoleSkill();
+	void RespawnAtPlayerStart();
+
+public:
+	void SetAnimationFromNetwork(int32 InAnimationNum) { 
+		NetworkAnimationNum = InAnimationNum; 
+	}
+
+	void SetSkillCoolTimeFromNetwork(float RemainTime) {
+		CurrentCoolTime = FMath::Max(0.f, RemainTime);
+	}
+
+	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
+	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
+	UPROPERTY(BlueprintReadOnly, Category = "Network|Animation")
+	int32 NetworkAnimationNum = 0;
+
+	UFUNCTION(BlueprintPure, Category = "Network|Animation")
+	int32 GetNetworkAnimationNum() const { return NetworkAnimationNum; }
+
+private:
+	// Remote Player Data
+	struct FRemoteSnapshot
+	{
+		FVector Location;
+		FRotator Rotation;
+		float Time;
+	};
+
+	FVector TargetNetworkLocation = FVector::ZeroVector;
+	FRotator TargetNetworkRotation = FRotator::ZeroRotator;
+	bool bHasNetworkTransform = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
+	float RemoteInterpSpeed = 30.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Network|Remote")
+	float RemoteSnapDistance = 120.f;
+
+	int32 CurrentAttackType = 0;
+	uint32 CurrentAttackSeq = 0;
+
+	// Player Location Interpolation Data
+	FVector NetworkBlendStartLocation = FVector::ZeroVector;
+	FVector NetworkBlendTargetLocation = FVector::ZeroVector;
+
+	FRotator NetworkBlendStartRotation = FRotator::ZeroRotator;
+	FRotator NetworkBlendTargetRotation = FRotator::ZeroRotator;
+
+	float NetworkBlendElapsed = 0.f;
+	float NetworkBlendDuration = 0.033f;
+	float LastNetworkSnapshotTime = -1.f;
+
+	float MinNetworkBlendDuration = 0.016f;
+	float MaxNetworkBlendDuration = 0.050f;
+
+	TArray<FRemoteSnapshot> RemoteSnapshots;
+	float RemoteInterpolationDelay = 0.10f; // 100ms 정도부터 테스트
+	int32 MaxRemoteSnapshotCount = 8;
+	float RemoteIgnoreDistance = 2.f;
+
+	// Datas for Correction Location
+	bool bHasLocalCorrectionTarget = false;
+	FVector LocalCorrectionTargetLocation = FVector::ZeroVector;
+
+	float LocalCorrectionIgnoreDistance = 15.f;
+	float LocalCorrectionSnapDistance = 250.f;
+	float LocalCorrectionInterpSpeed = 10.f;
+
+	bool bOnIce = false;
+
+	// Temporary Movement Members
+
+	float CachedMoveRight = 0.f;
+	float CachedMoveForward = 0.f;
+	float MoveSyncAccumulator = 0.f;
+
+	FVector LastSentLocation = FVector::ZeroVector;
+	FRotator LastSentRotation = FRotator::ZeroRotator;
+};

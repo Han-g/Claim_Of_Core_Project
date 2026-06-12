@@ -17,7 +17,7 @@
 
 namespace logging {
 
-    //TODO: use macros (again) so __FILE__ __LINE__ could be automatically added to certain error levels?
+    // TODO: use macros so __FILE__ and __LINE__ can be attached automatically to selected error levels.
 
     //the log levels we support
     enum class log_level : uint8_t { TRACE = 0, DEBUG = 1, INFO = 2, WARN = 3, ERR = 4 };
@@ -135,7 +135,9 @@ namespace logging {
             }
 
             //crack the file open
-            reopen();
+            //reopen();
+            current_date = today_string();
+            open_file();
         }
         virtual void log(const std::string& message, const log_level level) {
             if (level < LOG_LEVEL_CUTOFF)
@@ -161,7 +163,7 @@ namespace logging {
             //check if it should be closed and reopened
             auto now = std::chrono::system_clock::now();
             lock.lock();
-            if (now - last_reopen > reopen_interval) {
+            /*if (now - last_reopen > reopen_interval) {
                 last_reopen = now;
                 try { file.close(); }
                 catch (...) {}
@@ -174,10 +176,44 @@ namespace logging {
                     catch (...) {}
                     throw e;
                 }
+            }*/
+            if (now - last_reopen > reopen_interval) {
+                std::string today = today_string();
+                if (today != current_date) {   // Detect a date rollover at midnight.
+                    current_date = today;
+                    open_file();                // Reopen the log using the file name for the new date.
+                }
+                last_reopen = now;
             }
             lock.unlock();
         }
+
+        // Returns today's date as a local-time "YYYY-MM-DD" string.
+        static std::string today_string() {
+            std::time_t tt = std::time(nullptr);
+            std::tm lt{};
+            localtime_s(&lt, &tt);
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%04d-%02d-%02d",
+                lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday);
+            return std::string(buf);
+        }
+
+        // Combines the prefix and date into a name such as "ServerLog_2026-04-17.log".
+        std::string build_file_name(const std::string& date) const {
+            return file_name + "_" + date + ".log";
+        }
+
+        // Opens the file that matches the current local date.
+        void open_file() {
+            try { file.close(); }
+            catch (...) {}
+            file.open(build_file_name(current_date),
+                std::ofstream::out | std::ofstream::app);
+            last_reopen = std::chrono::system_clock::now();
+        }
         std::string file_name;
+        std::string current_date;
         std::ofstream file;
         std::chrono::seconds reopen_interval;
         std::chrono::system_clock::time_point last_reopen;

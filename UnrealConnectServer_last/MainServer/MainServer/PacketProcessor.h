@@ -1,0 +1,55 @@
+#pragma once
+
+#include <unordered_map>
+#include <functional>
+#include "Packet.h"
+#include "GameLogic.h"
+#include "logger.h"
+
+class IOCPServer;
+struct Session;
+struct DBData;
+
+class PacketProcessor
+{
+public:
+	PacketProcessor();
+	~PacketProcessor() = default;
+
+	static GameLogic* GameLogicHelper(IOCPServer* server, Session* session);
+
+	using HandlerFunc = std::function<void(IOCPServer*, Session*, PacketReader&)>;
+
+	void InitHandler();
+	void Process(IOCPServer* server, Session* session, int packetID, std::vector<char>& data);
+
+private:
+	// Individual packet handler functions.
+	static void Handle_LoginReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_RegisterReq(IOCPServer* server, Session* session, PacketReader& reader);
+	
+	static void Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Room_JoinReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Room_RemoveReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Slot_ChangeReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Character_SelectReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader);
+
+	static bool Handle_Move_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Jump_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Attack_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Attack_HitReport(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_RoleSkillReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_ItemPickup_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_ItemDrop_KeyInput(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Object_HitReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Hitscan_ShotReq(IOCPServer* server, Session* session, PacketReader& reader);
+
+
+	static void Handle_IceFloor_StandReq(IOCPServer* server, Session* session, PacketReader& reader);
+	static void Handle_Grenade_SpawnReq(IOCPServer* server, Session* session, PacketReader& reader);
+
+private:
+	std::unordered_map<int, HandlerFunc> m_FuncHandlerMap;
+};

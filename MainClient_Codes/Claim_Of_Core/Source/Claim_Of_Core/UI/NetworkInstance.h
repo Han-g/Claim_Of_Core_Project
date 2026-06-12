@@ -1,0 +1,272 @@
+#pragma once
+
+#include "CoreMinimal.h"
+
+#include "Engine/GameInstance.h"
+#include "Tickable.h"
+#include "ClientNetworkTypes.h"
+#include "Blueprint/UserWidget.h"
+
+#include "NetworkInstance.generated.h"
+
+class ClientNetworking;
+class URoomWidget;
+class URoundWinWidget;
+class UGameResultWidget;
+class AMyCharacter;
+class ABaseItem;
+class ASmallDebrisActor;
+class ALargeDebrisController;
+class AIceChillZone;
+class ABlackHoleActor;
+
+struct FRoomInfoData;
+struct FRoomMemberInfo;
+
+enum PacketID : uint16;
+
+
+/**
+ *
+ */
+UCLASS()
+class CLAIM_OF_CORE_API UNetworkInstance : public UGameInstance, public FTickableGameObject
+{
+	GENERATED_BODY()
+
+public:
+	UNetworkInstance();
+
+	virtual void Init() override;
+	virtual void Shutdown() override;
+
+	// Test Func
+	void StartClientOnlyTestFlow();
+	bool IsClientOnlyTestMode() const { return bClientOnlyTestMode; }
+
+	// Timer Func
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override { return true; }
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(UNetworkInstance, STATGROUP_Tickables); }
+	virtual int32 GetPlayerUID() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Network|Room")
+	void SelectCharacterAndReady(int32 SelectedRoleType);
+
+	UFUNCTION(BlueprintCallable, Category = "Network|Room")
+	void RequestRoomSlotSelect(int32 SlotIndex);
+
+	UFUNCTION(BlueprintCallable, Category = "Network|UI")
+
+	void ShowLoginHUD();
+
+	virtual void LoadComplete(const float LoadTime, const FString& MapName) override;
+
+	void ShowLobbyHUD();
+
+	bool bPendingReturnToLobby = false;
+
+	void TryLogin(FString ID, FString PW);
+	void TryRegister(FString ID, FString PW);
+	void CreateRoom();
+	void JoinRoom(int32 RoomID);
+	void RequestLeaveRoom();
+	void RequestCharacterSelect();
+	void RequestReady();
+	void RequestGameStart();
+	void RequestAttackInput(int32 AttackType = 0);
+	void RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, int32 AttackType);
+	void RequestJumpInput();
+	void RequestRoleSkillActivate();
+	void RequestItemPickup(int32 ItemID);
+	void RequestItemDrop(int32 ItemID);
+	void RequestObjectHit(int32 ObjectID, int32 ObjectType, int32 SubID, int32 HitKind);
+	void RequestHitscanShot( int32 ItemID, int32 TargetID, const FVector& TraceStart, const FVector& TraceDirection );
+
+	void RequestIceFloorStanding(int32 FloorID, int32 PieceIndex);
+	void RequestGrenadeBlackHoleSpawn(int32 ItemID, const FVector& SpawnLocation);
+
+	void SendMoveInputToServer(const FMovePacket& MoveData);
+
+	// Send Packet for Test
+	void SendGameplayAttackPacket(PacketID TestPacket);
+	void DispatchTestAttackAction(int32 AttackType);
+
+	// Send Prepare Game Packet
+	void HandleLoginResult(bool bSuccess);
+	void HandleRegisterResult(bool bSuccess);
+	void HandleRoomListUpdate(const TArray<FRoomInfoData>& RoomList);
+	void HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMemberInfo>& playerList);
+	void HandleRoleChanged(const FRoleChangePacket& Packet);
+	void HandleGameStart();
+	void HandleMatchEnd();
+
+	// Server Setting Packet
+	void HandleConnected();
+	void HandleConnectFailed();
+	void HandleDisconnected();
+
+	// Game Logic Packet
+	void HandleRoundPrepare(const FRoundPreparePacket& Packet);
+	void HandleMapSelected(int32 MapType);
+	void HandleSnapshotReceived(const TArray<GameData>& SnapshotList);
+
+	void HandleAttackActionReceived(const FAttackActionPacket& Packet);
+	void HandleDamageApplied(const FDamageApplyPacket& Packet);
+	void HandleRoleSkillState(const FRoleSkillPacket& Packet);
+	void HandleItemOwnershipChanged(const FItemPacket& Packet);
+	void HandleItemSpawned(const FItemPacket& Packet);
+	void HandleItemDespawned(const FItemPacket& Packet);
+	void HandleStatusUpdated(const FStatusUpdatePacket& Packet);
+	void HandleStateChanged(const FStateChangePacket& Packet);
+	void HandleRespawned(const FRespawnPacket& Packet);
+	void HandleGameTimeSynced(float SyncedGameTime);
+	void HandlePhaseChanged(const FPhaseChangePacket& Packet);
+	void HandleRoundResult(const FRoundChangePacket& Packet);
+	void HandleMapEventTriggered(const FMapEventPacket& Packet);
+	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
+
+	void HandleStatusEffect(const FStatusEffectPacket& Packet);
+
+
+protected:
+
+private:
+	// Getter Function For Accessing Widget from External
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UUserWidget> LoginWidgetClass;
+	UPROPERTY()
+	UUserWidget* LoginWidgetInstance;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UUserWidget> LobbyWidgetClass;
+	UPROPERTY()
+	UUserWidget* LobbyWidgetInstance;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<URoomWidget> RoomWidgetClass;
+	UPROPERTY()
+	URoomWidget* RoomWidgetInstance;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UUserWidget> RoundPrepareWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<URoundWinWidget> RoundWinWidgetClass;
+
+	UPROPERTY()
+	URoundWinWidget* RoundWinWidgetInstance = nullptr;
+
+	UPROPERTY()
+	UUserWidget* RoundPrepareWidgetInstance = nullptr;
+
+	// Getter Function For Server Connection
+	UPROPERTY(Config)
+	FString ServerIPAddress = TEXT("127.0.0.1");
+	TSharedPtr<ClientNetworking> Client;
+	int32 RetryCounter = 0;
+	const int32 MaxRetryCount = 10;
+
+	// Getter Function For Robby Setting
+	bool bReadySent = false;
+	int32 CachedSelectedRoleType = -1;
+
+	// Getter Function For Map Control 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level", meta = (AllowPrivateAccess =
+		"true"))
+	TSoftObjectPtr<UWorld> InGameLevel;
+
+public:
+	// In Game Play Setting Function
+	void MarkPendingGameplayActivation();
+	bool ConsumePendingGameplayActivation();
+
+	// Character Setting Function
+	AMyCharacter* FindCharacterByUID(int32 UID) const;
+	AMyCharacter* EnsureRemoteCharacter(const GameData& Data);
+
+	// Item Control Function
+	ABaseItem* FindItemByID(int32 ItemID) const;
+
+	// Game Setting Function
+	void SurrenderAndReturnToLobby();
+	void ReturnToLobbyFromResult();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameResultWidget> GameResultWidgetClass;
+
+	UPROPERTY()
+	UGameResultWidget* GameResultWidgetInstance = nullptr;
+
+	TArray<FRoundChangePacket> CachedRoundResults;
+
+private:
+	// Checker Game Play Setting
+	bool bPendingGameplayActivation = false;
+
+	// One-time initial transform sync for the local player.
+	bool bLocalInitialTransformApplied = false;
+	bool bPendingInitialSpawnLock = false;
+	bool bLocalSpawnLockApplied = false;
+
+	// Cached snapshot received before the local player was ready.
+	TArray<GameData> PendingSnapshotList;
+	bool bHasPendingSnapshot = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Remote", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<AMyCharacter> RemoteCharacterClass;
+
+	// Remote player instances indexed by userUID.
+	TMap<int32, TWeakObjectPtr<AMyCharacter>> RemoteCharacters;
+
+	// Item Spawn at Map
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> SwordItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> SpearItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> HammerItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> UmbrellaItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> TorchItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> GrenadeItemClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Item", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABaseItem> GunItemClass;
+
+
+	TMap<int32, TWeakObjectPtr<ABaseItem>> SpawnedItems;
+
+	TSubclassOf<ABaseItem> GetItemClassByKind(int32 ItemKind) const;
+
+	// Control Game and Map Objects
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Map", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ASmallDebrisActor> SmallDebrisClass;
+
+	TMap<int32, TWeakObjectPtr<ASmallDebrisActor>> SpawnedSmallDebris;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Network|Map", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<AIceChillZone> IceChillZoneClass;
+
+	TMap<int32, TWeakObjectPtr<AIceChillZone>> SpawnedIceChillZones;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SpaceMap", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<ABlackHoleActor> BlackHoleClass;
+
+	TMap<int32, TWeakObjectPtr<ABlackHoleActor>> SpawnedBlackHoles;
+
+public:
+	UFUNCTION(BlueprintPure, Category = "Network|Room")
+	int32 GetCachedRoleTypeByRoomSlot(int32 RoomSlot) const;
+
+	// Test Checker
+	bool bClientOnlyTestMode = false;
+
+private:
+	TArray<FRoomMemberInfo> CachedRoomMembers;
+};
