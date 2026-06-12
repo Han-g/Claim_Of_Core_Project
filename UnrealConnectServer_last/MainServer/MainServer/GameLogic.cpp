@@ -5,6 +5,7 @@
 #include "session.h"
 
 #include <algorithm>
+#include <iterator>
 
 GameLogic::GameLogic() { ownerRoom = nullptr; }
 
@@ -366,7 +367,7 @@ bool GameLogic::TrySelectMap()
 
     //----------------------------- Map Setting --------------------------------
     // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
-    selectedMapType = remainingMaps[index];
+    selectedMapType = 1;// remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 
@@ -1191,12 +1192,12 @@ Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const
 {
     Vector3 resolved = desiredPos;
 
-    // Space mapÀº Á¦¿Ü
-    if (mapType == 3) {
-        return resolved;
+    if (mapType == 3)
+    {
+        return ResolveSpaceStationBoundary(desiredPos, radius);
     }
 
-    else if (mapType == 4) {
+    if (mapType == 4) {
         float JungleMapMinX = MapMinX * 1.5;
         float JungleMapMaxX = MapMaxX * 1.5;
         float JungleMapMinY = MapMinY * 1.5;
@@ -1209,6 +1210,32 @@ Vector3 GameLogic::ResolveMovementWithCollision(const Vector3& currentPos, const
         resolved.x = (std::max)(MapMinX + radius, (std::min)(resolved.x, MapMaxX - radius));
         resolved.y = (std::max)(MapMinY + radius, (std::min)(resolved.y, MapMaxY - radius));
     }
+
+    return resolved;
+}
+
+Vector3 GameLogic::ResolveSpaceStationBoundary(const Vector3& desiredPos, float radius) const
+{
+    Vector3 resolved = desiredPos;
+
+    float MinX = MapMinX + radius;
+    float MaxX = MapMaxX - radius;
+    float MinY = MapMinY + radius;
+    float MaxY = MapMaxY - radius;
+
+    if (currentMapPhase >= 2)
+    {
+        MaxX = Outside1_BlackHoleCenter.x + 1000.0f;
+    }
+
+    if (currentMapPhase >= 3)
+    {
+        MinX = Outside2_BlackHoleCenter.x - 1000.0f;
+        MinY = Outside3_BlackHoleCenter.y - 1000.0f;
+    }
+
+    resolved.x = (std::max)(MinX, (std::min)(resolved.x, MaxX));
+    resolved.y = (std::max)(MinY, (std::min)(resolved.y, MaxY));
 
     return resolved;
 }
@@ -1799,12 +1826,30 @@ void GameLogic::StartBuildingMap()
     bBuildingPhase2Trigger = false;
     bBuildingPhase3Trigger = false;
 
+    InitLargeDebrisGraphs();
+
     {
         std::lock_guard<std::mutex> lock(activeSmallDebrisLock);
         activeSmallDebrisIDs.clear();
     }
 
     ResetMapItemSpawner();
+}
+
+void GameLogic::InitLargeDebrisGraphs()
+{
+    LargeDebrisGraphState graph{};
+    graph.debrisID = 2000;
+
+    graph.chunks.resize(5);
+
+    graph.chunks[0] = { 0, {1},    0.f, 100.f, false, true };
+    graph.chunks[1] = { 1, {0, 2}, 0.f, 100.f, false, false };
+    graph.chunks[2] = { 2, {1, 3}, 0.f, 100.f, false, false };
+    graph.chunks[3] = { 3, {2, 4}, 0.f, 100.f, false, false };
+    graph.chunks[4] = { 4, {3},    0.f, 100.f, false, false };
+
+    largeDebrisGraphs[graph.debrisID] = graph;
 }
 
 // ------------------------------------
@@ -2651,6 +2696,9 @@ void GameLogic::ApplyBlackHolePull(float deltaTime)
             };
 
             const float collisionRadius = GetCollisionRadius(gd.roleType);
+            if (mapType == 3) {
+
+            }
             const Vector3 resolvedPos =
                 ResolveMovementWithCollision(currentPos, desiredPos, collisionRadius);
 
@@ -2752,11 +2800,11 @@ void GameLogic::UpdateJunglePoisonFog(float deltaTime)
     float shrinkSpeed = 0.0f;
     if (currentMapPhase == 2)
     {
-        shrinkSpeed = 75.0f;
+        shrinkSpeed = 150.0f;
     }
     else if (currentMapPhase >= 3)
     {
-        shrinkSpeed = 225.0f;
+        shrinkSpeed = 250.0f;
     }
 
     if (shrinkSpeed > 0.0f)
@@ -3061,14 +3109,16 @@ void GameLogic::SpawnMapItem(EItemKind itemKind)
 {
     if (!ownerRoom) { return; }
 
+    const Vector3 SpawnLocation = PickRandomItemSpawnLocation();
+
     ItemSpawnRange range{};
     range.ObjectID = nextItemObjectID++;
     range.ItemKind = itemKind;
-    range.MinX = MapMinX;
-    range.MaxX = MapMaxX;
-    range.MinY = MapMinY;
-    range.MaxY = MapMaxY;
-    range.Z = 2500.0f;
+    range.MinX = SpawnLocation.x;
+    range.MaxX = SpawnLocation.x;
+    range.MinY = SpawnLocation.y;
+    range.MaxY = SpawnLocation.y;
+    range.Z    = SpawnLocation.z;
 
     ItemData item = ownerRoom->SpawnRandomItem(range);
 
@@ -3087,6 +3137,126 @@ void GameLogic::SpawnMapItem(EItemKind itemKind)
         sizeof(pkt)
     );
 
+}
+
+Vector3 GameLogic::PickRandomItemSpawnLocation() const
+{
+    static const Vector3 DefaultItemSpawnTable[] =
+    {
+        { -2800.f, -3000.f, 2500.f },
+        {  4200.f, -2800.f, 2500.f },
+        { -3300.f,  4500.f, 2500.f },
+        {  4900.f,  4000.f, 2500.f },
+        {     0.f, -3000.f, 2500.f },
+        {     0.f,  3000.f, 2500.f },
+    };
+
+    static const Vector3 BuildingItemSpawnTable[] =
+    {
+        { -2800.f, -3000.f, 2500.f },
+        {  4200.f, -2800.f, 2500.f },
+        { -3300.f,  4500.f, 2500.f },
+        {  4900.f,  4000.f, 2500.f },
+        {   100.f, -8000.f, 2500.f },
+        {   400.f,  6500.f, 2500.f },
+        {  8900.f,  8400.f, 2500.f },
+        { -8200.f,  8200.f, 2500.f },
+        {  8300.f, -8500.f, 2500.f },
+        { -7500.f, -7800.f, 2500.f },
+    };
+
+    static const Vector3 IceCaveItemSpawnTable[] =
+    {
+        { -2800.f, -3000.f, 2500.f },
+        {  4200.f, -2800.f, 2500.f },
+        { -3300.f,  4500.f, 2500.f },
+        {  4900.f,  4000.f, 2500.f },
+        {   100.f, -8000.f, 2500.f },
+        {   400.f,  6500.f, 2500.f },
+        {  8900.f,  8400.f, 2500.f },
+        { -8200.f,  8200.f, 2500.f },
+        {  8300.f, -8500.f, 2500.f },
+        { -7500.f, -7800.f, 2500.f },
+    };
+
+    static const Vector3 SpaceStationItemSpawnTable[] =
+    {
+        { -2800.f, -3000.f, 2500.f },
+        {  4200.f, -2800.f, 2500.f },
+        { -3300.f,  4500.f, 2500.f },
+        {  4900.f,  4000.f, 2500.f },
+        {   100.f, -8000.f, 2500.f },
+        {   400.f,  6500.f, 2500.f },
+        {  8900.f,  8400.f, 2500.f },
+        { -8200.f,  8200.f, 2500.f },
+        {  8300.f, -8500.f, 2500.f },
+        { -7500.f, -7800.f, 2500.f },
+    };
+
+    static const Vector3 JungleItemSpawnTable[] =
+    {
+        { -9500.f,  8500.f, 2500.f },
+        {  3500.f,  9800.f, 2500.f },
+        {-11000.f,  4500.f, 2500.f },
+        { -6500.f, -9500.f, 2500.f },
+        {  8500.f,-11500.f, 2500.f },
+        {  7500.f, 12500.f, 2500.f },
+        { -4500.f, 12000.f, 2500.f },
+        { 11800.f, -8200.f, 2500.f },
+        { -4000.f,  3500.f, 2500.f },
+        { -6000.f,  7000.f, 2500.f },
+        {  8000.f,  3500.f, 2500.f },
+        { -9000.f,  3500.f, 2500.f },
+    };
+
+    static const Vector3 SkyIslandItemSpawnTable[] =
+    {
+        {  5400.f,  1200.f, 8000.f },
+        { -1200.f,  4300.f, 8000.f },
+        {  2100.f,  4200.f, 8000.f },
+        {  5400.f, -1300.f, 8000.f },
+        { -3200.f, -4800.f, 8000.f },
+        { -1500.f, -4200.f, 8000.f },
+        { -2800.f, -3000.f,12500.f },
+        {  4200.f, -2800.f,12500.f },
+        { -3300.f,  4100.f,12500.f },
+        {  4500.f,  3800.f,12500.f },
+        {     0.f, -2900.f, 4000.f },
+        {     0.f,  3200.f, 4000.f },
+    };
+
+    const Vector3* Table;
+    int TableCount = 0;
+
+    switch (mapType)
+    {
+    case 1:
+        Table = BuildingItemSpawnTable;
+        TableCount = static_cast<int>(std::size(BuildingItemSpawnTable));
+        break;
+    case 2:
+        Table = IceCaveItemSpawnTable;
+        TableCount = static_cast<int>(std::size(IceCaveItemSpawnTable));
+        break;
+    case 3:
+        Table = SpaceStationItemSpawnTable;
+        TableCount = static_cast<int>(std::size(SpaceStationItemSpawnTable));
+        break;
+    case 4:
+        Table = JungleItemSpawnTable;
+        TableCount = static_cast<int>(std::size(JungleItemSpawnTable));
+        break;
+    case 5:
+        Table = SkyIslandItemSpawnTable;
+        TableCount = static_cast<int>(std::size(SkyIslandItemSpawnTable));
+        break;
+    default:
+        Table = DefaultItemSpawnTable;
+        TableCount = static_cast<int>(std::size(DefaultItemSpawnTable));
+        break;
+    }
+
+    return Table[RandomInt(0, TableCount - 1)];
 }
 
 EItemKind GameLogic::PickRandomBasicItemKind()

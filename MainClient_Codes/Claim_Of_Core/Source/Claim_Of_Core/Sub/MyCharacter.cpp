@@ -169,6 +169,12 @@ void AMyCharacter::BeginPlay()
 		FrozenOverlayMeshComponent->SetRenderCustomDepth(bFrozen);
 	}
 
+	if (HandCollision)
+	{
+		HandCollision->SetHiddenInGame(true);
+		HandCollision->SetVisibility(false, true);
+	}
+
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
@@ -2093,7 +2099,7 @@ void AMyCharacter::ShowCorpse()
 
 	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
-		MeshComp->SetVisibility(true, true);
+		MeshComp->SetVisibility(true, false);
 		MeshComp->SetHiddenInGame(false, true);
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	}

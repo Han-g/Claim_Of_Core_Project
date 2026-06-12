@@ -145,7 +145,7 @@ void ASkyCloudPlatform::UpdateOneWayCollision()
 	);
 }
 
-bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const
+bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character)
 {
 	if (!Character || !CloudMeshComponent)
 	{
@@ -160,9 +160,27 @@ bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter*
 		return false;
 	}
 
-	const float PlatformTopZ = CloudMeshComponent->Bounds.GetBox().Max.Z;
+	const FBox PlatformBox = CloudMeshComponent->Bounds.GetBox();
+	const float PlatformBottomZ = PlatformBox.Min.Z;
+	const float PlatformTopZ = PlatformBox.Max.Z;
+
 	const float CharacterBottomZ =
 		Character->GetActorLocation().Z - Capsule->GetScaledCapsuleHalfHeight();
+
+	const float CharacterTopZ =
+		Character->GetActorLocation().Z + Capsule->GetScaledCapsuleHalfHeight();
+
+	const bool bCharacterInPlatformHeight =
+		CharacterTopZ >= PlatformBottomZ &&
+		CharacterBottomZ <= PlatformTopZ;
+
+	if (!bWasLocalCharacterInPlatformHeight && bCharacterInPlatformHeight)
+	{
+		bLocalCharacterEnteredPlatformFromBelow =
+			CharacterBottomZ < PlatformBottomZ;
+	}
+
+	bWasLocalCharacterInPlatformHeight = bCharacterInPlatformHeight;
 
 	const bool bCharacterAbovePlatform =
 		CharacterBottomZ >= PlatformTopZ - OneWayTopTolerance;
@@ -170,7 +188,18 @@ bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter*
 	const bool bDescendingOrStanding =
 		MoveComp->Velocity.Z <= OneWayVelocityTolerance;
 
-	return bCharacterAbovePlatform && bDescendingOrStanding;
+	if (bLocalCharacterEnteredPlatformFromBelow && !bCharacterAbovePlatform)
+	{
+		return false;
+	}
+
+	if (bCharacterAbovePlatform && bDescendingOrStanding)
+	{
+		bLocalCharacterEnteredPlatformFromBelow = false;
+		return true;
+	}
+
+	return false;
 }
 
 void ASkyCloudPlatform::UpdateVisible(float DeltaTime)

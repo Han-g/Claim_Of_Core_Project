@@ -17,7 +17,7 @@ AIceChillSpawner::AIceChillSpawner()
 	SpawnArea->SetupAttachment(Root);
 	SpawnArea->SetBoxExtent(FVector(5000.f, 5000.f, 100.f));
 	SpawnArea->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SpawnArea->SetHiddenInGame(false);
+	SpawnArea->SetHiddenInGame(true);
 }
 
 void AIceChillSpawner::BeginPlay()
@@ -44,7 +44,7 @@ void AIceChillSpawner::Tick(float DeltaTime)
 
 	if (bDrawDebugBox && SpawnArea && GetWorld())
 	{
-		DrawDebugBox(
+		/*DrawDebugBox(
 			GetWorld(),
 			SpawnArea->GetComponentLocation(),
 			SpawnArea->GetScaledBoxExtent(),
@@ -54,7 +54,7 @@ void AIceChillSpawner::Tick(float DeltaTime)
 			0.f,
 			0,
 			2.f
-		);
+		);*/
 	}
 }
 

@@ -375,8 +375,11 @@ void UNetworkInstance::ShowLobbyHUD()
 		PC->SetShowMouseCursor(true);
 
 		FInputModeUIOnly InputMode;
+		InputMode.SetWidgetToFocus(LobbyWidgetInstance->TakeWidget());
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		PC->SetInputMode(InputMode);
+
+		LobbyWidgetInstance->SetKeyboardFocus();
 	}
 }
 
@@ -1597,7 +1600,7 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 		// Draw BlackHole Range For Debuging
 		const FVector SpawnLocation(Packet.x, Packet.y, Packet.z);
 
-		DrawDebugSphere(
+		/*DrawDebugSphere(
 			World,
 			SpawnLocation,
 			300.0f,
@@ -1617,7 +1620,7 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 			FColor::Yellow,
 			30.0f,
 			true
-		);
+		);*/
 
 		// 서버가 실제 흡입을 담당하게 할 거면 클라이언트 흡입은 끄는 게 좋음
 		//NewBlackHole->DeactivateBlackHole();

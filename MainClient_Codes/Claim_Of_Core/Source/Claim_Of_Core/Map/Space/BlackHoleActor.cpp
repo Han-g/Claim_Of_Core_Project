@@ -50,7 +50,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 
 	if (bDrawDebug)
 	{
-		DrawDebugSphere(
+		/*DrawDebugSphere(
 			GetWorld(),
 			GetActorLocation(),
 			PullRadius,
@@ -60,7 +60,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 			0.0f,
 			0,
 			3.0f
-		);
+		);*/
 	}
 
 	if (!bActive)
@@ -131,7 +131,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 
 		if (bDrawDebug)
 		{
-			DrawDebugLine(
+			/*DrawDebugLine(
 				GetWorld(),
 				Character->GetActorLocation(),
 				GetActorLocation(),
@@ -140,7 +140,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 				0.0f,
 				0,
 				2.0f
-			);
+			);*/
 		}
 	}
 }

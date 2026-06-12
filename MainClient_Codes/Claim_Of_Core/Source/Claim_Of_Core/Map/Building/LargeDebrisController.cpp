@@ -93,11 +93,12 @@ void ALargeDebrisController::TriggerPhase2Debris()
 	
 	UE_LOG(LogTemp, Warning, TEXT("[LargeDebrisController] Trigger Phase2 Debris"));
 
-	for (ALargeDebrisActor* DebrisActor : Phase2DebrisActors)
+	for (int32 i = 0; i < Phase2DebrisActors.Num(); ++i)
 	{
+		ALargeDebrisActor* DebrisActor = Phase2DebrisActors[i];
 		if (!DebrisActor) continue;
 
-		const float RandomDelay = FMath::FRandRange(0.2f, 20.f);
+		const float FixedDelay = 0.2f + i * 1.0f;
 
 		FTimerHandle TempHandle;
 		FTimerDelegate TimerDel;
@@ -113,7 +114,7 @@ void ALargeDebrisController::TriggerPhase2Debris()
 		GetWorld()->GetTimerManager().SetTimer(
 			TempHandle,
 			TimerDel,
-			RandomDelay,
+			FixedDelay,
 			false
 		);
 	}
@@ -125,11 +126,12 @@ void ALargeDebrisController::TriggerPhase3Debris()
 
 	UE_LOG(LogTemp, Warning, TEXT("[LargeDebrisController] Trigger Phase3 Debris"));
 	
-	for (ALargeDebrisActor* DebrisActor : Phase3DebrisActors)
+	for (int32 i = 0; i < Phase3DebrisActors.Num(); ++i)
 	{
+		ALargeDebrisActor* DebrisActor = Phase3DebrisActors[i];
 		if (!DebrisActor) continue;
 
-		const float RandomDelay = FMath::FRandRange(0.2f, 5.f);
+		const float FixedDelay = 0.2f + i * 1.0f;
 
 		FTimerHandle TempHandle;
 		FTimerDelegate TimerDel;
@@ -144,7 +146,7 @@ void ALargeDebrisController::TriggerPhase3Debris()
 		GetWorld()->GetTimerManager().SetTimer(
 			TempHandle,
 			TimerDel,
-			RandomDelay,
+			FixedDelay,
 			false
 		);
 	}

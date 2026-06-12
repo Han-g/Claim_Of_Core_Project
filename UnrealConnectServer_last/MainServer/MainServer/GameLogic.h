@@ -341,7 +341,13 @@ public:
 	// Check Collision with Other Player and Objects
 	float GetCollisionRadius(int roleType) const;
 	bool CanOccupyPosition(const Vector3& pos, float radius) const;
+	
 	Vector3 ResolveMovementWithCollision(const Vector3& currentPos, const Vector3& desiredPos, float radius) const;
+	Vector3 ResolveSpaceStationBoundary(
+		const Vector3& desiredPos,
+		float radius
+	) const;
+	
 	float GetGroundActorZ() const { return FixedGroundZ + ServerCapsuleHalfHeight; }
 	float GetCurrentServerGravityZ() const
 	{
@@ -416,6 +422,7 @@ public:
 	void SchedulePhase2Items(EItemKind specialItem);
 	void UpdatePendingItemSpawns(float deltaTime);
 	void SpawnMapItem(EItemKind itemKind);
+	Vector3 PickRandomItemSpawnLocation() const;
 	EItemKind PickRandomBasicItemKind();
 
 private:
@@ -601,6 +608,25 @@ public:
 
 private:
 	// ------------ Building Map Statement ------------
+	struct LargeDebrisChunkNode
+	{
+		int chunkIndex = -1;
+		std::vector<int> neighbors;
+		float currentDamage = 0.f;
+		float breakThreshold = 100.f;
+		bool bBroken = false;
+		bool bAnchored = false;
+	};
+
+	struct LargeDebrisGraphState
+	{
+		int debrisID = -1;
+		std::vector<LargeDebrisChunkNode> chunks;
+		int sequence = 0;
+	};
+
+	std::unordered_map<int, LargeDebrisGraphState> largeDebrisGraphs;
+
 	DebrisSpawnConfig debrisPhaseConfigs[3] = {
 		{6.f, 10.f, 1, 1},
 		{3.f,  6.f, 1, 2},

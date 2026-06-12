@@ -131,7 +131,7 @@ void AJunglePoisonFogActor::Tick(float DeltaTime)
 
 	if (bDrawDebug && GetWorld())
 	{
-		DrawDebugSphere(
+		/*DrawDebugSphere(
 			GetWorld(),
 			GetActorLocation(),
 			FogRadius,
@@ -141,7 +141,7 @@ void AJunglePoisonFogActor::Tick(float DeltaTime)
 			0.0f,
 			0,
 			3.0f
-		);
+		);*/
 	}
 }
 

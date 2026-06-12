@@ -19,7 +19,8 @@ ASkyLiftBubbleSpawner::ASkyLiftBubbleSpawner()
     SpawnArea->SetupAttachment(Root);
     SpawnArea->SetBoxExtent(FVector(1200.f, 1200.f, 80.f));
     SpawnArea->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    SpawnArea->SetHiddenInGame(false);
+    SpawnArea->SetHiddenInGame(true);
+    SpawnArea->SetVisibility(false, true);
 }
 
 // Called when the game starts or when spawned

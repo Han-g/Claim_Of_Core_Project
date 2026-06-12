@@ -93,10 +93,10 @@ protected:
 	float FogActiveElapsed = 0.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Timing", meta = (ClampMin = "0.0"))
-	float Phase2InnerShrinkSpeed = 75.0f;
+	float Phase2InnerShrinkSpeed = 150.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Timing", meta = (ClampMin = "0.0"))
-	float Phase3InnerShrinkSpeed = 225.0f;
+	float Phase3InnerShrinkSpeed = 250.0f;
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Visual")

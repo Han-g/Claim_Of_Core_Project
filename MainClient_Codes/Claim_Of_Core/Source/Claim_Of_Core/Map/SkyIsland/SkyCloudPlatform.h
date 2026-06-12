@@ -118,8 +118,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
 	float OneWayVelocityTolerance = 80.f;
 
+	bool bLocalCharacterEnteredPlatformFromBelow = false;
+	bool bWasLocalCharacterInPlatformHeight = false;
+
 	void UpdateOneWayCollision();
-	bool ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const;
+	bool ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character);
 
 	FVector InitialScale = FVector::OneVector;
 	FVector InitialLocation = FVector::ZeroVector;
