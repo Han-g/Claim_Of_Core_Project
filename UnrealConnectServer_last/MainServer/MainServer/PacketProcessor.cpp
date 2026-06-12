@@ -88,8 +88,6 @@ void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, Pack
 		return;
 	}
 
-	LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
-
 	server->PushDBTask({ session->sessionID, ID, PW, EDBTaskType::LOGIN });
 }
 
@@ -104,8 +102,6 @@ void PacketProcessor::Handle_RegisterReq(IOCPServer* server, Session* session, P
 		server->SendPacket(session->sessionID, PKT_S2C_REGISTER_DENY, (char*)&failPacket, sizeof(failPacket));
 		return;
 	}
-
-	LOG_INFO("[Login Req] ID: %ls, PW: %ls", ID.c_str(), PW.c_str());
 
 	server->PushDBTask({ session->sessionID, ID, PW, EDBTaskType::REGISTER });
 }
@@ -211,14 +207,11 @@ void PacketProcessor::Handle_Character_SelectReq(IOCPServer* server, Session* se
 
 	server->BroadcastRoomInfo(session);
 
-	LOG_INFO("[RoleSelect] session=%d uid=%d role=%d",
-		session->sessionID, session->playerUID, roleType);
 }
 
 void PacketProcessor::Handle_Game_ReadyReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
 	session->isReady = !session->isReady;
-	LOG_INFO("[Session: %d] Ready toggled -> %s", session->sessionID, session->isReady ? "READY" : "WAITING");
 
 	server->BroadcastRoomInfo(session);
 }
@@ -308,16 +301,12 @@ void PacketProcessor::Handle_Attack_KeyInput(IOCPServer* server, Session* sessio
 	if (!logic) { return; }
 
 	logic->HandleAttackInput(session->sessionID);
-	LOG_INFO("[Attack] Handle_Attack_KeyInput session=%d", session->sessionID);
 }
 
 void PacketProcessor::Handle_Attack_HitReport(IOCPServer* server, Session* session, PacketReader& reader)
 {
 	AttackHitReportPacket pkt{};
 	if (!reader.Read(pkt)) { return; }
-
-	LOG_INFO("[AttackHitReportRecv] session=%d seq=%u target=%d type=%d",
-		session->sessionID, pkt.attackSeq, pkt.targetID, pkt.attackType);
 
 	GameLogic* logic = GameLogicHelper(server, session);
 	if (!logic) { return; }
@@ -330,7 +319,6 @@ void PacketProcessor::Handle_RoleSkillReq(IOCPServer* server, Session* session, 
 	GameLogic* logic = GameLogicHelper(server, session);
 	if (!logic) { return; }
 
-	LOG_INFO("[RoleSkill][RecvReq] session=%d uid=%d", session->sessionID, session->playerUID);
 	logic->HandleRoleSkillRequest(session->sessionID);
 }
 
@@ -370,13 +358,6 @@ void PacketProcessor::Handle_Object_HitReq(IOCPServer* server, Session* session,
 	{
 		return;
 	}
-
-	LOG_INFO("[ObjectHitReq] session=%d objectID=%d objectType=%d subID=%d hitKind=%d",
-		session->sessionID,
-		pkt.objectID,
-		pkt.objectType,
-		pkt.subID,
-		pkt.hitKind);
 
 	if (pkt.objectType == static_cast<int32_t>(EMapEventType::SmallDebris))
 	{

@@ -28,8 +28,6 @@ int main()
 
 	else { LOG_ERROR("Failed to Server Initalization!"); return -1; }
 
-	//Test(&server);
-
 	// Keep the main thread alive and drive the server frame loop.
 	while (true) {
 		static auto lastTime = std::chrono::steady_clock::now();

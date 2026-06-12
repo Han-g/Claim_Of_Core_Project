@@ -70,9 +70,6 @@ void GameLogic::Update(float deltaTime)
                     player->isAttack = false;
                     player->attackRemainTime = 0.0f;
 
-                    LOG_INFO("[Attack] End session=%d uid=%d",
-                        player->sessionID,
-                        player->playerUID);
                 }
             }
         }
@@ -111,23 +108,18 @@ void GameLogic::StartGameRound()
 
     // Initialize map gimmicks
     if (mapType == 1) {
-        LOG_INFO("Building Map Select");
         StartBuildingMap();
     }
     else if (mapType == 2) {
-        LOG_INFO("IceCave Map Select");
         StartIceMap();
     }
     else if (mapType == 3) {
-        LOG_INFO("Space Map Select");
         StartSpaceStation();
     }
     else if (mapType == 4) {
-        LOG_INFO("Jungle Map Select");
         StartJungleMap();
     }
     else if (mapType == 5) {
-        LOG_INFO("SkyIsland Map Select");
     }
     else {
         LOG_ERROR("InValid Map Selection");
@@ -357,8 +349,6 @@ void GameLogic::SetAvailableMaps(const std::vector<int>& maps)
 
 bool GameLogic::TrySelectMap()
 {
-    //if (matchFlowState != EMatchFlow::MapSelecting) { return false; }
-
     if (availableMaps.empty())
     {
         LOG_ERROR("[MapSelect] AvailableMaps is empty");
@@ -376,7 +366,7 @@ bool GameLogic::TrySelectMap()
 
     //----------------------------- Map Setting --------------------------------
     // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
-    selectedMapType = 2;// remainingMaps[index];
+    selectedMapType = remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 
@@ -407,8 +397,6 @@ void GameLogic::FinishMapSelection()
         sizeof(selectedMapType)
     );
 
-    /*matchFlowState = EMatchFlow::RoundPlaying;
-    ownerRoom->BeginDeferredRoundStart(roundStartDelay);*/
     matchFlowState = EMatchFlow::MapSelectedWait;
     matchFlowRemainTime = roundStartDelay;
 }
@@ -561,12 +549,6 @@ void GameLogic::ApplyDamage(int sessionID, int damageAmount, EDamageType damageT
     const int prevHP = gd.currentHP;
     SetCurrentHP(sessionID, gd.currentHP - finalDamageAmount);
 
-    LOG_INFO("[ATK_TRACE][4_ServerDamage] targetSession=%d targetUID=%d damage=%d hpBefore=%d hpAfter=%d",
-        sessionID,
-        targetSession->playerUID,
-        finalDamageAmount,
-        prevHP,
-        gd.currentHP);
 
     // Broadcast the damage result to all clients in the room.
     // PKT_S2C_DAMAGE_APPLY_BRD: target session, damage, remaining HP
@@ -627,12 +609,6 @@ void GameLogic::SetCurrentHP(int sessionID, int newHP)
     if (newHP < 0) { newHP = 0; }
     if (newHP > gd.maxHP) { newHP = gd.maxHP; }
     gd.currentHP = newHP;
-
-    // If HP reaches zero while the player is alive, trigger death handling.
-    // Death handle Move to ApplyDamage
-    /*if (gd.characterState == 0 && gd.currentHP <= 0) {
-        HandleDeath(sessionID);
-    }*/
 }
 
 bool GameLogic::CheckFallDeath(Session* player)
@@ -687,13 +663,6 @@ void GameLogic::EndGameRoundWithResult(int winnerTeamID, int endReason)
     else if (winnerTeamID == 1) { team2Score++; }
     else { LOG_ERROR("InValid Winner Team"); }
 
-    /*if (currentRound == maxRound) {
-        EndMatch();
-    }
-    else if (currentRound < maxRound) {
-        BeginRoundPrepare();
-    }
-    else {  LOG_ERROR("InValid Round"); }*/
 
     PhaseChangePacket phasePkt{};
     phasePkt.roundState = Finished;
@@ -958,7 +927,6 @@ void GameLogic::DropCurrentItem(int sessionID, int itemID)
     dropItemData->bEquipped = false;
     dropItemData->ownerUID = -1;
 
-    // 1차 구현은 플레이어 현재 위치에 드롭해도 충분
     dropItemData->x = gd.x;
     dropItemData->y = gd.y;
     dropItemData->z = gd.z;
@@ -980,10 +948,6 @@ void GameLogic::DropCurrentItem(int sessionID, int itemID)
         sizeof(pkt)
     );
 
-    LOG_INFO("[ItemDrop] success. session=%d uid=%d itemID=%d",
-        sessionID,
-        targetSession->playerUID,
-        itemID);
 }
 
 auto MoveVelocityToward = [](float& vx, float& vy, float tx, float ty, float maxDelta)
@@ -1083,9 +1047,6 @@ void GameLogic::UpdatePlayerMovement(Session* player, float deltaTime)
     const float targetVelX = moveX * gd.baseWalkSpeed;
     const float targetVelY = moveY * gd.baseWalkSpeed;
 
-    /*const float acceleration = input.bHasInput
-        ? (bServerOnIce ? IceMoveAcceleration : NormalMoveAcceleration)
-        : (bServerOnIce ? IceBrakingDeceleration : NormalBrakingDeceleration);*/
     const float acceleration = bInAir
         ? (input.bHasInput ? AirMoveAcceleration : AirBrakingDeceleration)
         : (input.bHasInput
@@ -1452,89 +1413,6 @@ void GameLogic::HandleAttackInput(int sessionID)
     }
 
     BroadcastAttackAction(attackerSession->playerUID, attackType, attackerSession->attackSeq);
-    //LOG_INFO("[Attack] HandleAttackInput session=%d uid=%d room ok", sessionID, gd.userUID);
-
-   /* Session* bestTarget = nullptr;
-    switch (gd.roleType)
-    {
-    case Guardian:
-        Range = 500.f;
-        break;
-
-    case Striker:
-        Range = 400.f;
-        break;
-
-    case Manipulator:
-        Range = 400.f;
-        break;
-
-    default:
-        Range = 400.f;
-        break;
-    }
-    float bestDist = Range;
-
-    const float yawRad = GameMath::DegreesToRadians(gd.rotate);
-    const float forwardX = std::cos(yawRad);
-    const float forwardY = std::sin(yawRad);
-    const float minDot = std::cos(GameMath::DegreesToRadians(50.0f));
-
-    for (const auto& pair : players)
-    {
-        Session* targetSession = pair.second;
-        if (!targetSession || targetSession == attackerSession) { continue; }
-
-        GameData& targetData = targetSession->gameDatas;
-        if (!targetData.isConnected) { continue; }
-        if (targetData.characterState != 0) { continue; }
-
-        float toX = targetData.x - gd.x;
-        float toY = targetData.y - gd.y;
-        float dist = GameMath::Length2D(toX, toY);
-        if (dist > Range) { continue; }
-
-        GameMath::Normalize2D(toX, toY);
-        const float dot = forwardX * toX + forwardY * toY;
-        if (dot < minDot) { continue; }
-
-        LOG_INFO(
-            "[ATK_TEST][Target] attackerUID=%d targetUID=%d "
-            "aPos=(%.1f, %.1f) tPos=(%.1f, %.1f) rotate=%.2f "
-            "dist=%.1f range=%.1f dot=%.3f minDot=%.3f",
-            attackerSession->playerUID,
-            targetSession->playerUID,
-            gd.x, gd.y,
-            targetData.x, targetData.y,
-            gd.rotate,
-            dist,
-            Range,
-            dot,
-            minDot
-        );
-
-        if (dist < bestDist)
-        {
-            bestDist = dist;
-            bestTarget = targetSession;
-        }
-    }
-
-    if (!bestTarget) { 
-        LOG_INFO("Attack Miss to target");
-        return; 
-    }
-
-    int damageAmount = 20;
-    switch (gd.roleType)
-    {
-    case Striker: damageAmount = 30; break;
-    case Guardian: damageAmount = 15; break;
-    case Manipulator: damageAmount = 20; break;
-    default: break;
-    }
-
-    ApplyDamage(bestTarget->sessionID, damageAmount);*/
 }
 
 void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket& pkt)
@@ -1649,13 +1527,6 @@ void GameLogic::HandleAttackHitReport(int sessionID, const AttackHitReportPacket
         attackerSession->hasAttackHit = true;
     }
 
-    LOG_INFO("[AttackHit] Confirm attackerUID=%d targetUID=%d seq=%u dist=%.1f range=%.1f damage=%d",
-        attackerSession->playerUID,
-        targetSession->playerUID,
-        pkt.attackSeq,
-        dist,
-        attackRange,
-        damageAmount);
 
 
     const bool bUsingTorch =
@@ -1720,8 +1591,6 @@ void GameLogic::BroadcastAttackAction(int attackerUID, int attackType, uint32_t 
     pkt.attackType = attackType;
     pkt.attackSeq = attackSeq;
 
-    LOG_INFO("[Attack] BroadcastAttackAction attackerUID=%d type=%d",
-        attackerUID, attackType);
     ownerRoom->BroadcastToMembers(
         PKT_S2C_ATTACK_ACTION_BRD,
         reinterpret_cast<const char*>(&pkt),
@@ -1797,8 +1666,6 @@ void GameLogic::HandleLargeDebrisHit(int sessionID, int debrisID, int subID, int
 
     const int damage = (hitKind == 1) ? 15 : 40; // 청크 15, 큰 본체 40
 
-    LOG_INFO("[LargeDebrisHit] debrisID=%d subID=%d kind=%d targetUID=%d damage=%d",
-        debrisID, subID, hitKind, targetSession->playerUID, damage);
 
     ApplyDamage(targetSession->sessionID, damage, EDamageType::Rubble);
 }
@@ -1843,11 +1710,6 @@ void GameLogic::HandleDebrisHit(int sessionID, int debrisID)
         return;
     }
 
-    LOG_INFO("[DebrisHit] debrisID=%d targetSession=%d targetUID=%d damage=%d",
-        debrisID,
-        targetSession->sessionID,
-        targetSession->playerUID,
-        SmallDebrisDamage);
 
     if (TryBlockDebrisDamageWithUmbrella(targetSession, debrisID, -1, 0, false))
     {
@@ -2229,17 +2091,6 @@ void GameLogic::UpdateIceChillZones(float deltaTime)
             float& stayTime = zone.stayTimesBySessionID[player->sessionID];
             stayTime += deltaTime;
 
-            LOG_INFO("[IceChill] Inside zoneID=%d session=%d uid=%d dist=%.1f stay=%.2f/%.2f player=(%.1f, %.1f) zone=(%.1f, %.1f)",
-                zone.zoneID,
-                player->sessionID,
-                player->playerUID,
-                dist,
-                stayTime,
-                zone.freezeBuildUpTime,
-                gd.x,
-                gd.y,
-                zone.x,
-                zone.y);
 
             if (stayTime >= zone.freezeBuildUpTime)
             {
@@ -2279,9 +2130,6 @@ void GameLogic::SpawnIceChillZone()
         return;
     }
 
-    LOG_INFO("[IceChill] Spawn zoneID=%d pos=(%.1f, %.1f, %.1f) radius=%.1f build=%.1f duration=%.1f",
-        zone.zoneID, zone.x, zone.y, zone.z,
-        zone.radius, zone.freezeBuildUpTime, zone.freezeDuration);
 
     // Broadcast Object Spawn
     SpawnObjectPacket pkt{};
@@ -2418,9 +2266,6 @@ void GameLogic::ApplyDebugFreezeOnceForTorchTest()
         //ApplyFreezeToPlayer(player->sessionID, 30.f);
         bDebugFreezeAppliedForTorchTest = true;
 
-        LOG_INFO("[TorchThawTest] Debug freeze target session=%d uid=%d",
-            player->sessionID,
-            player->playerUID);
 
         return;
     }
@@ -2439,8 +2284,6 @@ bool GameLogic::IsTorchEquipped(Session* player) const
     }
 
     const GameData& gd = player->gameDatas;
-    // Test Code :: All player has Torch
-    //return gd.isConnected && gd.characterState == Alive && !player->bFrozen;
 
     if (!gd.isConnected || gd.characterState != Alive || player->bFrozen)
     {
@@ -2524,11 +2367,6 @@ void GameLogic::UpdateTorchThaw(float deltaTime)
             float& progress = torchThawProgressByPair[key];
             progress += deltaTime;
 
-            LOG_INFO("[TorchThaw] owner=%d target=%d progress=%.2f/%.2f",
-                torchOwner->playerUID,
-                target->playerUID,
-                progress,
-                TorchThawRequiredTime);
 
             if (progress >= TorchThawRequiredTime)
             {
@@ -2820,13 +2658,6 @@ void GameLogic::ApplyBlackHolePull(float deltaTime)
             gd.y = resolvedPos.y;
             gd.z = resolvedPos.z;
 
-            LOG_INFO("[BlackHolePull] uid=%d dist=%.1f before=(%.1f, %.1f) hole=(%.1f, %.1f)",
-                gd.userUID,
-                distance,
-                gd.x,
-                gd.y,
-                blackHole.center.x,
-                blackHole.center.y);
         }
     }
 }
@@ -2963,14 +2794,6 @@ void GameLogic::ApplyJunglePoisonDamage()
 
         if (!IsInsideJunglePoisonFog(gd)) { continue; }
 
-        LOG_INFO("[PoisonCheck] uid=%d pos=(%.1f, %.1f) outer=%.1f inner=%.1f inside=%d hp=%d",
-            player->playerUID,
-            gd.x,
-            gd.y,
-            junglePoisonFog.radius,
-            junglePoisonFog.innerRadius,
-            IsInsideJunglePoisonFog(gd) ? 1 : 0,
-            gd.currentHP);
 
         ApplyDamage(player->sessionID, junglePoisonFog.damageAmount, EDamageType::Poison);
     }
@@ -3031,13 +2854,6 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
     SpaceBlackHoles.push_back(blackHole);
     BroadcastSpaceBlackHoleSpawn(blackHole);
 
-    LOG_INFO("[GrenadeBlackHole] Spawn session=%d itemID=%d objectID=%d pos=(%.1f, %.1f, %.1f)",
-        sessionID,
-        pkt.itemID,
-        blackHole.objectID,
-        pkt.x,
-        pkt.y,
-        pkt.z);
 }
 
 void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
@@ -3079,7 +2895,6 @@ void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
 
     if (pkt.TargetID <= 0)
     {
-        LOG_INFO("[GunShot] consumed by miss. session=%d itemID=%d", sessionID, pkt.ItemID);
         return;
     }
 
@@ -3272,12 +3087,6 @@ void GameLogic::SpawnMapItem(EItemKind itemKind)
         sizeof(pkt)
     );
 
-    LOG_INFO("[ItemSpawn] id=%d kind=%d pos=(%.1f, %.1f, %.1f)",
-        pkt.itemID,
-        pkt.itemKind,
-        pkt.x,
-        pkt.y,
-        pkt.z);
 }
 
 EItemKind GameLogic::PickRandomBasicItemKind()

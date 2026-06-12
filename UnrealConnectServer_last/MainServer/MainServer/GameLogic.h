@@ -47,21 +47,6 @@ namespace GameMath {
 	}
 }
 
-
-//struct PlayerData {
-//	int maxHP = 100;			// 100 = Striker, 200 = Guardian, 120 = Manipulator
-//	int currentHP = 100;
-//	int characterState = 0;		// 0 = Alive, 1 = Dead
-//	
-//	int roleType = 0;			// 0 = Striker, 1 = Guardian, 2 = Manipulator
-//	float baseWalkSpeed = 500.f;
-//	int equippedItemID = -1;
-//	
-//	float x = 0, y = 0, z = 0;
-//	float rotate = 0;
-//};
-
-
 enum class EItemKind {
 	None = 0,
 	Sword = 1,

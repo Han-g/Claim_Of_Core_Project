@@ -92,8 +92,6 @@ private:
 	std::thread m_AcceptThread;
 	std::thread m_DBConnectThread;
 
-	//std::vector<Session*> m_Sessions;
-	//std::mutex m_SessionLock;
 	int m_MaxSessionCount;
 	bool m_IsRunning;
 };

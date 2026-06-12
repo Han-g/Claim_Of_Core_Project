@@ -32,12 +32,6 @@ bool DBHelper::Connect()
     // 5. Open the database connection using the configured connection string.
     // Legacy DSN-based examples are kept below for reference only.
     // The active path below reads the full connection string from configuration.
-    /*ret = SQLConnect(hDbc, (SQLWCHAR*)L"ClaimOfCore", SQL_NTS,
-        (SQLWCHAR*)L"ServerConnection", SQL_NTS,
-        (SQLWCHAR*)L"server", SQL_NTS);*/
-
-    //SQLWCHAR connectStr[] = L"Driver={SQL Server};Server=DESKTOP-HW\SQLEXPRESS;Database=ClaimOfCore;Uid=ServerConnection;Pwd=server;";
-    //SQLWCHAR connectStr[] = L"Driver={SQL Server};Server=127.0.0.1\\SQLEXPRESS;Database=ClaimOfCore;Uid=ServerConnection;Pwd=server;";
 
     WCHAR exePath[MAX_PATH];
     GetModuleFileNameW(nullptr, exePath, MAX_PATH);
@@ -73,7 +67,6 @@ bool DBHelper::Connect()
     if (SQL_SUCCEEDED(ret))
     {
         m_IsConnected = true;
-        //std::wcout << L"[DB] Connected Successfully!" << std::endl;
         return true;
     }
     else
@@ -122,13 +115,6 @@ void DBHelper::PrintError(SQLHANDLE handle, SQLSMALLINT type)
 bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID)
 {
     if (!m_IsConnected) { return false; }
-
-    // Stored procedure shape kept here for reference.
-    /*std::wstring query = L"{call SP_LoginAccess('";
-    query += userID;
-    query += L"', '";
-    query += userPW;
-    query += L"')}";*/
 
     // Allocate a fresh statement handle for this login request.
     SQLHSTMT hStmt = SQL_NULL_HANDLE;
@@ -191,7 +177,6 @@ bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW
 
             SQLCloseCursor(hStmt);
             SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-            LOG_INFO("Login to Server Successful! [UID: %d]", accountUID);
             return true;
         }
     }
@@ -303,9 +288,6 @@ bool DBHelper::CreateAccount(const std::wstring& userID, const std::wstring& use
             return false;
         }
         else {
-            // Any other value is treated as the UID of the newly created account.
-            int newAccountUID = resultCode;
-            LOG_INFO("Account Created Successfully! [New UID: %d]", newAccountUID);
             SQLCloseCursor(hStmt);
             return true;
         }

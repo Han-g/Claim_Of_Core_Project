@@ -5,10 +5,6 @@
 
 void IOCPServer::TestPacketProcessor()
 {
-	LOG_INFO("====================================");
-	LOG_INFO("========== Packet Processor Test Start ==========");
-	LOG_INFO("====================================\n");
-	
 	Session dummySession;
 	dummySession.sessionID = 999;     
 	dummySession.roomID = -1;         
@@ -45,18 +41,8 @@ void IOCPServer::TestPacketProcessor()
 	m_PacketProcessor.Process(this, &dummySession, TEST_PKT, dummyPacketData);
 
 	if (!m_DBLoginQueue.empty()) {
-		DBData queuedData = m_DBLoginQueue.back(); // Inspect the test item that was just pushed into the queue.
-
-		LOG_INFO("[Test Result] DB Queue Pushed - ID: %ls, PW: %ls",
-			queuedData.UserID.c_str(), queuedData.UserPW.c_str());
-
-		LOG_INFO("========== Login Packet Test SUCCESS ==========");
-
 		// Optionally pop the test item before the real DB worker consumes it.
 		// m_DBLoginQueue.pop(); 
-	}
-	else {
-		LOG_ERROR("========== Login Packet Test FAILED ==========\n\n\n");
 	}
 }
 
@@ -196,25 +182,8 @@ void IOCPServer::WorkerThread() {
 }
 
 void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
-	//// Create Session
-	//Session* newSession = new Session();
-	//newSession->socket = clientSocket;
-	//newSession->sessionID = static_cast<int> (m_Sessions.size());
-
-	//// Init new Game Data
-	//GameData newData;
-	//newData.isConnected = true;
-	//newData.x = 0; newData.y = 0; newData.z = 0;
-
-	//newSession->gameDatas = newData;
-
 	// Associate the accepted socket with the IOCP handle.
 	CreateIoCompletionPort((HANDLE)newSession->socket, m_hIOCP, (ULONG_PTR)newSession, 0);
-
-	char clientIP[32];
-	inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, sizeof(clientIP));
-
-	LOG_INFO("Client Session Connect with IOCP handle successful!");
 
 	GameDataPacket loginPacket;
 	loginPacket.Session_ID = newSession->sessionID;
@@ -236,17 +205,6 @@ void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
 }
 
 void IOCPServer::OnDisconnect(int sessionIndex) {
-	// Legacy vector-based session cleanup kept for reference.
-	/*for (std::vector<Session*>::iterator it = m_Sessions.begin(); it != m_Sessions.end();) {
-		Session* delSession = *it;
-		
-		if ((*it)->sessionID == sessionIndex) {
-			delete delSession;
-			it = m_Sessions.erase(it);
-			break;
-		}
-		else { ++it; }
-	}*/
 	m_SessionManager->DisconnectClient(sessionIndex);
 }
 
@@ -254,9 +212,6 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	// Resolve the active session object from the session ID.
 	Session* recvSession = m_SessionManager->GetSession(sessionIndex);
 	if (recvSession == nullptr) { LOG_ERROR("Session is empty!"); return; }
-
-	// Process newly received bytes.
-	//LOG_INFO("Recv Data");
 
 	// Push received bytes into the ring buffer before decoding packets.
 	if (RingBufPush(&recvSession->recvBuffer, recvSession->TempBuffer, transferredBytes) == false) {
@@ -268,7 +223,6 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	while (true) {
 		// Wait until at least a full packet header is available.
 		if (GetRingBufSize(&recvSession->recvBuffer) < sizeof(PacketHeader)) { 
-			//LOG_WARN("Check Data is gathered by size of header [Left Buffer Size: %d| Header Size: %d]", GetRingBufSize(&recvSession->recvBuffer), sizeof(PacketHeader));
 			break; 
 		}
 
@@ -287,9 +241,6 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		RingBufPeek(&recvSession->recvBuffer, packetData.data(), header.packet_size);
 
 		RingBufpop(&recvSession->recvBuffer, header.packet_size);
-
-		/*LOG_INFO("[SESSION ID: %d] [PACKET ID: %d - SIZE: %d] Pakcet Received!",
-			sessionIndex, header.packet_ID, header.packet_size);*/
 
 		// Hand the decoded packet to the packet processor.
 		PacketProcess(sessionIndex, header.packet_ID, packetData);
@@ -321,8 +272,6 @@ void IOCPServer::OnSend(int sessionIndex, DWORD transferredBytes) {
 	if (!session->sendQueue.empty()) { session->sendQueue.pop(); }
 	if (!session->sendQueue.empty()) { SendProtocol(session); }
 	else { session->isSending = false; }
-
-	// LOG_INFO("Send Data");
 }
 
 void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, int len) {
@@ -354,7 +303,9 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 			SendProtocol(session);
 		}
 	}
+
 	// Leave the send queue critical section.
+
 }
 
 void IOCPServer::SendProtocol(Session* session) {
@@ -424,14 +375,12 @@ void IOCPServer::DBWorkerThread()
 
 
 		int userUID = -1;
-		int newAccountUID = -1;
 
 		switch (data.TaskType)
 		{
 		case EDBTaskType::LOGIN:
 			// Validate credentials and transition the session to the lobby on success.
 			if (m_DB->CheckLogin(data.UserID, data.UserPW, userUID)) {
-				//LOG_INFO("[%d] Session Login Success! [UID: %d]", data.SessionIndex, userUID);
 				if (!m_SessionManager->TryBindLoggedInUser(userUID, data.SessionIndex))
 				{
 					LOG_INFO("[%d] Duplicate Login Blocked! [UID: %d]", data.SessionIndex, userUID);
@@ -444,6 +393,7 @@ void IOCPServer::DBWorkerThread()
 
 				// Cache player identity data on the session object.
 				Session* loginSession = m_SessionManager->GetSession(data.SessionIndex);
+				GameData loginSessionGD;
 				if (loginSession) {
 					loginSession->playerName = data.UserID;
 					loginSession->playerUID = userUID;
@@ -453,20 +403,17 @@ void IOCPServer::DBWorkerThread()
 					loginSession->gameDatas.characterState = 0;
 					loginSession->gameDatas.roleType = -1;
 					loginSession->gameDatas.animationNum = 0;
+					loginSessionGD = loginSession->gameDatas;
 				}
 
 				// Build the login-success payload with the assigned user UID.
 				GameDataPacket dataPacket;
 				dataPacket.Session_ID = data.SessionIndex;
-				dataPacket.data = loginSession->gameDatas;
+				dataPacket.data = loginSessionGD;
 
 				// Move the session into the lobby state.
 				m_SessionManager->SetState(data.SessionIndex, ESessionState::LOBBY);
 
-				LOG_INFO("[LoginSync] session=%d playerUID=%d gameDataUID=%d",
-					loginSession->sessionID,
-					loginSession->playerUID,
-					loginSession->gameDatas.userUID);
 				SendPacket(data.SessionIndex, PKT_S2C_LOGIN_OK, (char*)&dataPacket, sizeof(GameDataPacket));
 				BroadcastRoomList();
 			}
@@ -482,8 +429,6 @@ void IOCPServer::DBWorkerThread()
 			break;
 		case EDBTaskType::REGISTER:
 			if (m_DB->CreateAccount(data.UserID, data.UserPW)) {
-				LOG_INFO("[%d] Session Register Success! [New UID: %d]", data.SessionIndex, newAccountUID);
-
 				ErrorCodePacket successPacket;
 				successPacket.ErrorCode = 10;
 				SendPacket(data.SessionIndex, PKT_S2C_REGISTER_OK, (char*)&successPacket, sizeof(successPacket));
@@ -558,8 +503,6 @@ void IOCPServer::BroadcastRoomList()
 			SendPacket(session->sessionID, PKT_S2C_ROOM_UPDATE, sendBuffer.data(), dataSize);
 		}
 	}
-
-	LOG_INFO("Send Update Room List Packets!");
 }
 
 void IOCPServer::BroadcastRoomInfo(Session* client)
@@ -590,37 +533,5 @@ void IOCPServer::BroadcastRoomInfo(Session* client)
 
 
 void IOCPServer::GameFrameProtocol(float deltaTime) {
-	/*
-	if (m_Sessions.empty()) { 
-		//LOG_ERROR("Now Connected Client is not Exist!"); 
-		return; 
-	}
-
-	std::vector<GameData> roomSnapshot;
-
-	{
-		std::lock_guard<std::mutex> lock(m_SessionLock);
-
-		for (Session* s : m_Sessions) {
-			if (s->gameDatas.isConnected) {
-				roomSnapshot.push_back(s->gameDatas);
-			}
-		}
-	}
-
-	if (roomSnapshot.empty()) { LOG_ERROR("Not Exist Game Data!"); return; }
-
-	// Packet & User Data Serialization
-	int userCnt = roomSnapshot.size();
-	int dataSize = sizeof(int) + (userCnt * sizeof(GameData));
-	std::vector<char> sendBuffer(dataSize);
-
-	// Send Snapshot to all Clients
-	for (int i = 0; i < m_Sessions.size(); ++i) {
-		if (m_Sessions[i]->gameDatas.isConnected) {
-			SendPacket(m_Sessions[i]->sessionID, PKT_S2C_SNAPSHOT_NOTICE, sendBuffer.data(), dataSize);
-		}
-	}
-	*/
 	m_RoomManager->UpdateRooms(deltaTime);
 }

@@ -6,14 +6,10 @@
 #include <cmath>
 
 void Room::InitRoom(int id, Session* firstMember, IOCPServer* server) {
-	//std::lock_guard<std::mutex> lock(m_RoomLock);
 	m_roomID = id;
     m_Server = server;
     m_State = ERoomState::WAITING;
     gameTimer = 0.f;
-    //selectedMapType = 1;
-	
-    //addMember(firstMember);
 }
 
 void Room::InitGameLogic(GameLogic* logic)
@@ -21,15 +17,9 @@ void Room::InitGameLogic(GameLogic* logic)
     {
         std::lock_guard<std::mutex> lock(m_RoomLock);
         m_GameLogic = logic;
-        LOG_INFO("[InitGameLogic] memberCount=%d", static_cast<int>(m_Members.size()));
 
         for (Session* member : m_Members) {
             logic->players[member->sessionID] = member;
-            LOG_INFO("[InitLoop] session=%d uid=%d slot=%d team=%d",
-                member->sessionID,
-                member->playerUID,
-                member->roomSlot,
-                member->teamID);
 
             GameData& pd = member->gameDatas;
             pd.userUID = member->playerUID;
@@ -37,7 +27,6 @@ void Room::InitGameLogic(GameLogic* logic)
     }
 
     logic->SetMapType(selectedMapType);
-    //logic->StartGameRound();
 }
 
 void Room::InitCharacter(Session* member, GameLogic* logic)
@@ -66,7 +55,7 @@ void Room::InitCharacter(Session* member, GameLogic* logic)
 
     gd.x = spawn.x;
     gd.y = spawn.y;
-    gd.z = spawn.z;//logic->GetGroundActorZ(); //
+    gd.z = spawn.z;
     gd.rotate = GetSpawnYawBySlot(slot);
 
     member->VerticalVelocity = 0.0f;
@@ -76,13 +65,6 @@ void Room::InitCharacter(Session* member, GameLogic* logic)
     member->HorizontalVelocityY = 0.0f;
     member->bOnIce = false;
     member->IceContactRemainTime = 0.0f;
-
-    LOG_INFO("InitCharacter session=%d uid=%d slot=%d team=%d pos=(%.1f, %.1f, %.1f)",
-        member->sessionID,
-        gd.userUID,
-        member->roomSlot,
-        member->teamID,
-        gd.x, gd.y, gd.z);
 }
 
 bool Room::IsAllReady()
@@ -590,10 +572,8 @@ bool RoomManager::CreateRoom(Session* client) {
         m_Rooms[newRoomID] = newRoom;
     }
 
-    // m_Server->GetSessionManager()->SetState(client->sessionID, ESessionState::ROOM);
     client->roomID = newRoomID;
 
-    // m_Server->BroadcastRoomList();
     JoinRoom(client, client->roomID);
     return true;
 }

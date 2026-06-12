@@ -2565,20 +2565,19 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 	if (PlayedLength <= 0.f)
 	{
 		CurrentAttackSeq = 0;
-
-		USoundBase* AttackSound = BaseAttackSound;
-
-		if (CurrentItem && CurrentItem->GetSwingSound())
-		{
-			AttackSound = CurrentItem->GetSwingSound();
-		}
-
-		if (AttackSound)
-		{
-			UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
-		}
-
 		return;
+	}
+
+	USoundBase* AttackSound = BaseAttackSound;
+
+	if (CurrentItem && CurrentItem->GetSwingSound())
+	{
+		AttackSound = CurrentItem->GetSwingSound();
+	}
+
+	if (AttackSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
 	}
 
 	GetWorldTimerManager().SetTimer(
