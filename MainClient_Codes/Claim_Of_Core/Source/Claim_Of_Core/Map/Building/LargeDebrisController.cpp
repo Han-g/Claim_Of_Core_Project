@@ -153,6 +153,27 @@ void ALargeDebrisController::TriggerPhase3Debris()
 
 }
 
+bool ALargeDebrisController::ApplyServerChunkBreak(int32 DebrisID, int32 ChunkIndex, bool bFromImpact)
+{
+	auto ApplyToDebrisArray = [DebrisID, ChunkIndex, bFromImpact](const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors)
+	{
+		for (ALargeDebrisActor* DebrisActor : DebrisActors)
+		{
+			if (!DebrisActor || DebrisActor->GetLargeDebrisID() != DebrisID)
+			{
+				continue;
+			}
+
+			DebrisActor->ApplyServerChunkBreak(ChunkIndex, bFromImpact);
+			return true;
+		}
+
+		return false;
+	};
+
+	return ApplyToDebrisArray(Phase2DebrisActors) || ApplyToDebrisArray(Phase3DebrisActors);
+}
+
 void ALargeDebrisController::PrepareDebrisActors(const TArray<TObjectPtr<ALargeDebrisActor>>& DebrisActors, int32 BaseID)
 {
 	for (int32 i = 0; i < DebrisActors.Num(); ++i)

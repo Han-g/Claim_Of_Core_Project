@@ -6,6 +6,8 @@
 
 #include <algorithm>
 #include <iterator>
+#include <queue>
+#include <cstddef>
 
 GameLogic::GameLogic() { ownerRoom = nullptr; }
 
@@ -361,13 +363,14 @@ bool GameLogic::TrySelectMap()
         remainingMaps = availableMaps;
     }
 
+
     std::uniform_int_distribution<int> dist( 0, static_cast<int>(remainingMaps.size()) - 1  );
 
     const int index = dist(MapRandomEngine);
 
     //----------------------------- Map Setting --------------------------------
     // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
-    selectedMapType = 1;// remainingMaps[index];
+    selectedMapType = 3;// remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 
@@ -1677,6 +1680,12 @@ void GameLogic::HandleLargeDebrisHit(int sessionID, int debrisID, int subID, int
 {
     if (mapType != 1 || roundState != ERoundState::Playing) { return; }
 
+    if (hitKind == 2)
+    {
+        LandAndFracture(debrisID, subID);
+        return;
+    }
+
     auto it = players.find(sessionID);
     if (it == players.end() || !it->second) { return; }
 
@@ -1818,6 +1827,160 @@ void GameLogic::TriggerBuildingPhase3()
         PKT_S2C_MAPEVENT_TRIGGER_BRD, (const char*)&pkt, sizeof(pkt));
 }
 
+void GameLogic::BroadcastLargeDebrisChunkBreak(int debrisID, int chunkIndex, bool bFromImpact, int sequence)
+{
+    if (!ownerRoom) { return; }
+
+    LargeDebrisChunkPacket pkt{};
+    pkt.debrisID = debrisID;
+    pkt.chunkIndex = chunkIndex;
+    pkt.bFromImpact = bFromImpact ? 1 : 0;
+    pkt.sequence = sequence;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_LARGE_DEBRIS_CHUNK_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+void GameLogic::BreakLargeDebrisChunk(
+    LargeDebrisGraphState& Graph,
+    int chunkIndex,
+    bool bFromImpact,
+    std::vector<std::pair<int, bool>>& OutBroken)
+{
+    const int chunkCount = static_cast<int>(Graph.chunks.size());
+    if (chunkIndex < 0 || chunkIndex >= chunkCount) { return; }
+
+    LargeDebrisChunkNode& Node = Graph.chunks[chunkIndex];
+    if (Node.bBroken) { return; }
+
+    Node.bBroken = true;
+    OutBroken.emplace_back(chunkIndex, bFromImpact);
+}
+
+void GameLogic::DropUnsupportedChunks(
+    LargeDebrisGraphState& Graph,
+    std::vector<std::pair<int, bool>>& OutBroken)
+{
+    std::unordered_set<int> Supported;
+    std::queue<int> Queue;
+    const int chunkCount = static_cast<int>(Graph.chunks.size());
+
+    for (const LargeDebrisChunkNode& Node : Graph.chunks)
+    {
+        if (!Node.bBroken && Node.bAnchored)
+        {
+            Supported.insert(Node.chunkIndex);
+            Queue.push(Node.chunkIndex);
+        }
+    }
+
+    while (!Queue.empty())
+    {
+        const int current = Queue.front();
+        Queue.pop();
+
+        if (current < 0 || current >= chunkCount) { continue; }
+
+        for (const int neighbor : Graph.chunks[current].neighbors)
+        {
+            if (neighbor < 0 || neighbor >= chunkCount) { continue; }
+            if (Graph.chunks[neighbor].bBroken) { continue; }
+            if (Supported.find(neighbor) != Supported.end()) { continue; }
+
+            Supported.insert(neighbor);
+            Queue.push(neighbor);
+        }
+    }
+
+    for (LargeDebrisChunkNode& Node : Graph.chunks)
+    {
+        if (Node.bBroken || Node.bAnchored) { continue; }
+
+        if (Supported.find(Node.chunkIndex) == Supported.end())
+        {
+            Node.bBroken = true;
+            OutBroken.emplace_back(Node.chunkIndex, false);
+        }
+    }
+}
+
+void GameLogic::ApplyDamageToChunk(int debrisID, int chunkIndex, float damage)
+{
+    auto GraphIt = largeDebrisGraphs.find(debrisID);
+    if (GraphIt == largeDebrisGraphs.end()) { return; }
+
+    LargeDebrisGraphState& Graph = GraphIt->second;
+    const int chunkCount = static_cast<int>(Graph.chunks.size());
+    if (chunkIndex < 0 || chunkIndex >= chunkCount) { return; }
+    if (Graph.chunks[chunkIndex].bBroken) { return; }
+
+    std::vector<std::pair<int, bool>> BrokenChunks;
+
+    LargeDebrisChunkNode& HitNode = Graph.chunks[chunkIndex];
+    HitNode.currentDamage += damage;
+
+    if (HitNode.currentDamage >= HitNode.breakThreshold)
+    {
+        BreakLargeDebrisChunk(Graph, chunkIndex, true, BrokenChunks);
+    }
+
+    constexpr float NeighborDamageRatio = 0.3f;
+    const float NeighborDamage = damage * NeighborDamageRatio;
+
+    if (NeighborDamage > 0.0f)
+    {
+        for (const int neighbor : HitNode.neighbors)
+        {
+            if (neighbor < 0 || neighbor >= chunkCount) { continue; }
+            if (Graph.chunks[neighbor].bBroken) { continue; }
+
+            LargeDebrisChunkNode& NeighborNode = Graph.chunks[neighbor];
+            NeighborNode.currentDamage += NeighborDamage;
+
+            if (NeighborNode.currentDamage >= NeighborNode.breakThreshold)
+            {
+                BreakLargeDebrisChunk(Graph, neighbor, false, BrokenChunks);
+            }
+        }
+    }
+
+    if (!BrokenChunks.empty())
+    {
+        DropUnsupportedChunks(Graph, BrokenChunks);
+    }
+
+    for (const std::pair<int, bool>& Broken : BrokenChunks)
+    {
+        BroadcastLargeDebrisChunkBreak(debrisID, Broken.first, Broken.second, ++Graph.sequence);
+    }
+}
+
+void GameLogic::LandAndFracture(int debrisID, int impactChunkIndex)
+{
+    auto GraphIt = largeDebrisGraphs.find(debrisID);
+    if (GraphIt == largeDebrisGraphs.end())
+    {
+        LOG_INFO("[LargeDebrisChunk] Missing graph. debrisID=%d impactChunk=%d", debrisID, impactChunkIndex);
+        return;
+    }
+
+    LargeDebrisGraphState& Graph = GraphIt->second;
+    if (Graph.bLanded)
+    {
+        LOG_INFO("[LargeDebrisChunk] Ignore duplicate landing. debrisID=%d impactChunk=%d", debrisID, impactChunkIndex);
+        return;
+    }
+    Graph.bLanded = true;
+
+    const int initialChunkIndex = (impactChunkIndex >= 0) ? impactChunkIndex : 1;
+    LOG_INFO("[LargeDebrisChunk] Landing trigger. debrisID=%d impactChunk=%d initialChunk=%d",
+        debrisID, impactChunkIndex, initialChunkIndex);
+
+    BroadcastLargeDebrisChunkBreak(debrisID, initialChunkIndex, true, ++Graph.sequence);
+}
 void GameLogic::StartBuildingMap()
 {
     // Building map: no special bootstrap is required beyond resetting phase state.
@@ -1838,20 +2001,41 @@ void GameLogic::StartBuildingMap()
 
 void GameLogic::InitLargeDebrisGraphs()
 {
-    LargeDebrisGraphState graph{};
-    graph.debrisID = 2000;
+    largeDebrisGraphs.clear();
 
-    graph.chunks.resize(5);
+    constexpr int LargeDebrisCountPerPhase = 10;
+    constexpr int DefaultChunkCount = 32;
 
-    graph.chunks[0] = { 0, {1},    0.f, 100.f, false, true };
-    graph.chunks[1] = { 1, {0, 2}, 0.f, 100.f, false, false };
-    graph.chunks[2] = { 2, {1, 3}, 0.f, 100.f, false, false };
-    graph.chunks[3] = { 3, {2, 4}, 0.f, 100.f, false, false };
-    graph.chunks[4] = { 4, {3},    0.f, 100.f, false, false };
+    auto AddDefaultGraph = [this](int debrisID)
+    {
+        LargeDebrisGraphState graph{};
+        graph.debrisID = debrisID;
+        graph.chunks.resize(DefaultChunkCount);
 
-    largeDebrisGraphs[graph.debrisID] = graph;
+        for (int i = 0; i < DefaultChunkCount; ++i)
+        {
+            LargeDebrisChunkNode node{};
+            node.chunkIndex = i;
+            node.currentDamage = 0.f;
+            node.breakThreshold = 100.f;
+            node.bBroken = false;
+            node.bAnchored = (i == 0);
+
+            if (i > 0) { node.neighbors.push_back(i - 1); }
+            if (i + 1 < DefaultChunkCount) { node.neighbors.push_back(i + 1); }
+
+            graph.chunks[i] = std::move(node);
+        }
+
+        largeDebrisGraphs[graph.debrisID] = std::move(graph);
+    };
+
+    for (int i = 0; i < LargeDebrisCountPerPhase; ++i)
+    {
+        AddDefaultGraph(2000 + i);
+        AddDefaultGraph(3000 + i);
+    }
 }
-
 // ------------------------------------
 // ---------   Map Control   ----------
 // ---------    Ice Cave     ----------
@@ -2888,6 +3072,15 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
     {
         return;
     }
+    if (gd.equippedItemID != pkt.itemID)
+    {
+        return;
+    }
+
+    if (!item->bEquipped || item->ownerUID != thrower->playerUID)
+    {
+        return;
+    }
 
     SpaceBlackHoleData blackHole{};
     blackHole.objectID = nextGrenadeBlackHoleObjectID++;
@@ -2902,6 +3095,11 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
     SpaceBlackHoles.push_back(blackHole);
     BroadcastSpaceBlackHoleSpawn(blackHole);
 
+    item->bEquipped = false;
+    item->ownerUID = -1;
+    gd.equippedItemID = -1;
+
+    BroadcastSpaceBlackHoleSpawn(blackHole);
 }
 
 void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
@@ -3014,7 +3212,7 @@ void GameLogic::StartSkyIslandMap()
 
 void GameLogic::UpdateSkyIslandMap(float deltaTime)
 {
-    UpdateMapItemSpawner(deltaTime, EItemKind::CloudGrenade);
+    UpdateMapItemSpawner(deltaTime, EItemKind::None);
 }
 
 
@@ -3072,10 +3270,19 @@ void GameLogic::SchedulePhase2Items(EItemKind specialItem)
 {
     for (int i = 0; i < 3; ++i)
     {
-        PendingItemSpawn spawn{};
-        spawn.ItemKind = specialItem;
-        spawn.RemainTime = RandomFloat(0.0f, 25.0f);
-        pendingItemSpawns.push_back(spawn);
+        if (specialItem == EItemKind::None) {
+            PendingItemSpawn spawn{};
+            spawn.ItemKind = PickRandomBasicItemKind();
+            spawn.RemainTime = RandomFloat(0.0f, 25.0f);
+            pendingItemSpawns.push_back(spawn);
+        }
+
+        else {
+            PendingItemSpawn spawn{};
+            spawn.ItemKind = specialItem;
+            spawn.RemainTime = RandomFloat(0.0f, 25.0f);
+            pendingItemSpawns.push_back(spawn);
+        }
     }
 
     for (int i = 0; i < 3; ++i)

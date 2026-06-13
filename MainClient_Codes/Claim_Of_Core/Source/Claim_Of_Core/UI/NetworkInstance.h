@@ -125,6 +125,7 @@ public:
 	void HandleRoundResult(const FRoundChangePacket& Packet);
 	void HandleMapEventTriggered(const FMapEventPacket& Packet);
 	void HandleObjectSpawned(const FSpawnObjectPacket& Packet);
+	void HandleLargeDebrisChunkBroken(const FLargeDebrisChunkPacket& Packet);
 
 	void HandleStatusEffect(const FStatusEffectPacket& Packet);
 

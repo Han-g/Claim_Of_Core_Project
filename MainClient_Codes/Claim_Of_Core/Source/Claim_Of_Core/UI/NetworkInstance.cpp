@@ -15,6 +15,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 
+
 #include "Kismet/GameplayStatics.h"
 #include "Misc/PackageName.h"
 #include "EngineUtils.h"
@@ -103,6 +104,7 @@ void UNetworkInstance::Init()
 	Client->OnRoundResult.AddUObject(this, &UNetworkInstance::HandleRoundResult);
 	Client->OnMapEventTriggered.AddUObject(this, &UNetworkInstance::HandleMapEventTriggered);
 	Client->OnObjectSpawned.AddUObject(this, &UNetworkInstance::HandleObjectSpawned);
+	Client->OnLargeDebrisChunkBroken.AddUObject(this, &UNetworkInstance::HandleLargeDebrisChunkBroken);
 	Client->OnItemOwnershipChanged.AddUObject(this, &UNetworkInstance::HandleItemOwnershipChanged);
 	
 	Client->OnStatusEffect.AddUObject(this, &UNetworkInstance::HandleStatusEffect);
@@ -1636,6 +1638,43 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 	}
 }
 
+void UNetworkInstance::HandleLargeDebrisChunkBroken(const FLargeDebrisChunkPacket& Packet)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ALargeDebrisController> It(World); It; ++It)
+	{
+		ALargeDebrisController* Controller = *It;
+		if (!Controller)
+		{
+			continue;
+		}
+
+		Controller->ActivateGameplayRuntime();
+		if (Controller->ApplyServerChunkBreak(
+			Packet.debrisID,
+			Packet.chunkIndex,
+			Packet.bFromImpact != 0))
+		{
+			UE_LOG(LogTemp, Display,
+				TEXT("[LargeDebrisChunk] debrisID=%d chunk=%d impact=%d seq=%d"),
+				Packet.debrisID,
+				Packet.chunkIndex,
+				Packet.bFromImpact,
+				Packet.sequence);
+			return;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[LargeDebrisChunk] Target debris not found. debrisID=%d chunk=%d"),
+		Packet.debrisID,
+		Packet.chunkIndex);
+}
 void UNetworkInstance::HandleStatusEffect(const FStatusEffectPacket& Packet)
 {
 	UE_LOG(LogTemp, Warning,

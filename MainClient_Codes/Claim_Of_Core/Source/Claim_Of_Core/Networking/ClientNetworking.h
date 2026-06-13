@@ -82,6 +82,7 @@ public:
     FOnItemSpawned            OnItemSpawned;
     FOnItemDespawned          OnItemDespawned;
     FOnObjectSpawned          OnObjectSpawned;
+    FOnLargeDebrisChunkBroken OnLargeDebrisChunkBroken;
     FOnAttackActionReceived   OnAttackAction;
     FOnRoleSkillStateChanged OnRoleSkillStateChanged;
 

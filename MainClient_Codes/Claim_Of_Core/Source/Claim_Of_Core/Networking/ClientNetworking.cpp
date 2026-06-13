@@ -244,6 +244,10 @@ void ClientNetworking::PumpEvents()
             OnObjectSpawned.Broadcast(Evt.SpawnObject);
             break;
 
+        case ENetEventType::LargeDebrisChunkBroken:
+            OnLargeDebrisChunkBroken.Broadcast(Evt.LargeDebrisChunk);
+            break;
+
         case ENetEventType::StatusEffect:
             OnStatusEffect.Broadcast(Evt.StatusEffect);
             break;

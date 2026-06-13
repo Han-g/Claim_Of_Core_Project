@@ -2574,18 +2574,6 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 		return;
 	}
 
-	USoundBase* AttackSound = BaseAttackSound;
-
-	if (CurrentItem && CurrentItem->GetSwingSound())
-	{
-		AttackSound = CurrentItem->GetSwingSound();
-	}
-
-	if (AttackSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
-	}
-
 	GetWorldTimerManager().SetTimer(
 		AttackTimer,
 		this,
@@ -3355,6 +3343,18 @@ void AMyCharacter::AnimNotify_AttackHit()
 	{
 		CurrentItem->DoHit();
 		return;
+	}
+
+	USoundBase* AttackSound = BaseAttackSound;
+
+	if (CurrentItem && CurrentItem->GetSwingSound())
+	{
+		AttackSound = CurrentItem->GetSwingSound();
+	}
+
+	if (AttackSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
 	}
 
 	StartAttackHitWindow(0.4f);

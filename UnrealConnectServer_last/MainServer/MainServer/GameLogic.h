@@ -464,15 +464,39 @@ public:
 	void UpdateDebrisSpawner(float deltaTime);
 	void SpawnDebrisByPhase();								// Broadcasts the resulting event to all room members.
 
+
+	struct LargeDebrisChunkNode
+	{
+		int chunkIndex = -1;
+		std::vector<int> neighbors;
+		float currentDamage = 0.f;
+		float breakThreshold = 100.f;
+		bool bBroken = false;
+		bool bAnchored = false;
+	};
+
+	struct LargeDebrisGraphState
+	{
+		int debrisID = -1;
+		std::vector<LargeDebrisChunkNode> chunks;
+		int sequence = 0;
+		bool bLanded = false;
+	};
+
+	std::unordered_map<int, LargeDebrisGraphState> largeDebrisGraphs;
+
+	void BroadcastLargeDebrisChunkBreak(int debrisID, int chunkIndex, bool bFromImpact, int sequence);
+
 	void ActivateLargeDebris(int debrisID, float impulse);  // Starts a large debris fall and broadcasts the activation.
 	// Updates the fall simulation for a large debris object.
 	void UpdateLargeDebrisFall(int debrisID, float deltaTime);
-	void LandAndFracture(int debrisID);                     // Handles impact, fractures chunks, and broadcasts the event.
-	void BreakChunk(int debrisID, int chunkIndex);          // Breaks a single chunk and broadcasts the update.
+	void LandAndFracture(int debrisID, int impactChunkIndex);     // Handles impact, fractures chunks, and broadcasts the event.
+	void BreakLargeDebrisChunk(LargeDebrisGraphState& Graph, int chunkIndex, bool bFromImpact, std::vector<std::pair<int, bool>>& OutBroken);						// Breaks a single chunk and broadcasts the update.
 	void ApplyDamageToChunk(int debrisID, int chunkIndex, float damage); // Applies damage to a chunk and evaluates chain breaks.
-	void DropUnsupportedChunks(int debrisID);               // Drops unsupported chunks and broadcasts the result.
+	void DropUnsupportedChunks(LargeDebrisGraphState& Graph, std::vector<std::pair<int, bool>>& OutBroken); // Drops unsupported chunks and records the result.
 
 	void StartBuildingMap();
+	void InitLargeDebrisGraphs();
 	void TriggerBuildingPhase2();                           // Broadcasts the resulting event to all room members.
 	void TriggerBuildingPhase3();                           // Broadcasts the resulting event to all room members.
 
@@ -608,25 +632,6 @@ public:
 
 private:
 	// ------------ Building Map Statement ------------
-	struct LargeDebrisChunkNode
-	{
-		int chunkIndex = -1;
-		std::vector<int> neighbors;
-		float currentDamage = 0.f;
-		float breakThreshold = 100.f;
-		bool bBroken = false;
-		bool bAnchored = false;
-	};
-
-	struct LargeDebrisGraphState
-	{
-		int debrisID = -1;
-		std::vector<LargeDebrisChunkNode> chunks;
-		int sequence = 0;
-	};
-
-	std::unordered_map<int, LargeDebrisGraphState> largeDebrisGraphs;
-
 	DebrisSpawnConfig debrisPhaseConfigs[3] = {
 		{6.f, 10.f, 1, 1},
 		{3.f,  6.f, 1, 2},

@@ -20,6 +20,7 @@ public:
 
 	void TriggerPhase2Debris();
 	void TriggerPhase3Debris();
+	bool ApplyServerChunkBreak(int32 DebrisID, int32 ChunkIndex, bool bFromImpact);
 
 protected:
 	virtual void BeginPlay() override;

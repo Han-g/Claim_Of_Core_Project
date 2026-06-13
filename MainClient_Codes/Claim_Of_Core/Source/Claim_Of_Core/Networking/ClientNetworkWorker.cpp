@@ -677,6 +677,19 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
+    case PKT_S2C_LARGE_DEBRIS_CHUNK_BRD:
+    {
+        if (PayloadSize < sizeof(FLargeDebrisChunkPacket)) { break; }
+
+        FLargeDebrisChunkPacket Packet{};
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FLargeDebrisChunkPacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::LargeDebrisChunkBroken;
+        Evt.LargeDebrisChunk = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
     case PKT_S2C_GAME_PHASE_CHANGE_BRD:
     {
         if (PayloadSize < sizeof(FPhaseChangePacket)) { break; }
