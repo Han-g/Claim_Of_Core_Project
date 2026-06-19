@@ -117,7 +117,8 @@ enum class EMapEventType {
 	SmallDebris = 2, 
 	LargeDebris = 3,
 	IceChillZone = 4,
-	BlackHole = 5
+	BlackHole = 5,
+	CloudPlatform = 6
 };
 
 struct IcicleData {
@@ -629,6 +630,7 @@ public:
 	void StartSkyIslandMap();
 	void UpdateSkyIslandMap(float deltaTime);
 
+	void BroadcastCloudPlatformEvent(int cloudIndex, int eventState);
 
 private:
 	// ------------ Building Map Statement ------------

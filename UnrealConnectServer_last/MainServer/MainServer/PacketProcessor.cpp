@@ -346,7 +346,6 @@ void PacketProcessor::Handle_ItemDrop_KeyInput(IOCPServer* server, Session* sess
 
 void PacketProcessor::Handle_Object_HitReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
-
 	ObjectHitPacket pkt{};
 	if (!reader.Read(pkt))
 	{
@@ -367,6 +366,11 @@ void PacketProcessor::Handle_Object_HitReq(IOCPServer* server, Session* session,
 	else if (pkt.objectType == static_cast<int32_t>(EMapEventType::LargeDebris))
 	{
 		logic->HandleLargeDebrisHit(session->sessionID, pkt.objectID, pkt.subID, pkt.hitKind);
+	}
+
+	else if (pkt.objectType == static_cast<int32_t>(EMapEventType::CloudPlatform))
+	{
+		logic->BroadcastCloudPlatformEvent(pkt.objectID, pkt.hitKind);
 	}
 }
 

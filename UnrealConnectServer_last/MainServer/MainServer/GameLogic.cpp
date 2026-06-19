@@ -370,7 +370,7 @@ bool GameLogic::TrySelectMap()
 
     //----------------------------- Map Setting --------------------------------
     // 1 : Building /  2 : IceCave /  3 : Space Station /  4 : Jungle /  5 : Sky Island
-    selectedMapType = 3;// remainingMaps[index];
+    selectedMapType = remainingMaps[index];
 
     remainingMaps.erase(remainingMaps.begin() + index);
 
@@ -821,7 +821,7 @@ void GameLogic::ApplyRoleStats(int sessionID)
             gd.maxHP = 100; // Striker
             break;  
         case 1: 
-            gd.maxHP = 200; // Guardian
+            gd.maxHP = 150; // Guardian
             break;  
         case 2: 
             gd.maxHP = 120; // Manipulator
@@ -2944,7 +2944,7 @@ void GameLogic::StartJungleMap()
     junglePoisonFog.y = 0.f;
     junglePoisonFog.z = FixedGroundZ;
 
-    junglePoisonFog.radius = 20000.f;
+    junglePoisonFog.radius = 25000.f;
     junglePoisonFog.initialInnerRadius = 18000.f;
     junglePoisonFog.innerRadius = junglePoisonFog.initialInnerRadius;
     junglePoisonFog.minInnerRadius = 0.f;
@@ -2988,7 +2988,7 @@ void GameLogic::UpdateJunglePoisonFog(float deltaTime)
     }
     else if (currentMapPhase >= 3)
     {
-        shrinkSpeed = 250.0f;
+        shrinkSpeed = 200.0f;
     }
 
     if (shrinkSpeed > 0.0f)
@@ -3085,7 +3085,7 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
     SpaceBlackHoleData blackHole{};
     blackHole.objectID = nextGrenadeBlackHoleObjectID++;
     blackHole.center = { pkt.x, pkt.y, pkt.z };
-    blackHole.pullRadius = 1500.0f;
+    blackHole.pullRadius = 3000.0f;
     blackHole.minDistance = 60.0f;
     blackHole.pullStrength = 15000.0f;
     blackHole.maxPullSpeed = 1000.0f;
@@ -3099,7 +3099,7 @@ void GameLogic::HandleGrenadeBlackHoleSpawn(int sessionID, const GrenadeBlackHol
     item->ownerUID = -1;
     gd.equippedItemID = -1;
 
-    BroadcastSpaceBlackHoleSpawn(blackHole);
+    BroadcastItemDespawned(*item);
 }
 
 void GameLogic::HandleHitscanShot(int sessionID, const HitscanShotPacket& pkt)
@@ -3213,6 +3213,22 @@ void GameLogic::StartSkyIslandMap()
 void GameLogic::UpdateSkyIslandMap(float deltaTime)
 {
     UpdateMapItemSpawner(deltaTime, EItemKind::None);
+}
+
+void GameLogic::BroadcastCloudPlatformEvent(int cloudIndex, int eventState)
+{
+    if (!ownerRoom) { return; }
+
+    MapEventPacket pkt{};
+    pkt.eventType = static_cast<int32_t>(EMapEventType::CloudPlatform);
+    pkt.objectIndex = cloudIndex;
+    pkt.eventState = eventState; // 0=Hide, 1=Show , 2=Shrink
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_MAPEVENT_TRIGGER_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
 }
 
 

@@ -11,6 +11,7 @@
 #include "UObject/ConstructorHelpers.h"
 
 #include "Sub/MyCharacter.h"
+#include "UI/NetworkInstance.h"
 
 // Sets default values
 ASkyCloudPlatform::ASkyCloudPlatform()
@@ -232,12 +233,14 @@ void ASkyCloudPlatform::UpdateVisible(float DeltaTime)
 
 	if (!bWarningActive && (bShouldWarnByStanding || bShouldWarnByAutoCycle))
 	{
-		ActivateWarning();
+		//ActivateWarning();
+		RequestNetworkState(2);
 	}
 
 	if (StandingProgress >= 1.f || (bUseAutoCycle && VisibleElapsed >= CurrentVisibleDuration))
 	{
-		HidePlatform();
+		//HidePlatform();
+		RequestNetworkState(0);
 	}
 }
 
@@ -247,7 +250,8 @@ void ASkyCloudPlatform::UpdateHidden(float DeltaTime)
 
 	if (HiddenElapsed >= HiddenDuration)
 	{
-		ShowPlatform();
+		//ShowPlatform();
+		RequestNetworkState(1);
 	}
 }
 
@@ -346,6 +350,49 @@ void ASkyCloudPlatform::UpdateCloudMotion(float DeltaTime)
 		FMath::Sin(MotionElapsed * 1.31f) * MotionAmplitude.Z);
 
 	SetActorLocation(InitialLocation + MotionOffset);
+}
+
+void ASkyCloudPlatform::RequestNetworkState(int32 EventState)
+{
+	if (bWaitingNetworkState)
+	{
+		return;
+	}
+
+	if (CloudPlatformIndex < 0)
+	{
+		ApplyNetworkState(EventState);
+		return;
+	}
+
+	if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+	{
+		bWaitingNetworkState = true;
+
+		constexpr int32 CloudPlatformType = 6;
+		NetInst->RequestObjectHit(CloudPlatformIndex, CloudPlatformType, -1, EventState);
+		return;
+	}
+
+	ApplyNetworkState(EventState);
+}
+
+void ASkyCloudPlatform::ApplyNetworkState(int32 EventState)
+{
+	bWaitingNetworkState = false;
+
+	if (EventState == 0)
+	{
+		HidePlatform();
+	}
+	else if (EventState == 1)
+	{
+		ShowPlatform();
+	}
+	else if (EventState == 2)
+	{
+		ActivateWarning();
+	}
 }
 
 void ASkyCloudPlatform::InitializeGameState()

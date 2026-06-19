@@ -663,7 +663,7 @@ void AMyCharacter::ApplyRoleStats()
 		break;
 
 	case ERecRoleType::Guardian:
-		MaxHP = 200;
+		MaxHP = 150;
 		AttackDamage = 15;
 		KnockbackCoefficient = 0.80f;
 		break;
@@ -3339,12 +3339,6 @@ void AMyCharacter::AnimNotify_AttackHit()
 		return;
 	}
 
-	if (CurrentItem)
-	{
-		CurrentItem->DoHit();
-		return;
-	}
-
 	USoundBase* AttackSound = BaseAttackSound;
 
 	if (CurrentItem && CurrentItem->GetSwingSound())
@@ -3355,6 +3349,13 @@ void AMyCharacter::AnimNotify_AttackHit()
 	if (AttackSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
+	}
+
+
+	if (CurrentItem)
+	{
+		CurrentItem->DoHit();
+		return;
 	}
 
 	StartAttackHitWindow(0.4f);

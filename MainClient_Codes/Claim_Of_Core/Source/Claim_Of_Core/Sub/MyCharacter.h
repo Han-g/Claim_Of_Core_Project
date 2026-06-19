@@ -516,10 +516,10 @@ private:
 	float DBJPDuration = 10.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
-	float SpectateMoveSpeed = 1800.f;
+	float SpectateMoveSpeed = 2100.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Spectate")
-	float SpectateVerticalSpeed = 1200.f;
+	float SpectateVerticalSpeed = 1500.f;
 
 	bool bCameraDetached = false;
 	bool bSpectateUpHeld = false;

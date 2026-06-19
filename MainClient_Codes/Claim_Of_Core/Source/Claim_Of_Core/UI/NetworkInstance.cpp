@@ -11,6 +11,7 @@
 #include "Map/IceCave/IceFloorTile.h"
 #include "Map/IceCave/IceChillZone.h"
 #include "Map/Space/BlackHoleActor.h"
+#include "Map/SkyIsland/SkyCloudPlatform.h"
 #include "Sub/MyCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -1397,10 +1398,11 @@ void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 	}
 
 	// EMapEventType::LargeDebris == 3
-	if (Packet.eventType != 3)
+	/*if (Packet.eventType == 3)
 	{
+		
 		return;
-	}
+	}*/
 
 	// EMapEventType::IceChillZone == 4
 	if (Packet.eventType == 4) {
@@ -1417,6 +1419,29 @@ void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 				SpawnedIceChillZones.Remove(Packet.objectIndex);
 			}
 		}
+	}
+
+	// EMapEventType::CloudPlatform == 6
+	if (Packet.eventType == 6)
+	{
+		for (TActorIterator<ASkyCloudPlatform> It(World); It; ++It)
+		{
+			ASkyCloudPlatform* Platform = *It;
+			if (!Platform)
+			{
+				continue;
+			}
+
+			if (Platform->GetCloudPlatformIndex() != Packet.objectIndex)
+			{
+				continue;
+			}
+
+			Platform->ApplyNetworkState(Packet.eventState);
+			return;
+		}
+
+		return;
 	}
 
 	// 서버 GameLogic.cpp 기준:

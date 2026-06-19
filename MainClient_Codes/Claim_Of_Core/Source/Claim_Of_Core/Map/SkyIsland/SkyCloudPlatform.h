@@ -150,6 +150,15 @@ public:
 	float GetCurrentVisibleDuration() const;
 	void UpdateCloudMotion(float DeltaTime);
 
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "CloudPlatform|Network")
+	int32 CloudPlatformIndex = -1;
+
+	bool bWaitingNetworkState = false;
+
+	int32 GetCloudPlatformIndex() const { return CloudPlatformIndex; }
+	void RequestNetworkState(int32 EventState);
+	void ApplyNetworkState(int32 EventState);
+
 private:
 	void InitializeGameState();
 	void ApplyStableVisual();

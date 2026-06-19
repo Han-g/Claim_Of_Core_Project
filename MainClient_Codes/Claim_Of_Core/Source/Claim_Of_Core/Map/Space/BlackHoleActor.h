@@ -6,6 +6,8 @@
 
 class USphereComponent;
 class UStaticMeshComponent;
+class UNiagaraComponent;
+class UNiagaraSystem;
 
 UCLASS()
 class CLAIM_OF_CORE_API ABlackHoleActor : public AActor
@@ -28,6 +30,12 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "BlackHole")
 	TObjectPtr<USphereComponent> PullRange;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "BlackHole|Effect")
+	TObjectPtr<UNiagaraComponent> BlackHoleEffectComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "BlackHole|Effect")
+	TObjectPtr<UNiagaraSystem> BlackHoleEffect;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "BlackHole")
 	bool bActive = false;
