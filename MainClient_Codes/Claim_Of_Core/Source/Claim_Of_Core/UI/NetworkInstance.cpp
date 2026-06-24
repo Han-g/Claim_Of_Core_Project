@@ -11,9 +11,11 @@
 #include "Map/IceCave/IceFloorTile.h"
 #include "Map/IceCave/IceChillZone.h"
 #include "Map/Space/BlackHoleActor.h"
+#include "Map/SkyIsland/SkyCloudPlatform.h"
 #include "Sub/MyCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+
 
 #include "Kismet/GameplayStatics.h"
 #include "Misc/PackageName.h"
@@ -103,6 +105,7 @@ void UNetworkInstance::Init()
 	Client->OnRoundResult.AddUObject(this, &UNetworkInstance::HandleRoundResult);
 	Client->OnMapEventTriggered.AddUObject(this, &UNetworkInstance::HandleMapEventTriggered);
 	Client->OnObjectSpawned.AddUObject(this, &UNetworkInstance::HandleObjectSpawned);
+	Client->OnLargeDebrisChunkBroken.AddUObject(this, &UNetworkInstance::HandleLargeDebrisChunkBroken);
 	Client->OnItemOwnershipChanged.AddUObject(this, &UNetworkInstance::HandleItemOwnershipChanged);
 	
 	Client->OnStatusEffect.AddUObject(this, &UNetworkInstance::HandleStatusEffect);
@@ -375,8 +378,11 @@ void UNetworkInstance::ShowLobbyHUD()
 		PC->SetShowMouseCursor(true);
 
 		FInputModeUIOnly InputMode;
+		InputMode.SetWidgetToFocus(LobbyWidgetInstance->TakeWidget());
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		PC->SetInputMode(InputMode);
+
+		LobbyWidgetInstance->SetKeyboardFocus();
 	}
 }
 
@@ -1392,10 +1398,11 @@ void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 	}
 
 	// EMapEventType::LargeDebris == 3
-	if (Packet.eventType != 3)
+	/*if (Packet.eventType == 3)
 	{
+		
 		return;
-	}
+	}*/
 
 	// EMapEventType::IceChillZone == 4
 	if (Packet.eventType == 4) {
@@ -1412,6 +1419,29 @@ void UNetworkInstance::HandleMapEventTriggered(const FMapEventPacket& Packet)
 				SpawnedIceChillZones.Remove(Packet.objectIndex);
 			}
 		}
+	}
+
+	// EMapEventType::CloudPlatform == 6
+	if (Packet.eventType == 6)
+	{
+		for (TActorIterator<ASkyCloudPlatform> It(World); It; ++It)
+		{
+			ASkyCloudPlatform* Platform = *It;
+			if (!Platform)
+			{
+				continue;
+			}
+
+			if (Platform->GetCloudPlatformIndex() != Packet.objectIndex)
+			{
+				continue;
+			}
+
+			Platform->ApplyNetworkState(Packet.eventState);
+			return;
+		}
+
+		return;
 	}
 
 	// 서버 GameLogic.cpp 기준:
@@ -1597,7 +1627,7 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 		// Draw BlackHole Range For Debuging
 		const FVector SpawnLocation(Packet.x, Packet.y, Packet.z);
 
-		DrawDebugSphere(
+		/*DrawDebugSphere(
 			World,
 			SpawnLocation,
 			300.0f,
@@ -1617,7 +1647,7 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 			FColor::Yellow,
 			30.0f,
 			true
-		);
+		);*/
 
 		// 서버가 실제 흡입을 담당하게 할 거면 클라이언트 흡입은 끄는 게 좋음
 		//NewBlackHole->DeactivateBlackHole();
@@ -1633,6 +1663,43 @@ void UNetworkInstance::HandleObjectSpawned(const FSpawnObjectPacket& Packet)
 	}
 }
 
+void UNetworkInstance::HandleLargeDebrisChunkBroken(const FLargeDebrisChunkPacket& Packet)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	for (TActorIterator<ALargeDebrisController> It(World); It; ++It)
+	{
+		ALargeDebrisController* Controller = *It;
+		if (!Controller)
+		{
+			continue;
+		}
+
+		Controller->ActivateGameplayRuntime();
+		if (Controller->ApplyServerChunkBreak(
+			Packet.debrisID,
+			Packet.chunkIndex,
+			Packet.bFromImpact != 0))
+		{
+			UE_LOG(LogTemp, Display,
+				TEXT("[LargeDebrisChunk] debrisID=%d chunk=%d impact=%d seq=%d"),
+				Packet.debrisID,
+				Packet.chunkIndex,
+				Packet.bFromImpact,
+				Packet.sequence);
+			return;
+		}
+	}
+
+	UE_LOG(LogTemp, Warning,
+		TEXT("[LargeDebrisChunk] Target debris not found. debrisID=%d chunk=%d"),
+		Packet.debrisID,
+		Packet.chunkIndex);
+}
 void UNetworkInstance::HandleStatusEffect(const FStatusEffectPacket& Packet)
 {
 	UE_LOG(LogTemp, Warning,

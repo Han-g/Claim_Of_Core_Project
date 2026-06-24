@@ -7,6 +7,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
+
 #include "../../Sub/MyCharacter.h"
 
 ABlackHoleActor::ABlackHoleActor()
@@ -19,6 +22,10 @@ ABlackHoleActor::ABlackHoleActor()
 	BlackHoleMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BlackHoleMesh"));
 	BlackHoleMesh->SetupAttachment(SceneRoot);
 	BlackHoleMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	BlackHoleEffectComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("BlackHole"));
+	BlackHoleEffectComponent->SetupAttachment(SceneRoot);
+	BlackHoleEffectComponent->SetAutoActivate(false);
 
 	PullRange = CreateDefaultSubobject<USphereComponent>(TEXT("PullRange"));
 	PullRange->SetupAttachment(SceneRoot);
@@ -36,6 +43,11 @@ void ABlackHoleActor::BeginPlay()
 
 	// 처음에는 보이는 상태로 시작
 	// 실제 끌어당김은 SpaceMapController의 Phase에 따라 결정
+	if (BlackHoleEffectComponent && BlackHoleEffect)
+	{
+		BlackHoleEffectComponent->SetAsset(BlackHoleEffect);
+	}
+
 	ShowBlackHole();
 	DeactivateBlackHole();
 
@@ -50,7 +62,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 
 	if (bDrawDebug)
 	{
-		DrawDebugSphere(
+		/*DrawDebugSphere(
 			GetWorld(),
 			GetActorLocation(),
 			PullRadius,
@@ -60,7 +72,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 			0.0f,
 			0,
 			3.0f
-		);
+		);*/
 	}
 
 	if (!bActive)
@@ -131,7 +143,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 
 		if (bDrawDebug)
 		{
-			DrawDebugLine(
+			/*DrawDebugLine(
 				GetWorld(),
 				Character->GetActorLocation(),
 				GetActorLocation(),
@@ -140,7 +152,7 @@ void ABlackHoleActor::Tick(float DeltaTime)
 				0.0f,
 				0,
 				2.0f
-			);
+			);*/
 		}
 	}
 }
@@ -168,7 +180,10 @@ void ABlackHoleActor::ShowBlackHole()
 {
 	ApplyVisibleState(true);
 
-	UE_LOG(LogTemp, Warning, TEXT("[BlackHoleActor] Show"));
+	if (BlackHoleEffectComponent && BlackHoleEffectComponent->GetAsset())
+	{
+		BlackHoleEffectComponent->Activate(true);
+	}
 }
 
 void ABlackHoleActor::HideBlackHole()
@@ -178,7 +193,10 @@ void ABlackHoleActor::HideBlackHole()
 	ApplyActiveState();
 	ApplyVisibleState(false);
 
-	UE_LOG(LogTemp, Warning, TEXT("[BlackHoleActor] Hide"));
+	if (BlackHoleEffectComponent)
+	{
+		BlackHoleEffectComponent->Deactivate();
+	}
 }
 
 void ABlackHoleActor::ActivateBlackHole()
@@ -187,17 +205,13 @@ void ABlackHoleActor::ActivateBlackHole()
 
 	ApplyVisibleState(true);
 	ApplyActiveState();
-
-	UE_LOG(LogTemp, Warning, TEXT("[BlackHoleActor] Activated"));
 }
 
 void ABlackHoleActor::DeactivateBlackHole()
 {
 	bActive = false;
 
-	ApplyActiveState();
-
 	// 여기서는 숨기지 않음
 	// Phase1에서 블랙홀은 보이지만 끌어당기지 않아야 하기 때문
-	UE_LOG(LogTemp, Warning, TEXT("[BlackHoleActor] Deactivated"));
+	ApplyActiveState();
 }

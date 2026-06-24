@@ -175,6 +175,7 @@ enum PacketID {
     PKT_S2C_ITEM_OWNERSHIP_BRD = 132,       // Item ownership acquisition (who picked up what)
     PKT_S2C_SPAWN_OBJECT_BRD = 133,         // Spawn map objects (breakable crates, etc.)
     PKT_S2C_OBJECT_DESTRUCT_BRD = 134,      // Object destruction + chaos-chunk VFX trigger
+    PKT_S2C_LARGE_DEBRIS_CHUNK_BRD = 135,
 
     // Game-logic and event-trigger packets
     PKT_S2C_MAPEVENT_TRIGGER_BRD = 150,     // Map gimmick trigger notice (ID fixed per spec)
@@ -282,6 +283,14 @@ struct MapEventPacket {
     int32_t eventState;   // State (Warning, Breaking, Broken, etc.)
 };
 
+struct LargeDebrisChunkPacket
+{
+    int32_t debrisID;
+    int32_t chunkIndex;
+    int32_t bFromImpact;
+    int32_t sequence;
+};
+
 struct SpawnObjectPacket {
     int32_t objectType;   // SmallDebris, LargeDebris, etc.
     float x, y, z;        // Spawn position
@@ -335,7 +344,7 @@ struct ObjectHitPacket
     int32_t objectID;
     int32_t objectType;
     int32_t subID;      // chunkIndex, º»Ã¼¸é -1
-    int32_t hitKind;    // 0=LargeBody, 1=Chunk
+    int32_t hitKind;    // 0=LargeBody, 1=Chunk, 2=LargeLanding
 };
 
 struct HitscanShotPacket

@@ -16,7 +16,7 @@ ADebrisSpawner::ADebrisSpawner()
 	SpawnArea->SetupAttachment(Root);
 	SpawnArea->SetBoxExtent(FVector(500.f, 500.f, 100.f));
 	SpawnArea->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	SpawnArea->SetHiddenInGame(false);
+	SpawnArea->SetHiddenInGame(true);
 }
 
 void ADebrisSpawner::BeginPlay()

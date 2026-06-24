@@ -120,7 +120,7 @@ void AGunItem::FireHitscan()
 			2.f
 		);
 
-		if (bBlockerHit)
+		/*if (bBlockerHit)
 		{
 			DrawDebugSphere(
 				World,
@@ -148,7 +148,7 @@ void AGunItem::FireHitscan()
 				0,
 				2.f
 			);
-		}
+		}*/
 	}
 
 	const bool bValidTarget = TargetCharacter && !bTargetBlocked;

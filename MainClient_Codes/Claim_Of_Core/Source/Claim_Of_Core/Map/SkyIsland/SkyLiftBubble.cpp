@@ -3,6 +3,7 @@
 
 #include "SkyLiftBubble.h"
 
+#include "NiagaraComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -33,6 +34,10 @@ ASkyLiftBubble::ASkyLiftBubble()
     BubbleMeshComponent->SetupAttachment(LiftCollision);
     BubbleMeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     BubbleMeshComponent->SetGenerateOverlapEvents(false);
+
+    UpdraftEffectComponent = CreateDefaultSubobject<UNiagaraComponent>(TEXT("UpdraftEffect"));
+    UpdraftEffectComponent->SetupAttachment(LiftCollision);
+    UpdraftEffectComponent->SetAutoActivate(false);
 
     static ConstructorHelpers::FObjectFinder<UStaticMesh> DefaultMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
     if (DefaultMesh.Succeeded())
@@ -123,6 +128,18 @@ void ASkyLiftBubble::SetBubbleActive(bool bNewActive)
         BubbleMeshComponent->SetHiddenInGame(!bBubbleActive);
         BubbleMeshComponent->SetVisibility(bBubbleActive, true);
     }
+
+    if (UpdraftEffectComponent)
+    {
+        if (bBubbleActive && UpdraftEffectComponent->GetAsset())
+        {
+            UpdraftEffectComponent->Activate(true);
+        }
+        else
+        {
+            UpdraftEffectComponent->Deactivate();
+        }
+    }
 }
 
 void ASkyLiftBubble::ApplyUpdraft()
@@ -164,5 +181,16 @@ void ASkyLiftBubble::ApplyVisualSettings()
     if (BubbleMaterial)
     {
         BubbleMeshComponent->SetMaterial(0, BubbleMaterial);
+    }
+
+    if (UpdraftEffect && UpdraftEffectComponent)
+    {
+        UpdraftEffectComponent->SetAsset(UpdraftEffect);
+    }
+
+    if (UpdraftEffectComponent)
+    {
+        UpdraftEffectComponent->SetRelativeLocation(FVector::ZeroVector);
+        UpdraftEffectComponent->Deactivate();
     }
 }

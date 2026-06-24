@@ -12,6 +12,8 @@ class UPrimitiveComponent;
 class USphereComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
+class UNiagaraComponent;
+class UNiagaraSystem;
 
 UCLASS()
 class CLAIM_OF_CORE_API ASkyLiftBubble : public AActor
@@ -33,6 +35,9 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     TObjectPtr<UStaticMeshComponent> BubbleMeshComponent;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    TObjectPtr<UNiagaraComponent> UpdraftEffectComponent;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift")
     float UpdraftSpeed = 1100.f;
 
@@ -47,6 +52,9 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift|Visual")
     TObjectPtr<UMaterialInterface> BubbleMaterial;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lift|Visual")
+    TObjectPtr<UNiagaraSystem> UpdraftEffect;
 
     UFUNCTION()
     void OnBubbleBeginOverlap(

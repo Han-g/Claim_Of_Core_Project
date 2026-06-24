@@ -154,7 +154,24 @@ void ALargeDebrisActor::LandAndFracture()
 		return;
 	}
 
-	BreakInitialBottomChunks(ImpactSpeed);
+	if (LargeDebrisID >= 0)
+	{
+		if (UNetworkInstance* NetworkInstance = GetWorld()->GetGameInstance<UNetworkInstance>())
+		{
+			TArray<int32> BottomChunks;
+			GetBottomChunks(BottomChunks);
+
+			const int32 ImpactChunkIndex = BottomChunks.Num() > 0 ? BottomChunks[0] : -1;
+			UE_LOG(LogTemp, Display,
+				TEXT("[LargeDebris] Request landing break. debrisID=%d impactChunk=%d impactSpeed=%.2f bottomCount=%d"),
+				LargeDebrisID,
+				ImpactChunkIndex,
+				ImpactSpeed,
+				BottomChunks.Num());
+
+			NetworkInstance->RequestObjectHit(LargeDebrisID, 3, ImpactChunkIndex, 2);
+		}
+	}
 }
 
 void ALargeDebrisActor::GetBottomChunks(TArray<int32>& OutChunkIndices) const
@@ -273,6 +290,32 @@ void ALargeDebrisActor::BreakChunk(int32 ChunkIndex, bool bFromImpact)
 
 	BP_OnChunkBroken(ChunkIndex);
 	OnChunkBrokenInternal(ChunkIndex, bFromImpact);
+}
+
+void ALargeDebrisActor::ApplyServerChunkBreak(int32 ChunkIndex, bool bFromImpact)
+{
+	if (!IsValidChunkIndex(ChunkIndex))
+	{
+		UE_LOG(LogTemp, Warning,
+			TEXT("[LargeDebris] Invalid server chunk. debrisID=%d chunk=%d chunkCount=%d"),
+			LargeDebrisID,
+			ChunkIndex,
+			ChunkMeshes.Num());
+		return;
+	}
+
+	if (ChunkData[ChunkIndex].bBroken)
+	{
+		return;
+	}
+
+	UE_LOG(LogTemp, Display,
+		TEXT("[LargeDebris] Apply server chunk. debrisID=%d chunk=%d impact=%d"),
+		LargeDebrisID,
+		ChunkIndex,
+		bFromImpact ? 1 : 0);
+
+	BreakChunk(ChunkIndex, bFromImpact);
 }
 
 void ALargeDebrisActor::DropUnsupportedChunks()

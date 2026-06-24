@@ -118,8 +118,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "CloudPlatform|OneWay")
 	float OneWayVelocityTolerance = 80.f;
 
+	bool bLocalCharacterEnteredPlatformFromBelow = false;
+	bool bWasLocalCharacterInPlatformHeight = false;
+
 	void UpdateOneWayCollision();
-	bool ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const;
+	bool ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character);
 
 	FVector InitialScale = FVector::OneVector;
 	FVector InitialLocation = FVector::ZeroVector;
@@ -146,6 +149,15 @@ public:
 	void ApplyPlatformEnabled(bool bEnabled);
 	float GetCurrentVisibleDuration() const;
 	void UpdateCloudMotion(float DeltaTime);
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "CloudPlatform|Network")
+	int32 CloudPlatformIndex = -1;
+
+	bool bWaitingNetworkState = false;
+
+	int32 GetCloudPlatformIndex() const { return CloudPlatformIndex; }
+	void RequestNetworkState(int32 EventState);
+	void ApplyNetworkState(int32 EventState);
 
 private:
 	void InitializeGameState();

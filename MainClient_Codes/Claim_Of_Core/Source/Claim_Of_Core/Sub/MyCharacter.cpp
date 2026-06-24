@@ -169,6 +169,12 @@ void AMyCharacter::BeginPlay()
 		FrozenOverlayMeshComponent->SetRenderCustomDepth(bFrozen);
 	}
 
+	if (HandCollision)
+	{
+		HandCollision->SetHiddenInGame(true);
+		HandCollision->SetVisibility(false, true);
+	}
+
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
@@ -657,7 +663,7 @@ void AMyCharacter::ApplyRoleStats()
 		break;
 
 	case ERecRoleType::Guardian:
-		MaxHP = 200;
+		MaxHP = 150;
 		AttackDamage = 15;
 		KnockbackCoefficient = 0.80f;
 		break;
@@ -2093,7 +2099,7 @@ void AMyCharacter::ShowCorpse()
 
 	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
-		MeshComp->SetVisibility(true, true);
+		MeshComp->SetVisibility(true, false);
 		MeshComp->SetHiddenInGame(false, true);
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	}
@@ -2566,18 +2572,6 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 	{
 		CurrentAttackSeq = 0;
 		return;
-	}
-
-	USoundBase* AttackSound = BaseAttackSound;
-
-	if (CurrentItem && CurrentItem->GetSwingSound())
-	{
-		AttackSound = CurrentItem->GetSwingSound();
-	}
-
-	if (AttackSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
 	}
 
 	GetWorldTimerManager().SetTimer(
@@ -3344,6 +3338,19 @@ void AMyCharacter::AnimNotify_AttackHit()
 	{
 		return;
 	}
+
+	USoundBase* AttackSound = BaseAttackSound;
+
+	if (CurrentItem && CurrentItem->GetSwingSound())
+	{
+		AttackSound = CurrentItem->GetSwingSound();
+	}
+
+	if (AttackSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
+	}
+
 
 	if (CurrentItem)
 	{

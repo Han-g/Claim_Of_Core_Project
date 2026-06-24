@@ -11,6 +11,7 @@
 #include "UObject/ConstructorHelpers.h"
 
 #include "Sub/MyCharacter.h"
+#include "UI/NetworkInstance.h"
 
 // Sets default values
 ASkyCloudPlatform::ASkyCloudPlatform()
@@ -145,7 +146,7 @@ void ASkyCloudPlatform::UpdateOneWayCollision()
 	);
 }
 
-bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character) const
+bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter* Character)
 {
 	if (!Character || !CloudMeshComponent)
 	{
@@ -160,9 +161,27 @@ bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter*
 		return false;
 	}
 
-	const float PlatformTopZ = CloudMeshComponent->Bounds.GetBox().Max.Z;
+	const FBox PlatformBox = CloudMeshComponent->Bounds.GetBox();
+	const float PlatformBottomZ = PlatformBox.Min.Z;
+	const float PlatformTopZ = PlatformBox.Max.Z;
+
 	const float CharacterBottomZ =
 		Character->GetActorLocation().Z - Capsule->GetScaledCapsuleHalfHeight();
+
+	const float CharacterTopZ =
+		Character->GetActorLocation().Z + Capsule->GetScaledCapsuleHalfHeight();
+
+	const bool bCharacterInPlatformHeight =
+		CharacterTopZ >= PlatformBottomZ &&
+		CharacterBottomZ <= PlatformTopZ;
+
+	if (!bWasLocalCharacterInPlatformHeight && bCharacterInPlatformHeight)
+	{
+		bLocalCharacterEnteredPlatformFromBelow =
+			CharacterBottomZ < PlatformBottomZ;
+	}
+
+	bWasLocalCharacterInPlatformHeight = bCharacterInPlatformHeight;
 
 	const bool bCharacterAbovePlatform =
 		CharacterBottomZ >= PlatformTopZ - OneWayTopTolerance;
@@ -170,7 +189,18 @@ bool ASkyCloudPlatform::ShouldBlockPawnCollisionForCharacter(const AMyCharacter*
 	const bool bDescendingOrStanding =
 		MoveComp->Velocity.Z <= OneWayVelocityTolerance;
 
-	return bCharacterAbovePlatform && bDescendingOrStanding;
+	if (bLocalCharacterEnteredPlatformFromBelow && !bCharacterAbovePlatform)
+	{
+		return false;
+	}
+
+	if (bCharacterAbovePlatform && bDescendingOrStanding)
+	{
+		bLocalCharacterEnteredPlatformFromBelow = false;
+		return true;
+	}
+
+	return false;
 }
 
 void ASkyCloudPlatform::UpdateVisible(float DeltaTime)
@@ -203,12 +233,14 @@ void ASkyCloudPlatform::UpdateVisible(float DeltaTime)
 
 	if (!bWarningActive && (bShouldWarnByStanding || bShouldWarnByAutoCycle))
 	{
-		ActivateWarning();
+		//ActivateWarning();
+		RequestNetworkState(2);
 	}
 
 	if (StandingProgress >= 1.f || (bUseAutoCycle && VisibleElapsed >= CurrentVisibleDuration))
 	{
-		HidePlatform();
+		//HidePlatform();
+		RequestNetworkState(0);
 	}
 }
 
@@ -218,7 +250,8 @@ void ASkyCloudPlatform::UpdateHidden(float DeltaTime)
 
 	if (HiddenElapsed >= HiddenDuration)
 	{
-		ShowPlatform();
+		//ShowPlatform();
+		RequestNetworkState(1);
 	}
 }
 
@@ -317,6 +350,49 @@ void ASkyCloudPlatform::UpdateCloudMotion(float DeltaTime)
 		FMath::Sin(MotionElapsed * 1.31f) * MotionAmplitude.Z);
 
 	SetActorLocation(InitialLocation + MotionOffset);
+}
+
+void ASkyCloudPlatform::RequestNetworkState(int32 EventState)
+{
+	if (bWaitingNetworkState)
+	{
+		return;
+	}
+
+	if (CloudPlatformIndex < 0)
+	{
+		ApplyNetworkState(EventState);
+		return;
+	}
+
+	if (UNetworkInstance* NetInst = GetGameInstance<UNetworkInstance>())
+	{
+		bWaitingNetworkState = true;
+
+		constexpr int32 CloudPlatformType = 6;
+		NetInst->RequestObjectHit(CloudPlatformIndex, CloudPlatformType, -1, EventState);
+		return;
+	}
+
+	ApplyNetworkState(EventState);
+}
+
+void ASkyCloudPlatform::ApplyNetworkState(int32 EventState)
+{
+	bWaitingNetworkState = false;
+
+	if (EventState == 0)
+	{
+		HidePlatform();
+	}
+	else if (EventState == 1)
+	{
+		ShowPlatform();
+	}
+	else if (EventState == 2)
+	{
+		ActivateWarning();
+	}
 }
 
 void ASkyCloudPlatform::InitializeGameState()

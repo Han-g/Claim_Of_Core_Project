@@ -6,13 +6,37 @@
 #include "ClientNetworking.h"
 #include "RoomEnterWidget.h"
 
+#include "Kismet/KismetSystemLibrary.h"
+#include "InputCoreTypes.h"
+
 void URobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+    SetIsFocusable(true);
+    SetKeyboardFocus();
+
 	if (CreateButton) { CreateButton->OnClicked.AddDynamic(this, &URobbyWidget::OnCreateButtonClicked); }
 
 	if (StartButton) { StartButton->OnClicked.AddDynamic(this, &URobbyWidget::OnStartButtonClicked); }
+}
+
+FReply URobbyWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Subtract)
+	{
+		APlayerController* PC = GetOwningPlayer();
+
+		if (!PC && GetWorld())
+		{
+			PC = GetWorld()->GetFirstPlayerController();
+		}
+
+		UKismetSystemLibrary::QuitGame(this, PC, EQuitPreference::Quit, true);
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
 void URobbyWidget::ReloadRoomList(const TArray<FRoomInfoData>& RoomList)

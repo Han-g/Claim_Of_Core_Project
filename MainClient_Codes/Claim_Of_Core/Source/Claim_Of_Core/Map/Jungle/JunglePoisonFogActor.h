@@ -75,7 +75,7 @@ protected:
 	float ActivationDelay = 20.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Shape", meta = (ClampMin = "100.0"))
-	float FogRadius = 20000.0f;
+	float FogRadius = 25000.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Shape", meta = (ClampMin = "0.0"))
 	float InnerRadius = 18000.0f;
@@ -93,10 +93,10 @@ protected:
 	float FogActiveElapsed = 0.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Timing", meta = (ClampMin = "0.0"))
-	float Phase2InnerShrinkSpeed = 75.0f;
+	float Phase2InnerShrinkSpeed = 150.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Timing", meta = (ClampMin = "0.0"))
-	float Phase3InnerShrinkSpeed = 225.0f;
+	float Phase3InnerShrinkSpeed = 200.0f;
 
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "JunglePoisonFog|Visual")

@@ -126,6 +126,8 @@ public:
 	virtual void BreakChunk(int32 ChunkIndex, bool bFromImpact = false) override;
 
 	void SetLargeDebrisID(int32 InID) { LargeDebrisID = InID; }
+	int32 GetLargeDebrisID() const { return LargeDebrisID; }
+	void ApplyServerChunkBreak(int32 ChunkIndex, bool bFromImpact);
 
 protected:
 	virtual void DropUnsupportedChunks() override;
@@ -133,6 +135,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Debris")
 	int32 LargeDebrisID = -1;
+
 
 	TSet<int32> ReportedHitKeys;
 

@@ -36,7 +36,7 @@ void ABlackHoleGrenadeItem::DoHit()
 
     bHasBeenThrown = true;
 
-    Thrower->DropCurrentItem();
+    Thrower->ConsumeCurrentItem(this);
 
     DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
     SetActorLocation(ThrowLocation, false, nullptr, ETeleportType::TeleportPhysics);

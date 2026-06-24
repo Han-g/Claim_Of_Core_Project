@@ -87,6 +87,8 @@ enum PacketID : uint16 {
     PKT_S2C_ITEM_OWNERSHIP_BRD = 132,
     PKT_S2C_SPAWN_OBJECT_BRD = 133,
     PKT_S2C_OBJECT_DESTRUCT_BRD = 134,
+    PKT_S2C_LARGE_DEBRIS_CHUNK_BRD = 135,
+
 
     PKT_S2C_MAPEVENT_TRIGGER_BRD = 150,
     PKT_S2C_GAME_PHASE_CHANGE_BRD = 151,
@@ -188,6 +190,14 @@ struct FMapEventPacket {
     int32_t eventType;
     int32_t objectIndex;
     int32_t eventState;
+};
+
+struct FLargeDebrisChunkPacket
+{
+    int32_t debrisID;
+    int32_t chunkIndex;
+    int32_t bFromImpact;
+    int32_t sequence;
 };
 
 struct FSpawnObjectPacket {
@@ -366,6 +376,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, const FPhaseChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundResult, const FRoundChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapEventTriggered, const FMapEventPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnObjectSpawned, const FSpawnObjectPacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnLargeDebrisChunkBroken, const FLargeDebrisChunkPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAttackActionReceived, const FAttackActionPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSyncAnimationReceived, const FSyncAnimationPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnItemOwnershipChanged, const FItemPacket&);
@@ -431,6 +442,7 @@ enum class ENetEventType : uint8
 
     MapEventTriggered,
     ObjectSpawned,
+    LargeDebrisChunkBroken,
     PhaseChanged,
     RoundResult,
     ItemSpawned,
@@ -466,6 +478,7 @@ struct FNetEvent
     FRoundChangePacket   RoundChange;
     FMapEventPacket      MapEvent;
     FSpawnObjectPacket   SpawnObject;
+    FLargeDebrisChunkPacket LargeDebrisChunk;
     FAttackActionPacket  AttackAction;
     FRoleSkillPacket     RoleSkill;
     FSyncAnimationPacket SyncAnimation;
