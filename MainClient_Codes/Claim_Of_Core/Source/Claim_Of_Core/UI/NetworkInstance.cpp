@@ -58,7 +58,7 @@ void UNetworkInstance::Init()
 
 	const TCHAR* ServerIPKey =
 #if WITH_EDITOR
-		TEXT("LocalServerIP");
+		TEXT("ServerIP");
 #else
 		TEXT("ServerIP");
 #endif
