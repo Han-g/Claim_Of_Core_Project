@@ -1,0 +1,44 @@
+//MyCharacter.h에 추가
+
+#include "HealthPackSystem.h"
+
+UCLASS()
+class YOURPROJECT_API AMyCharacter : public ACharacter, public IHealableInterface
+{
+	GENERATED_BODY()
+
+public:
+	virtual bool TryHeal_Implementation(float HealAmount) override;
+
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+	float MaxHP = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+	float CurrentHP = 100.0f;
+};
+
+//MyCharacter.cpp에 추가
+
+bool AMyCharacter::TryHeal_Implementation(float HealAmount)
+{
+	if (HealAmount <= 0.0f)
+	{
+		return false;
+	}
+
+	if (CurrentHP >= MaxHP)
+	{
+		return false;
+	}
+
+	const float OldHP = CurrentHP;
+
+	CurrentHP = FMath::Clamp(
+		CurrentHP + HealAmount,
+		0.0f,
+		MaxHP
+	);
+
+	return CurrentHP > OldHP;
+}
