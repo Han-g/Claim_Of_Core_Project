@@ -127,7 +127,8 @@ enum PacketID {
 
     PKT_S2C_ROOM_INFO_BRD = 110,            // Sync of in-room member list and info
     PKT_S2C_CHARACTER_SELECT_BRD = 111,     // Broadcast of other users' character (role) selections
-    PKT_S2C_GAME_START_BRD = 112,           // Server's game-start command in response to host's request
+    PKT_S2C_MATCH_START_BRD = 112,
+    PKT_S2C_ROUND_START_BRD = 113,
 
     // C2S (500 ~ 519)
     PKT_C2S_ACCESS_REQ = 500,
@@ -258,10 +259,26 @@ struct RoomSlotSelectPacket
     int32_t targetSlot;
 };
 
+struct MatchStartPacket
+{
+    int32_t maxRound;
+    int32_t requiredWinScore;
+};
+
+struct RoundStartPacket
+{
+    int32_t currentRound;
+    int32_t maxRound;
+    int32_t currentMap;
+    int32_t team1Score;
+    int32_t team2Score;
+};
+
 struct RoundPreparePacket
 {
     int32_t currentRound;
     int32_t maxRound;
+    int32_t currentMap;
     int32_t team1Score;
     int32_t team2Score;
     float mapSelectTime;

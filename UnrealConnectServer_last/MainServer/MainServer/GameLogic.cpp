@@ -42,7 +42,19 @@ void GameLogic::Update(float deltaTime)
         {
             matchFlowState = EMatchFlow::RoundPlaying;
 
-            ownerRoom->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
+            RoundStartPacket pkt{};
+            pkt.currentRound = currentRound;
+            pkt.maxRound = maxRound;
+            pkt.currentMap = mapType;
+            pkt.team1Score = team1Score;
+            pkt.team2Score = team2Score;
+
+            ownerRoom->BroadcastToMembers(
+                PKT_S2C_ROUND_START_BRD,
+                reinterpret_cast<const char*>(&pkt),
+                sizeof(pkt)
+            );
+
             ownerRoom->BeginDeferredRoundStart(roundStartDelay);
         }
         return;
@@ -291,6 +303,19 @@ void GameLogic::StartMatch()
     roundState = ERoundState::Waiting;
     matchFlowState = EMatchFlow::Robby;
 
+    if (ownerRoom)
+    {
+        MatchStartPacket pkt{};
+        pkt.maxRound = maxRound;
+        pkt.requiredWinScore = requiredWinScore;
+
+        ownerRoom->BroadcastToMembers(
+            PKT_S2C_MATCH_START_BRD,
+            reinterpret_cast<const char*>(&pkt),
+            sizeof(pkt)
+        );
+    }
+
     BeginRoundPrepare();
 }
 
@@ -327,20 +352,17 @@ void GameLogic::BeginRoundPrepare()
 
     ownerRoom->InitRoundCharacters(this);
 
-    RoundPreparePacket pkt{};
+    RoundStartPacket pkt{};
     pkt.currentRound = currentRound;
-    pkt.maxRound = availableMaps.size();
+    pkt.maxRound = maxRound;
+    pkt.currentMap = mapType;
     pkt.team1Score = team1Score;
     pkt.team2Score = team2Score;
-    pkt.mapSelectTime = mapSelectTime;
-
-    ownerRoom->BroadcastToMembers(PKT_S2C_ROUND_PREPARE_BRD,
-        reinterpret_cast<const char*>(&pkt), sizeof(pkt));
 
     ownerRoom->BroadcastToMembers(
-        PKT_S2C_MAP_SELECT_NOTICE,
-        reinterpret_cast<const char*>(&selectedMapType),
-        sizeof(selectedMapType)
+        PKT_S2C_ROUND_START_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
     );
 }
 

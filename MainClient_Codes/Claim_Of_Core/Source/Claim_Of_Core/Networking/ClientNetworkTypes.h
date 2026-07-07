@@ -44,7 +44,8 @@ enum PacketID : uint16 {
 
     PKT_S2C_ROOM_INFO_BRD = 110,
     PKT_S2C_CHARACTER_SELECT_BRD = 111,
-    PKT_S2C_GAME_START_BRD = 112,
+    PKT_S2C_MATCH_START_BRD = 112,
+    PKT_S2C_ROUND_START_BRD = 113,
 
     // C2S (500 ~ 519)
     PKT_C2S_ACCESS_REQ = 500,
@@ -172,13 +173,19 @@ struct FRoomSlotSelectPacket
     int32 targetSlot;
 };
 
-struct FRoundPreparePacket
+struct FMatchStartPacket
+{
+    int32_t maxRound;
+    int32_t requiredWinScore;
+};
+
+struct FRoundStartPacket
 {
     int32_t currentRound;
     int32_t maxRound;
+    int32_t currentMap;
     int32_t team1Score;
     int32_t team2Score;
-    float mapSelectTime;
 };
 
 struct FGamedataPacket {
@@ -371,7 +378,8 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleChanged, const FRoleChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleSkillStateChanged, const FRoleSkillPacket&);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameTimeSynced, float);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundPrepare, const FRoundPreparePacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchStart, const FMatchStartPacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundStart, const FRoundStartPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, const FPhaseChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundResult, const FRoundChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapEventTriggered, const FMapEventPacket&);
@@ -424,7 +432,8 @@ enum class ENetEventType : uint8
     RoomInfoUpdated, 
     RoundPrepare,
     MapSelected,
-    GameStart,
+    MatchStart,
+    RoundStart,
 
     SnapshotReceived,
     AccessAllow,
@@ -472,7 +481,8 @@ struct FNetEvent
     FStatusUpdatePacket  StatusUpdate;
     FStateChangePacket   StateChange;
     FRespawnPacket       Respawn;
-    FRoundPreparePacket  RoundPrepare;
+    FMatchStartPacket    MatchStart;
+    FRoundStartPacket    RoundStart;
     FRoleChangePacket    RoleChange;
     FPhaseChangePacket   PhaseChange;
     FRoundChangePacket   RoundChange;
