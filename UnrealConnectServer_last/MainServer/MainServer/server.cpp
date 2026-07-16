@@ -53,9 +53,7 @@ m_ListenSocket(INVALID_SOCKET), m_IsRunning(false), m_MaxSessionCount(0),
 m_RoomManager(RoomManager::GetInstance()), m_DB(DBHelper::GetInstance()), m_SessionManager(SessionManager::GetInstance()) { }
 
 IOCPServer::~IOCPServer() {
-	m_IsRunning = false;
-	closesocket(m_ListenSocket);
-	WSACleanup();
+	Stop();
 }
 
 void IOCPServer::InitLogger() {
@@ -117,7 +115,58 @@ void IOCPServer::Start() {
 	LOG_INFO("Server Start Successful!");
 
 	m_DBConnectThread = std::thread([this]() {this->DBWorkerThread(); });
-	LOG_INFO("DB Connect Successful!");
+}
+
+void IOCPServer::Stop()
+{
+	const bool wasRunning = m_IsRunning.exchange(false);
+	if (!wasRunning) { return; }
+
+	if (m_ListenSocket != INVALID_SOCKET)
+	{
+		shutdown(m_ListenSocket, SD_BOTH);
+		closesocket(m_ListenSocket);
+		m_ListenSocket = INVALID_SOCKET;
+	}
+
+	m_DBControler.notify_all();
+
+	if (m_hIOCP && m_hIOCP != INVALID_HANDLE_VALUE)
+	{
+		for (size_t i = 0; i < m_WorkerThreads.size(); ++i)
+		{
+			PostQueuedCompletionStatus(m_hIOCP, 0, 0, nullptr);
+		}
+	}
+
+	if (m_AcceptThread.joinable())
+	{
+		m_AcceptThread.join();
+	}
+
+	for (std::thread& worker : m_WorkerThreads)
+	{
+		if (worker.joinable())
+		{
+			worker.join();
+		}
+	}
+	m_WorkerThreads.clear();
+
+	if (m_DBConnectThread.joinable())
+	{
+		m_DBConnectThread.join();
+	}
+
+	m_DB->Disconnect();
+
+	if (m_hIOCP && m_hIOCP != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_hIOCP);
+		m_hIOCP = INVALID_HANDLE_VALUE;
+	}
+
+	WSACleanup();
 }
 
 void IOCPServer::AcceptThread() {
@@ -126,13 +175,22 @@ void IOCPServer::AcceptThread() {
 		int addrLen = sizeof(clientAddr);
 		SOCKET clientSocket = accept(m_ListenSocket, (SOCKADDR*)&clientAddr, &addrLen);
 
-		if (clientSocket == INVALID_SOCKET) { continue; }
+		if (clientSocket == INVALID_SOCKET) {
+			if (!m_IsRunning)
+			{
+				break;
+			}
+
+			LOG_ERROR("accept failed. error=%d", WSAGetLastError());
+
+			continue; 
+		}
 
 		// Allocate a session slot for the accepted socket.
 		Session* newSession = m_SessionManager->AcceptNewClient(clientSocket);
 
 		// Reject the connection when all session slots are already in use.
-		if (newSession == nullptr) {
+		if (!newSession) {
 			LOG_ERROR("User can't connect by Session is full!");
 			closesocket(clientSocket);
 			continue;
@@ -142,39 +200,51 @@ void IOCPServer::AcceptThread() {
 	}
 }
 
-void IOCPServer::WorkerThread() {
-    DWORD transferredBytes = 0;
-    ULONG_PTR completionKey = 0;
-    LPOVERLAPPED p_Overlapped = nullptr;
+void IOCPServer::WorkerThread() 
+{
+	while (true) {
+		DWORD transferredBytes = 0;
+		ULONG_PTR completionKey = 0;
+		LPOVERLAPPED p_Overlapped = nullptr;
 
-	while (m_IsRunning) {
 		BOOL ret = GetQueuedCompletionStatus(m_hIOCP, &transferredBytes, &completionKey,
 			&p_Overlapped, INFINITE);
+
+		if (!m_IsRunning && p_Overlapped == nullptr)
+		{
+			break;
+		}
+
+		if (p_Overlapped == nullptr)
+		{
+			continue;
+		}
+
 		Session* session = reinterpret_cast<Session*> (completionKey);
 		OverlappedEx* p_Ex = static_cast<OverlappedEx*> (p_Overlapped);
 
-		if (!ret || (ret && transferredBytes == 0)) {
-			if (session) { 
-				LOG_ERROR("[ID: %d] Fail to Register IOCP handle", session->sessionID); 
-				OnDisconnect(session->sessionID); 
+		if (!ret || transferredBytes == 0) {
+			if (session && m_IsRunning) {
+				LOG_ERROR("[ID: %d] Fail to Register IOCP handle", session->sessionID);
+				OnDisconnect(session->sessionID);
 			}
 
 			continue;
 		}
 
 		// Dispatch the completion based on the operation type.
-		if (p_Ex->type == IO_OPERATION::RECV) { 
-			OnRecv(session->sessionID, transferredBytes); 
+		if (p_Ex->type == IO_OPERATION::RECV) {
+			OnRecv(session->sessionID, transferredBytes);
 		}
-		
+
 		else if (p_Ex->type == IO_OPERATION::SEND) {
 			OnSend(session->sessionID, transferredBytes);
 		}
-		
+
 		else if (p_Ex->type == IO_OPERATION::AWAIT) {
 			// Reserved for future await-style completions.
 		}
-		
+
 		else {
 			// Reserved for unsupported or invalid completion types.
 		}
@@ -229,9 +299,20 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		PacketHeader header;
 		RingBufPeek(&recvSession->recvBuffer, (char*)&header, sizeof(PacketHeader));
 
+		if (!IsValidPacketHeader(header))
+		{
+			LOG_WARN("[Session: %d] Invalid packet header. size=%u id=%u",
+				sessionIndex,
+				header.packet_size,
+				header.packet_ID);
+
+			OnDisconnect(sessionIndex);
+			return;
+		}
+
 		// Wait for the remainder when the full packet body has not arrived yet.
 		if (GetRingBufSize(&recvSession->recvBuffer) < header.packet_size) {
-			LOG_WARN("Entire Data doesn't receive wait next Recv");
+			//LOG_WARN("Entire Data doesn't receive wait next Recv");
 			break; 
 		}
 
@@ -241,6 +322,17 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		RingBufPeek(&recvSession->recvBuffer, packetData.data(), header.packet_size);
 
 		RingBufpop(&recvSession->recvBuffer, header.packet_size);
+
+		if (!IsPacketAllowedInState(recvSession->now_state, header.packet_ID))
+		{
+			LOG_WARN("[Session: %d] Packet not allowed in state. state=%d id=%u",
+				sessionIndex,
+				static_cast<int>(recvSession->now_state),
+				header.packet_ID);
+
+			OnDisconnect(sessionIndex);
+			return;
+		}
 
 		// Hand the decoded packet to the packet processor.
 		PacketProcess(sessionIndex, header.packet_ID, packetData);
@@ -358,9 +450,11 @@ void IOCPServer::DBWorkerThread()
 {
 	if (!m_DB->Connect()) {
 		LOG_ERROR("DB Connection Failed!");
+		return;
 	}
 
-	while (m_IsRunning) {
+	LOG_INFO("DB Connect Successful!");
+	while (m_IsRunning || !m_DBLoginQueue.empty()) {
 		DBData data;
 
 		{
@@ -372,7 +466,6 @@ void IOCPServer::DBWorkerThread()
 			data = m_DBLoginQueue.front();
 			m_DBLoginQueue.pop();
 		}
-
 
 		int userUID = -1;
 
@@ -448,6 +541,7 @@ void IOCPServer::DBWorkerThread()
 		
 	}
 
+	m_DB->Disconnect();
 	LOG_INFO("DB is Disconnected!");
 }
 

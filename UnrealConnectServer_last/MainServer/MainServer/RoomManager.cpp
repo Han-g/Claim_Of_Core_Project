@@ -393,11 +393,6 @@ float Room::GetSpawnYawBySlot(int slot) const
     return std::atan2(dy, dx) * 180.0f / 3.14159265f;
 }
 
-void Room::MatchMaking()
-{
-
-}
-
 void Room::BeginDeferredRoundStart(float DelaySec)
 {
     bPendingRoundStart = true;

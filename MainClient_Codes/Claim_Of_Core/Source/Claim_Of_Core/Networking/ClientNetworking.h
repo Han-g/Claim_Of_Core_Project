@@ -67,7 +67,8 @@ public:
     FOnRoomEntered            OnRoomEnterResult;
     FOnRoundPrepare           OnRoundPrepare;
     FOnMapSelected            OnMapSelected;
-    FOnGameStartDelegate      OnGameStart;
+    FOnMatchStart             OnMatchStart;
+    FOnRoundStart             OnRoundStart;
     FOnMatchEnd               OnMatchEnd;
 
     FOnDamageApplied          OnDamageApplied;

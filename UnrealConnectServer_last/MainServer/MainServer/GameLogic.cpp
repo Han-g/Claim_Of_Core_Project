@@ -352,7 +352,14 @@ void GameLogic::BeginRoundPrepare()
 
     ownerRoom->InitRoundCharacters(this);
 
-    RoundStartPacket pkt{};
+    /*RoundStartPacket pkt{};
+    pkt.currentRound = currentRound;
+    pkt.maxRound = maxRound;
+    pkt.currentMap = mapType;
+    pkt.team1Score = team1Score;
+    pkt.team2Score = team2Score;*/
+
+    RoundPreparePacket pkt{};
     pkt.currentRound = currentRound;
     pkt.maxRound = maxRound;
     pkt.currentMap = mapType;
@@ -360,7 +367,7 @@ void GameLogic::BeginRoundPrepare()
     pkt.team2Score = team2Score;
 
     ownerRoom->BroadcastToMembers(
-        PKT_S2C_ROUND_START_BRD,
+        PKT_S2C_ROUND_PREPARE_BRD,
         reinterpret_cast<const char*>(&pkt),
         sizeof(pkt)
     );
@@ -417,11 +424,11 @@ void GameLogic::FinishMapSelection()
     ownerRoom->SelectStage(selectedMapType);
     ownerRoom->LoadStage(selectedMapType);
 
-    ownerRoom->BroadcastToMembers(
+    /*ownerRoom->BroadcastToMembers(
         PKT_S2C_MAP_SELECT_NOTICE,
         reinterpret_cast<const char*>(&selectedMapType),
         sizeof(selectedMapType)
-    );
+    );*/
 
     matchFlowState = EMatchFlow::MapSelectedWait;
     matchFlowRemainTime = roundStartDelay;

@@ -98,7 +98,8 @@ public:
 	void HandleRoomListUpdate(const TArray<FRoomInfoData>& RoomList);
 	void HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMemberInfo>& playerList);
 	void HandleRoleChanged(const FRoleChangePacket& Packet);
-	void HandleGameStart();
+	void HandleMatchStart(const FMatchStartPacket& Packet);
+	void HandleRoundStart(const FRoundStartPacket& Packet);
 	void HandleMatchEnd();
 
 	// Server Setting Packet
@@ -108,7 +109,7 @@ public:
 
 	// Game Logic Packet
 	void HandleRoundPrepare(const FRoundPreparePacket& Packet);
-	void HandleMapSelected(int32 MapType);
+	void ApplySelectedMap(int32 MapType);
 	void HandleSnapshotReceived(const TArray<GameData>& SnapshotList);
 
 	void HandleAttackActionReceived(const FAttackActionPacket& Packet);

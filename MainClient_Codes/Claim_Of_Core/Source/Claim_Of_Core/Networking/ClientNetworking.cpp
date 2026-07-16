@@ -157,9 +157,12 @@ void ClientNetworking::PumpEvents()
             OnMapSelected.Broadcast(Evt.SelectedMapType);
             break;
 
-        case ENetEventType::GameStart:
-            UE_LOG(LogTemp, Display, TEXT("Game Start!"));
-            OnGameStart.Broadcast();
+        case ENetEventType::MatchStart:
+            OnMatchStart.Broadcast(Evt.MatchStart);
+            break;
+
+        case ENetEventType::RoundStart:
+            OnRoundStart.Broadcast(Evt.RoundStart);
             break;
 
         case ENetEventType::RoundResult:

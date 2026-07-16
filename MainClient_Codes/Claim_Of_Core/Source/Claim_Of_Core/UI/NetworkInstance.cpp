@@ -87,11 +87,11 @@ void UNetworkInstance::Init()
 	Client->OnLoginResult.AddUObject(this, &UNetworkInstance::HandleLoginResult);
 	Client->OnRegisterResult.AddUObject(this, &UNetworkInstance::HandleRegisterResult);
 	Client->OnRoleChanged.AddUObject(this, &UNetworkInstance::HandleRoleChanged);
-	Client->OnGameStart.AddUObject(this, &UNetworkInstance::HandleGameStart);
+	Client->OnMatchStart.AddUObject(this, &UNetworkInstance::HandleMatchStart);
+	Client->OnRoundStart.AddUObject(this, &UNetworkInstance::HandleRoundStart);	
 	Client->OnMatchEnd.AddUObject(this, &UNetworkInstance::HandleMatchEnd);
 
 	Client->OnRoundPrepare.AddUObject(this, &UNetworkInstance::HandleRoundPrepare);
-	Client->OnMapSelected.AddUObject(this, &UNetworkInstance::HandleMapSelected);
 	Client->OnSnapshotReceived.AddUObject(this, &UNetworkInstance::HandleSnapshotReceived);
 	Client->OnAttackAction.AddUObject(this, &UNetworkInstance::HandleAttackActionReceived);
 	Client->OnDamageApplied.AddUObject(this, &UNetworkInstance::HandleDamageApplied);
@@ -154,7 +154,6 @@ void UNetworkInstance::StartClientOnlyTestFlow()
 	HandleLoginResult(true);
 	HandleRoomEnterResult(true, FakeList);
 	SelectCharacterAndReady(1);
-	HandleGameStart();
 
 	TArray<GameData> FakeSnapshot;
 	GameData LocalData;
@@ -759,43 +758,82 @@ void UNetworkInstance::HandleRoleChanged(const FRoleChangePacket& Packet)
 	}
 }
 
-void UNetworkInstance::HandleGameStart()
+void UNetworkInstance::HandleMatchStart(const FMatchStartPacket& Packet)
 {
-	UE_LOG(LogTemp, Display, TEXT("Game Starting! Closing Room Widget."));
+	UE_LOG(LogTemp, Display,
+		TEXT("Match Start. MaxRound=%d RequiredWinScore=%d"),
+		Packet.maxRound,
+		Packet.requiredWinScore
+	);
 
-	if (RoomWidgetInstance) {
+	CachedRoundResults.Empty();
+
+	if (RoomWidgetInstance)
+	{
 		RoomWidgetInstance->RemoveFromParent();
 		RoomWidgetInstance = nullptr;
 	}
 
-	// Game Start For Change Ingame Level
-	if (!InGameLevel.IsNull())
+	if (LobbyWidgetInstance)
 	{
-		APlayerController* PC = GetFirstLocalPlayerController();
-		if (PC) {
-			PC->SetShowMouseCursor(false);
-			PC->SetInputMode(FInputModeGameOnly());
-		}
-
-		const FName LevelName =
-			FName(*FPackageName::ObjectPathToPackageName(InGameLevel.ToString()));
-		UE_LOG(LogTemp, Display, TEXT("Opening InGame Level: %s"), *LevelName.ToString());
-
-		bHasPendingSnapshot = false;
-		PendingSnapshotList.Empty();
-
-		bLocalInitialTransformApplied = false;
-		bPendingInitialSpawnLock = true;
-		bLocalSpawnLockApplied = false;
-		CachedRoundResults.Empty();
-
-		MarkPendingGameplayActivation();
-		UGameplayStatics::OpenLevel(this, LevelName);
+		LobbyWidgetInstance->RemoveFromParent();
+		LobbyWidgetInstance = nullptr;
 	}
-	else
+
+	bHasPendingSnapshot = false;
+	PendingSnapshotList.Empty();
+
+	bLocalInitialTransformApplied = false;
+	bPendingInitialSpawnLock = false;
+	bLocalSpawnLockApplied = false;
+}
+
+void UNetworkInstance::HandleRoundStart(const FRoundStartPacket& Packet)
+{
+	UE_LOG(LogTemp, Display,
+		TEXT("Round Start. Round=%d/%d Map=%d Score=%d:%d"),
+		Packet.currentRound,
+		Packet.maxRound,
+		Packet.currentMap,
+		Packet.team1Score,
+		Packet.team2Score
+	);
+
+	ApplySelectedMap(Packet.currentMap);
+
+	if (RoundPrepareWidgetInstance)
 	{
-		UE_LOG(LogTemp, Error, TEXT("InGameLevel is not set in NetworkInstance!"));
+		RoundPrepareWidgetInstance->RemoveFromParent();
+		RoundPrepareWidgetInstance = nullptr;
 	}
+
+	bHasPendingSnapshot = false;
+	PendingSnapshotList.Empty();
+
+	bLocalInitialTransformApplied = false;
+	bPendingInitialSpawnLock = true;
+	bLocalSpawnLockApplied = false;
+
+	if (APlayerController* PC = GetFirstLocalPlayerController())
+	{
+		PC->SetShowMouseCursor(false);
+		PC->SetInputMode(FInputModeGameOnly());
+	}
+
+	if (InGameLevel.IsNull())
+	{
+		UE_LOG(LogTemp, Error, TEXT("InGameLevel is not set before RoundStart. Map=%d"), Packet.currentMap);
+		return;
+	}
+
+	const FName LevelName =
+		FName(*FPackageName::ObjectPathToPackageName(InGameLevel.ToString()));
+
+	UE_LOG(LogTemp, Display, TEXT("Opening Round Level: %s"), *LevelName.ToString());
+
+	MarkPendingGameplayActivation();
+
+	UGameplayStatics::OpenLevel(this, LevelName);
 }
 
 void UNetworkInstance::HandleMatchEnd()
@@ -903,6 +941,8 @@ void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 		RoomWidgetInstance->SetRoomActionsEnabled(false);
 	}
 
+	ApplySelectedMap(Packet.currentMap);
+
 	if (RoundPrepareWidgetInstance)
 	{
 		RoundPrepareWidgetInstance->RemoveFromParent();
@@ -932,6 +972,8 @@ void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 			Packet.team2Score,
 			Packet.mapSelectTime
 		);
+
+		Widget->SetSelectedMap(Packet.currentMap);
 	}
 	else
 	{
@@ -940,7 +982,7 @@ void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 	}
 }
 
-void UNetworkInstance::HandleMapSelected(int32 MapType)
+void UNetworkInstance::ApplySelectedMap(int32 MapType)
 {
 	switch (MapType)
 	{

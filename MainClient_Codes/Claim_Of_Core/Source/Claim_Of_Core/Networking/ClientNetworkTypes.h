@@ -188,6 +188,16 @@ struct FRoundStartPacket
     int32_t team2Score;
 };
 
+struct FRoundPreparePacket
+{
+    int32_t currentRound;
+    int32_t maxRound;
+    int32_t currentMap;
+    int32_t team1Score;
+    int32_t team2Score;
+    float mapSelectTime;
+};
+
 struct FGamedataPacket {
     int sessionID;
     GameData data;
@@ -380,6 +390,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoleSkillStateChanged, const FRoleSkillPa
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameTimeSynced, float);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchStart, const FMatchStartPacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundStart, const FRoundStartPacket&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundPrepare, const FRoundPreparePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPhaseChanged, const FPhaseChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundResult, const FRoundChangePacket&);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnMapEventTriggered, const FMapEventPacket&);
@@ -483,6 +494,7 @@ struct FNetEvent
     FRespawnPacket       Respawn;
     FMatchStartPacket    MatchStart;
     FRoundStartPacket    RoundStart;
+    FRoundPreparePacket  RoundPrepare;
     FRoleChangePacket    RoleChange;
     FPhaseChangePacket   PhaseChange;
     FRoundChangePacket   RoundChange;
