@@ -74,7 +74,7 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->bUsePawnControlRotation = false;
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
-	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
+	HandCollision->SetupAttachment(GetMesh(), TEXT("hand_l"));
 	HandCollision->SetBoxExtent(FVector(50.f, 50.f, 50.f));
 	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
@@ -101,44 +101,10 @@ AMyCharacter::AMyCharacter()
 		FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
 	}
 
-
-	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
-	HPTextComponent->SetupAttachment(GetMesh());
-	HPTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 220.f));
-	HPTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
-	HPTextComponent->SetHorizontalAlignment(EHTA_Center);
-	HPTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
-	HPTextComponent->SetWorldSize(20.f);
-	HPTextComponent->SetText(FText::FromString(TEXT("HP: 100/100")));
-	HPTextComponent->SetVisibility(true);
-
-	RoleTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("RoleText"));
-	RoleTextComponent->SetupAttachment(GetMesh());
-	RoleTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 255.f));
-	RoleTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
-	RoleTextComponent->SetHorizontalAlignment(EHTA_Center);
-	RoleTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
-	RoleTextComponent->SetWorldSize(18.f);
-	RoleTextComponent->SetText(FText::FromString(TEXT("Role: Guardian")));
-	RoleTextComponent->SetVisibility(true);
-
-	DeathUITextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("DeathUIText"));
-	DeathUITextComponent->SetupAttachment(FollowCamera);
-	DeathUITextComponent->SetRelativeLocation(FVector(160.f, 0.f, -25.f));
-	DeathUITextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
-	DeathUITextComponent->SetHorizontalAlignment(EHTA_Center);
-	DeathUITextComponent->SetVerticalAlignment(EVRTA_TextCenter);
-	DeathUITextComponent->SetWorldSize(24.f);
-	DeathUITextComponent->SetText(FText::GetEmpty());
-	DeathUITextComponent->SetVisibility(false);
-	DeathUITextComponent->SetHiddenInGame(true);
-	DeathUITextComponent->SetOnlyOwnerSee(true);
-	DeathUITextComponent->SetCastShadow(false);
-
 	MaxHP = 100;
 	CurrentHP = MaxHP;
 	CharacterState = ERecCharacterState::Alive;
-	RoleType = ERecRoleType::Guardian;
+	RoleType = ERecRoleType::Striker;
 }
 
 void AMyCharacter::BeginPlay()
@@ -702,32 +668,40 @@ void AMyCharacter::ApplyRoleVisual()
 		SkelComp->SetAnimInstanceClass(Data.AnimBPClass);
 	}
 
+	for (int32 MaterialIndex = 0; MaterialIndex < Data.Materials.Num(); ++MaterialIndex)
+	{
+		if (Data.Materials[MaterialIndex])
+		{
+			SkelComp->SetMaterial(MaterialIndex, Data.Materials[MaterialIndex]);
+		}
+	}
+
 	switch (RoleType)
 	{
 	case ERecRoleType::Striker:
-		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		GetMesh()->SetRelativeScale3D(FVector(3.5f, 3.5f, 4.0f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("LeftHandSocket")
+			TEXT("hand_l")
 		);
 		break;
 
 	case ERecRoleType::Guardian:
-		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		GetMesh()->SetRelativeScale3D(FVector(4.0f, 4.0f, 4.5f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("hand_l")
 		);
 		break;
 
 	case ERecRoleType::Manipulator:
-		GetMesh()->SetRelativeScale3D(FVector(0.6f));
+		GetMesh()->SetRelativeScale3D(FVector(5.f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("hand_l")
 		);
 		break;
 
@@ -2299,11 +2273,6 @@ void AMyCharacter::ApplyAliveState()
 		MoveComp->StopMovementImmediately();
 	}
 
-	ApplyRoleStats();
-	ApplyRoleSkillState();
-	UpdateHPText();
-	UpdateRoleText();
-
 	StopDeathCameraShake();
 
 	if (CameraBoom)
@@ -2328,6 +2297,13 @@ void AMyCharacter::ApplyAliveState()
 
 		UpdateLowHPEffectState();
 	}
+
+	ApplyRoleStats();
+	ApplyRoleVisual();
+	ApplyRoleSkillState();
+	UpdateHPText();
+	UpdateRoleText();
+
 }
 
 void AMyCharacter::RespawnAtPlayerStart()
@@ -3251,7 +3227,11 @@ void AMyCharacter::RefreshCurrentItemAttachOffset()
 	const FTransform AttachOffset = CurrentItem->GetAttachOffsetByRole(RoleType);
 	CurrentItem->SetActorRelativeLocation(AttachOffset.GetLocation());
 	CurrentItem->SetActorRelativeRotation(AttachOffset.GetRotation());
-	CurrentItem->SetActorRelativeScale3D(CurrentItemAttachBaseScale * AttachOffset.GetScale3D());
+	if (USceneComponent* ItemRoot = CurrentItem->GetRootComponent())
+	{
+		ItemRoot->SetUsingAbsoluteScale(true);
+		ItemRoot->SetWorldScale3D(CurrentItemAttachBaseScale * AttachOffset.GetScale3D());
+	}
 }
 
 void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
@@ -3295,7 +3275,7 @@ void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
 		CurrentItem->AttachToComponent(
 			MeshComp,
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("hand_l")
 		);
 		RefreshCurrentItemAttachOffset();
 	}
@@ -3317,6 +3297,10 @@ void AMyCharacter::ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocat
 	if (OverlappingItem == Item) { OverlappingItem = nullptr; }
 
 	Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	if (USceneComponent* ItemRoot = Item->GetRootComponent())
+	{
+		ItemRoot->SetUsingAbsoluteScale(false);
+	}
 	if (bWasCurrentItem)
 	{
 		Item->SetActorScale3D(DropItemBaseScale);

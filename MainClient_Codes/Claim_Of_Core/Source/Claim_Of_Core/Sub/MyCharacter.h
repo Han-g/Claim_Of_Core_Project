@@ -73,9 +73,9 @@ struct FRoleVisualData
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
-};
 
-
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<TObjectPtr<UMaterialInterface>> Materials; };
 UCLASS(Abstract)
 class AMyCharacter : public ACharacter
 {
