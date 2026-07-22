@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
@@ -13,7 +13,10 @@ class UTextRenderComponent;
 class UAnimInstance;
 class UAnimMontage;
 class USkeletalMesh;
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
 class UPrimitiveComponent;
+class UPointLightComponent;
 class UBoxComponent;
 class ABaseItem;
 class AVineClimbActor;
@@ -80,6 +83,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UTextRenderComponent* VinePromptTextComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UPointLightComponent> RoleSkillLightComponent;
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -163,6 +169,12 @@ public:
 	void Heal(int32 HealAmount);
 
 	UFUNCTION(BlueprintCallable, Category = "HP")
+	float ReceiveHeal(float HealAmount);
+
+	UFUNCTION(BlueprintPure, Category = "HP")
+	bool CanReceiveHeal() const;
+
+	UFUNCTION(BlueprintCallable, Category = "HP")
 	void ResetHP();
 
 	UFUNCTION(BlueprintPure, Category = "HP")
@@ -176,6 +188,15 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "State")
 	bool IsDead() const { return CharacterState == ERecCharacterState::Dead; }
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_PlayHealEffect(float ActualHealAmount);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "HP|HealEffect")
+	void BP_PlayHealScreenEffect(float ActualHealAmount);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "HP|HealEffect")
+	void BP_PlayHealWorldEffect(float ActualHealAmount);
 
 	UFUNCTION(BlueprintPure, Category = "Role")
 	ERecRoleType GetRoleType() const { return RoleType; }
@@ -320,6 +341,48 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Manipulator")
 	float DBJPDuration = 10.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	FName RoleSkillTintParameterName = TEXT("RoleSkillTint");
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	FName RoleSkillEmissiveParameterName = TEXT("RoleSkillEmissiveColor");
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	FName RoleSkillIntensityParameterName = TEXT("RoleSkillIntensity");
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	float RoleSkillMaterialIntensity = 3.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	float RoleSkillLightIntensity = 3500.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	float RoleSkillLightRadius = 650.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	FLinearColor StrikerRoleSkillColor = FLinearColor(1.0f, 0.18f, 0.05f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	FLinearColor GuardianRoleSkillColor = FLinearColor(0.1f, 0.55f, 1.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	FLinearColor ManipulatorRoleSkillColor = FLinearColor(0.55f, 0.2f, 1.0f, 1.0f);
+
+	UPROPERTY(EditDefaultsOnly, Category = "RoleSkill|Visual")
+	int32 RoleSkillCustomDepthStencilValue = 7;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInterface>> RoleSkillOriginalMaterials;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInstanceDynamic>> RoleSkillDynamicMaterials;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "RoleSkill|Visual")
+	bool bRoleSkillVisualActive = false;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "RoleSkill|Visual")
+	bool bRoleSkillDynamicMaterialsReady = false;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Climb")
 	float VineClimbSpeed = 850.f;
@@ -483,6 +546,9 @@ private:
 	void ServerHeal(int32 HealAmount);
 
 	UFUNCTION(Server, Reliable)
+	void ServerReceiveHeal(float HealAmount);
+
+	UFUNCTION(Server, Reliable)
 	void ServerResetHP();
 
 	UFUNCTION(Server, Reliable)
@@ -527,6 +593,13 @@ private:
 	void ApplyRoleVisual();
 	void ApplyRoleSkillState();
 	const FRoleVisualData& GetVisualData(ERecRoleType InRole) const;
+
+	void ApplyRoleSkillVisualState();
+	void ActivateRoleSkillVisualEffect();
+	void DeactivateRoleSkillVisualEffect();
+	void ResetRoleSkillVisualMaterialCache(bool bRestoreOriginalMaterials);
+	bool EnsureRoleSkillDynamicMaterials();
+	FLinearColor GetRoleSkillVisualColor() const;
 
 	void SetCharacterState(ERecCharacterState NewState);
 	void ApplyCharacterState();

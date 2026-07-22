@@ -1,11 +1,15 @@
-#include "MyCharacter.h"
+﻿#include "MyCharacter.h"
 
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Components/BoxComponent.h"
+
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
 
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -114,6 +118,15 @@ AMyCharacter::AMyCharacter()
 	VinePromptTextComponent->SetHiddenInGame(true);
 	VinePromptTextComponent->SetOnlyOwnerSee(true);
 	VinePromptTextComponent->SetCastShadow(false);
+
+	RoleSkillLightComponent = CreateDefaultSubobject<UPointLightComponent>(TEXT("RoleSkillLight"));
+	RoleSkillLightComponent->SetupAttachment(RootComponent);
+	RoleSkillLightComponent->SetRelativeLocation(FVector(0.f, 0.f, 160.f));
+	RoleSkillLightComponent->SetIntensity(0.f);
+	RoleSkillLightComponent->SetAttenuationRadius(RoleSkillLightRadius);
+	RoleSkillLightComponent->SetCastShadows(false);
+	RoleSkillLightComponent->SetVisibility(false);
+	RoleSkillLightComponent->SetHiddenInGame(true);
 
 	MaxHP = 100;
 	CurrentHP = MaxHP;
@@ -309,7 +322,7 @@ float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
 
 float AMyCharacter::GetRoleSkillSpeedMultiplier() const
 {
-	if (!bRoleSkillActive)
+	if (!bRoleSkillActive || IsDead())
 	{
 		return 1.0f;
 	}
@@ -336,7 +349,7 @@ float AMyCharacter::GetCurrentRoleSkillDuration() const
 
 float AMyCharacter::GetOutgoingDamageMultiplier() const
 {
-	if (bRoleSkillActive && RoleType == ERecRoleType::Striker)
+	if (bRoleSkillActive && !IsDead() && RoleType == ERecRoleType::Striker)
 	{
 		return DashDamageMultiplier;
 	}
@@ -345,7 +358,7 @@ float AMyCharacter::GetOutgoingDamageMultiplier() const
 
 float AMyCharacter::GetIncomingDamageMultiplier() const
 {
-	if (bRoleSkillActive && RoleType == ERecRoleType::Guardian)
+	if (bRoleSkillActive && !IsDead() && RoleType == ERecRoleType::Guardian)
 	{
 		return HardDamageTakenMultiplier;
 	}
@@ -365,7 +378,7 @@ FString AMyCharacter::GetCurrentRoleSkillName() const
 
 bool AMyCharacter::IsStatusEffectImmune() const
 {
-	return bRoleSkillActive && RoleType == ERecRoleType::Manipulator;
+	return bRoleSkillActive && !IsDead() && RoleType == ERecRoleType::Manipulator;
 }
 
 bool AMyCharacter::CanReceiveStatusEffect(ERecStatusEffectType InStatusEffect) const
@@ -490,6 +503,15 @@ void AMyCharacter::ApplyRoleVisual()
 {
 	const FRoleVisualData& Data = GetVisualData(RoleType);
 
+	if (bRoleSkillVisualActive || bRoleSkillDynamicMaterialsReady)
+	{
+		DeactivateRoleSkillVisualEffect();
+	}
+	else
+	{
+		ResetRoleSkillVisualMaterialCache(false);
+	}
+
 	USkeletalMeshComponent* SkelComp = GetMesh();
 	if (!SkelComp)
 	{
@@ -513,8 +535,10 @@ void AMyCharacter::ApplyRoleSkillState()
 	SetActorScale3D(InitialActorScale3D);
 	JumpMaxCount = BaseJumpMaxCount;
 
-	if (!bRoleSkillActive)
+	const bool bCanApplyRoleSkill = bRoleSkillActive && !IsDead();
+	if (!bCanApplyRoleSkill)
 	{
+		ApplyRoleSkillVisualState();
 		return;
 	}
 
@@ -533,6 +557,235 @@ void AMyCharacter::ApplyRoleSkillState()
 
 	default:
 		break;
+	}
+
+	ApplyRoleSkillVisualState();
+}
+
+void AMyCharacter::ApplyRoleSkillVisualState()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	if (bRoleSkillActive && !IsDead())
+	{
+		ActivateRoleSkillVisualEffect();
+	}
+	else
+	{
+		DeactivateRoleSkillVisualEffect();
+	}
+}
+
+void AMyCharacter::ActivateRoleSkillVisualEffect()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	bRoleSkillVisualActive = true;
+
+	const FLinearColor EffectColor = GetRoleSkillVisualColor();
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetRenderCustomDepth(true);
+		MeshComp->SetCustomDepthStencilValue(RoleSkillCustomDepthStencilValue);
+
+		if (EnsureRoleSkillDynamicMaterials())
+		{
+			const FLinearColor EmissiveColor = EffectColor * RoleSkillMaterialIntensity;
+			for (TObjectPtr<UMaterialInstanceDynamic>& DynamicMaterial : RoleSkillDynamicMaterials)
+			{
+				if (!DynamicMaterial)
+				{
+					continue;
+				}
+
+				DynamicMaterial->SetVectorParameterValue(RoleSkillTintParameterName, EffectColor);
+				DynamicMaterial->SetVectorParameterValue(RoleSkillEmissiveParameterName, EmissiveColor);
+				DynamicMaterial->SetScalarParameterValue(RoleSkillIntensityParameterName, RoleSkillMaterialIntensity);
+			}
+		}
+	}
+
+	if (RoleSkillLightComponent)
+	{
+		RoleSkillLightComponent->SetLightColor(EffectColor);
+		RoleSkillLightComponent->SetIntensity(RoleSkillLightIntensity);
+		RoleSkillLightComponent->SetAttenuationRadius(RoleSkillLightRadius);
+		RoleSkillLightComponent->SetHiddenInGame(false);
+		RoleSkillLightComponent->SetVisibility(true);
+	}
+}
+
+void AMyCharacter::DeactivateRoleSkillVisualEffect()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		bRoleSkillVisualActive = false;
+		bRoleSkillDynamicMaterialsReady = false;
+		RoleSkillOriginalMaterials.Reset();
+		RoleSkillDynamicMaterials.Reset();
+		return;
+	}
+
+	if (!bRoleSkillVisualActive && !bRoleSkillDynamicMaterialsReady)
+	{
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
+		{
+			MeshComp->SetRenderCustomDepth(false);
+		}
+
+		if (RoleSkillLightComponent)
+		{
+			RoleSkillLightComponent->SetIntensity(0.f);
+			RoleSkillLightComponent->SetVisibility(false);
+			RoleSkillLightComponent->SetHiddenInGame(true);
+		}
+		return;
+	}
+
+	bRoleSkillVisualActive = false;
+
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetRenderCustomDepth(false);
+	}
+
+	ResetRoleSkillVisualMaterialCache(true);
+
+	if (RoleSkillLightComponent)
+	{
+		RoleSkillLightComponent->SetIntensity(0.f);
+		RoleSkillLightComponent->SetVisibility(false);
+		RoleSkillLightComponent->SetHiddenInGame(true);
+	}
+}
+
+void AMyCharacter::ResetRoleSkillVisualMaterialCache(bool bRestoreOriginalMaterials)
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		RoleSkillOriginalMaterials.Reset();
+		RoleSkillDynamicMaterials.Reset();
+		bRoleSkillDynamicMaterialsReady = false;
+		return;
+	}
+
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (bRestoreOriginalMaterials && MeshComp)
+	{
+		const int32 MaterialSlotCount = MeshComp->GetNumMaterials();
+		if (MaterialSlotCount == RoleSkillOriginalMaterials.Num())
+		{
+			for (int32 MaterialIndex = 0; MaterialIndex < MaterialSlotCount; ++MaterialIndex)
+			{
+				UMaterialInterface* OriginalMaterial = RoleSkillOriginalMaterials[MaterialIndex].Get();
+				if (!OriginalMaterial)
+				{
+					continue;
+				}
+
+				MeshComp->SetMaterial(MaterialIndex, OriginalMaterial);
+			}
+		}
+	}
+
+	RoleSkillOriginalMaterials.Reset();
+	RoleSkillDynamicMaterials.Reset();
+	bRoleSkillDynamicMaterialsReady = false;
+}
+
+bool AMyCharacter::EnsureRoleSkillDynamicMaterials()
+{
+	if (GetNetMode() == NM_DedicatedServer)
+	{
+		return false;
+	}
+
+	USkeletalMeshComponent* MeshComp = GetMesh();
+	if (!MeshComp)
+	{
+		ResetRoleSkillVisualMaterialCache(false);
+		return false;
+	}
+
+	const int32 MaterialSlotCount = MeshComp->GetNumMaterials();
+	if (MaterialSlotCount <= 0)
+	{
+		ResetRoleSkillVisualMaterialCache(false);
+		return false;
+	}
+
+	bool bCacheValid = bRoleSkillDynamicMaterialsReady
+		&& RoleSkillOriginalMaterials.Num() == MaterialSlotCount
+		&& RoleSkillDynamicMaterials.Num() == MaterialSlotCount;
+
+	if (bCacheValid)
+	{
+		for (const TObjectPtr<UMaterialInstanceDynamic>& DynamicMaterial : RoleSkillDynamicMaterials)
+		{
+			if (!DynamicMaterial)
+			{
+				bCacheValid = false;
+				break;
+			}
+		}
+	}
+
+	if (bCacheValid)
+	{
+		return true;
+	}
+
+	ResetRoleSkillVisualMaterialCache(false);
+	RoleSkillOriginalMaterials.Reserve(MaterialSlotCount);
+	RoleSkillDynamicMaterials.Reserve(MaterialSlotCount);
+
+	bool bCreatedAnyDynamicMaterial = false;
+	for (int32 MaterialIndex = 0; MaterialIndex < MaterialSlotCount; ++MaterialIndex)
+	{
+		UMaterialInterface* OriginalMaterial = MeshComp->GetMaterial(MaterialIndex);
+		RoleSkillOriginalMaterials.Add(OriginalMaterial);
+
+		if (!OriginalMaterial)
+		{
+			RoleSkillDynamicMaterials.Add(nullptr);
+			continue;
+		}
+
+		UMaterialInstanceDynamic* DynamicMaterial = MeshComp->CreateDynamicMaterialInstance(MaterialIndex, OriginalMaterial);
+		RoleSkillDynamicMaterials.Add(DynamicMaterial);
+
+		if (DynamicMaterial)
+		{
+			bCreatedAnyDynamicMaterial = true;
+		}
+	}
+
+	bRoleSkillDynamicMaterialsReady = bCreatedAnyDynamicMaterial;
+	return bCreatedAnyDynamicMaterial;
+}
+
+FLinearColor AMyCharacter::GetRoleSkillVisualColor() const
+{
+	switch (RoleType)
+	{
+	case ERecRoleType::Striker:
+		return StrikerRoleSkillColor;
+
+	case ERecRoleType::Guardian:
+		return GuardianRoleSkillColor;
+
+	case ERecRoleType::Manipulator:
+		return ManipulatorRoleSkillColor;
+
+	default:
+		return FLinearColor::White;
 	}
 }
 
@@ -636,6 +889,39 @@ void AMyCharacter::Heal(int32 HealAmount)
 	SetCurrentHP(CurrentHP + HealAmount);
 }
 
+float AMyCharacter::ReceiveHeal(float HealAmount)
+{
+	if (HealAmount <= 0.f || !CanReceiveHeal())
+	{
+		return 0.f;
+	}
+
+	if (!HasAuthority())
+	{
+		ServerReceiveHeal(HealAmount);
+		return 0.f;
+	}
+
+	const int32 OldHP = CurrentHP;
+	const int32 HealAmountInt = FMath::Max(1, FMath::RoundToInt(HealAmount));
+
+	SetCurrentHP(CurrentHP + HealAmountInt);
+	ForceNetUpdate();
+
+	const float ActualHealAmount = static_cast<float>(CurrentHP - OldHP);
+	if (ActualHealAmount > 0.f)
+	{
+		Multicast_PlayHealEffect(ActualHealAmount);
+	}
+
+	return ActualHealAmount;
+}
+
+bool AMyCharacter::CanReceiveHeal() const
+{
+	return !IsDead() && MaxHP > 0 && CurrentHP < MaxHP;
+}
+
 void AMyCharacter::ResetHP()
 {
 	if (!HasAuthority())
@@ -646,6 +932,11 @@ void AMyCharacter::ResetHP()
 
 	if (CharacterState == ERecCharacterState::Dead)
 	{
+		if (bRoleSkillActive)
+		{
+			EndRoleSkill();
+		}
+
 		CurrentHP = MaxHP;
 		UpdateHPText();
 		UpdateLowHPEffectState();
@@ -669,14 +960,15 @@ void AMyCharacter::ActivateRoleSkill()
 		return;
 	}
 
-	if (!HasAuthority())
+	if (bRoleSkillActive)
 	{
-		ServerActivateRoleSkill();
+		ApplyRoleSkillVisualState();
 		return;
 	}
 
-	if (bRoleSkillActive)
+	if (!HasAuthority())
 	{
+		ServerActivateRoleSkill();
 		return;
 	}
 
@@ -709,6 +1001,7 @@ void AMyCharacter::EndRoleSkill()
 
 	if (!bRoleSkillActive)
 	{
+		ApplyRoleSkillVisualState();
 		return;
 	}
 
@@ -735,9 +1028,24 @@ void AMyCharacter::ServerHeal_Implementation(int32 HealAmount)
 	Heal(HealAmount);
 }
 
+void AMyCharacter::ServerReceiveHeal_Implementation(float HealAmount)
+{
+	ReceiveHeal(HealAmount);
+}
+
 void AMyCharacter::ServerResetHP_Implementation()
 {
 	ResetHP();
+}
+
+void AMyCharacter::Multicast_PlayHealEffect_Implementation(float ActualHealAmount)
+{
+	BP_PlayHealWorldEffect(ActualHealAmount);
+
+	if (IsLocallyControlled())
+	{
+		BP_PlayHealScreenEffect(ActualHealAmount);
+	}
 }
 
 void AMyCharacter::ServerCycleRole_Implementation()
@@ -1704,6 +2012,23 @@ void AMyCharacter::ApplyDeadState()
 	}
 
 	StopVineClimbing(false);
+
+	if (GetWorld())
+	{
+		GetWorldTimerManager().ClearTimer(RoleSkillTimerHandle);
+	}
+
+	if (bRoleSkillActive)
+	{
+		bRoleSkillActive = false;
+	}
+
+	SetActorScale3D(InitialActorScale3D);
+	JumpMaxCount = BaseJumpMaxCount;
+	ApplyRoleStats();
+	ApplyRoleSkillVisualState();
+	UpdateRoleText();
+
 	ShowCorpse();
 
 	if (UCharacterMovementComponent* MoveComp = GetCharacterMovement())
@@ -2082,11 +2407,42 @@ void AMyCharacter::SetStateFromNetwork(int32 InState)
 
 	const ERecCharacterState NewState = static_cast<ERecCharacterState>(InState);
 	if (CharacterState == NewState) {
+		if (NewState == ERecCharacterState::Dead)
+		{
+			if (GetWorld())
+			{
+				GetWorldTimerManager().ClearTimer(RoleSkillTimerHandle);
+			}
+
+			if (bRoleSkillActive)
+			{
+				bRoleSkillActive = false;
+			}
+
+			ApplyRoleStats();
+			ApplyRoleSkillState();
+			UpdateRoleText();
+		}
 		return;
 	}
 
 	if (NewState == ERecCharacterState::Dead && bRoleSkillActive) {
-		EndRoleSkill();
+		if (HasAuthority())
+		{
+			EndRoleSkill();
+		}
+		else
+		{
+			if (GetWorld())
+			{
+				GetWorldTimerManager().ClearTimer(RoleSkillTimerHandle);
+			}
+
+			bRoleSkillActive = false;
+			ApplyRoleStats();
+			ApplyRoleSkillState();
+			UpdateRoleText();
+		}
 	}
 
 	CharacterState = NewState;
