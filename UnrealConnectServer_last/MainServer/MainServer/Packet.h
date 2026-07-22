@@ -143,6 +143,8 @@ enum PacketID {
     PKT_C2S_READY_REQ = 510,
     PKT_C2S_ROOM_SLOT_SELECT_REQ = 511,
     PKT_C2S_ROOM_LEAVE_REQ = 512,
+    PKT_C2S_ROUND_LOAD_COMPLETE_REQ = 513,
+    PKT_C2S_ROUND_COUNTDOWN_READY_REQ = 514,
 
     // ------------------------------------------
     // [ InGame Sync / Combat Packets ]

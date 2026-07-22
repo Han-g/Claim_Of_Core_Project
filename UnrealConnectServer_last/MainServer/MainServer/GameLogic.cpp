@@ -35,28 +35,27 @@ void GameLogic::Update(float deltaTime)
         return;
     }
 
-    if (matchFlowState == EMatchFlow::MapSelectedWait)
+    if (matchFlowState == EMatchFlow::MapLoading)
     {
         matchFlowRemainTime -= deltaTime;
-        if (matchFlowRemainTime <= 0.0f)
+
+        if (AreAllConnectedMembersReady(LoadedRoundSessions) || matchFlowRemainTime <= 0.0f)
         {
-            matchFlowState = EMatchFlow::RoundPlaying;
-
-            RoundStartPacket pkt{};
-            pkt.currentRound = currentRound;
-            pkt.maxRound = maxRound;
-            pkt.currentMap = mapType;
-            pkt.team1Score = team1Score;
-            pkt.team2Score = team2Score;
-
-            ownerRoom->BroadcastToMembers(
-                PKT_S2C_ROUND_START_BRD,
-                reinterpret_cast<const char*>(&pkt),
-                sizeof(pkt)
-            );
-
-            ownerRoom->BeginDeferredRoundStart(roundStartDelay);
+            StartRoundCountdown();
         }
+
+        return;
+    }
+
+    if (matchFlowState == EMatchFlow::RoundCountdown)
+    {
+        matchFlowRemainTime -= deltaTime;
+
+        if (AreAllConnectedMembersReady(CountdownReadySessions) || matchFlowRemainTime <= 0.0f)
+        {
+            StartRoundPlaying();
+        }
+
         return;
     }
 
@@ -94,8 +93,6 @@ void GameLogic::Update(float deltaTime)
             continue;
         }
     }
-
-
 
     // Update map-specific hazard logic.
     if      (mapType == 1)  { UpdateBuildingMap(deltaTime); } 
@@ -336,8 +333,11 @@ void GameLogic::BeginRoundPrepare()
 
     umbrellaDebrisIgnoreUntilByUID.clear();
 
-    matchFlowState = EMatchFlow::MapSelectedWait;
-    matchFlowRemainTime = mapSelectTime;
+    LoadedRoundSessions.clear();
+    CountdownReadySessions.clear();
+
+    matchFlowState = EMatchFlow::MapLoading;
+    matchFlowRemainTime = maxLoadWaitTime;
 
     if (!TrySelectMap())
     {
@@ -365,12 +365,43 @@ void GameLogic::BeginRoundPrepare()
     pkt.currentMap = mapType;
     pkt.team1Score = team1Score;
     pkt.team2Score = team2Score;
+    pkt.mapSelectTime = roundCountdownTime;
 
     ownerRoom->BroadcastToMembers(
         PKT_S2C_ROUND_PREPARE_BRD,
         reinterpret_cast<const char*>(&pkt),
         sizeof(pkt)
     );
+}
+
+void GameLogic::MarkClientLoaded(int sessionID)
+{
+    if (matchFlowState != EMatchFlow::MapLoading)
+    {
+        return;
+    }
+
+    LoadedRoundSessions.insert(sessionID);
+
+    if (AreAllConnectedMembersReady(LoadedRoundSessions))
+    {
+        StartRoundCountdown();
+    }
+}
+
+void GameLogic::MarkClientCountdownReady(int sessionID)
+{
+    if (matchFlowState != EMatchFlow::RoundCountdown)
+    {
+        return;
+    }
+
+    CountdownReadySessions.insert(sessionID);
+
+    if (AreAllConnectedMembersReady(CountdownReadySessions))
+    {
+        StartRoundPlaying();
+    }
 }
 
 void GameLogic::SetAvailableMaps(const std::vector<int>& maps)
@@ -408,30 +439,7 @@ bool GameLogic::TrySelectMap()
 
 void GameLogic::FinishMapSelection()
 {
-    if (matchFlowState != EMatchFlow::MapSelecting)
-    {
-        return;
-    }
-
-    if (selectedMapType < 1) {
-        if (!TrySelectMap()) {
-            return;
-        }
-    }
-
-    mapType = selectedMapType;
-
-    ownerRoom->SelectStage(selectedMapType);
-    ownerRoom->LoadStage(selectedMapType);
-
-    /*ownerRoom->BroadcastToMembers(
-        PKT_S2C_MAP_SELECT_NOTICE,
-        reinterpret_cast<const char*>(&selectedMapType),
-        sizeof(selectedMapType)
-    );*/
-
-    matchFlowState = EMatchFlow::MapSelectedWait;
-    matchFlowRemainTime = roundStartDelay;
+    // Map selection is now handled by BeginRoundPrepare().
 }
 
 void GameLogic::BeginNextRoundOrEndMatch()
@@ -472,6 +480,59 @@ void GameLogic::EndMatch()
 
     ownerRoom->ReturnMembersToLobby();
     ownerRoom->SetState(ERoomState::FINISHED);
+}
+
+bool GameLogic::AreAllConnectedMembersReady(const std::unordered_set<int>& ReadySet) const
+{
+    if (!ownerRoom)
+    {
+        return false;
+    }
+
+    const std::vector<int> sessionIDs = ownerRoom->GetConnectedSessionIDs();
+    if (sessionIDs.empty())
+    {
+        return false;
+    }
+
+    for (int sessionID : sessionIDs)
+    {
+        if (ReadySet.find(sessionID) == ReadySet.end())
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void GameLogic::StartRoundCountdown()
+{
+    if (matchFlowState != EMatchFlow::MapLoading) { return; }
+
+    matchFlowState = EMatchFlow::RoundCountdown;
+    matchFlowRemainTime = roundCountdownTime;
+
+    RoundStartPacket pkt{};
+    pkt.currentRound = currentRound;
+    pkt.maxRound = maxRound;
+    pkt.currentMap = mapType;
+    pkt.team1Score = team1Score;
+    pkt.team2Score = team2Score;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_ROUND_START_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+void GameLogic::StartRoundPlaying()
+{
+    if (matchFlowState != EMatchFlow::RoundCountdown) { return; }
+
+    matchFlowState = EMatchFlow::RoundPlaying;
+    StartGameRound();
 }
 
 

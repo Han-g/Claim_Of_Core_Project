@@ -702,6 +702,14 @@ void AMyCharacter::ApplyRoleVisual()
 		SkelComp->SetAnimInstanceClass(Data.AnimBPClass);
 	}
 
+	for (int32 MaterialIndex = 0; MaterialIndex < Data.Materials.Num(); ++MaterialIndex)
+	{
+		if (Data.Materials[MaterialIndex])
+		{
+			SkelComp->SetMaterial(MaterialIndex, Data.Materials[MaterialIndex]);
+		}
+	}
+
 	switch (RoleType)
 	{
 	case ERecRoleType::Striker:
@@ -723,7 +731,7 @@ void AMyCharacter::ApplyRoleVisual()
 		break;
 
 	case ERecRoleType::Manipulator:
-		GetMesh()->SetRelativeScale3D(FVector(0.6f));
+		GetMesh()->SetRelativeScale3D(FVector(1.f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
@@ -2509,7 +2517,7 @@ void AMyCharacter::Attack()
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
 	{
 		const int32 AttackType = CurrentItem ? 1 : 0;
-		NetworkInstance->RequestAttackInput(0);
+		NetworkInstance->RequestAttackInput(AttackType);
 	}
 }
 

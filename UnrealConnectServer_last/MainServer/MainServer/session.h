@@ -9,6 +9,8 @@
 #include <ws2tcpip.h>
 #include <mswsock.h>
 
+#include <atomic>
+#include <cstdint>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -120,6 +122,8 @@ enum class IO_OPERATION {
 // Extends WSAOVERLAPPED with a lightweight I/O operation tag.
 struct OverlappedEx : public WSAOVERLAPPED {
 	IO_OPERATION type;
+	int sessionID = -1;
+	uint64_t generation = 0;
 };
 
 enum class ESessionState {
@@ -152,6 +156,13 @@ struct Session {
 	int roomID;		// -1: Not Entering a Room
 	int roomSlot;
 	int teamID;
+
+	// Reusing the same session ID slot will disconnect the old and new connectors.
+	uint64_t generation = 0;
+	// Indicates whether Disconnect is already being processed.
+	std::atomic_bool isClosing = false;
+	// Number of WSARecv/WSASends that have not yet returned IOCP completion.
+	std::atomic_uint pendingIo = 0;
 
 	bool isConnected = false;
 	bool isReady = false;
@@ -200,6 +211,9 @@ struct Session {
 		roomSlot = -1;
 		teamID = -1;
 
+		generation = 0;
+		isClosing = false;
+		pendingIo = 0;
 
 		now_state = ESessionState::LOGIN;
 

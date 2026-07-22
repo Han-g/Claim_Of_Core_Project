@@ -43,10 +43,6 @@ void URoundPrepareWidget::SetSelectedMap(int32 MapType)
 			SelectedMapImage->SetBrushFromTexture(MapTexture, true);
 		}
 	}
-
-	RemainingTime = 5.0f;
-	bCountingDown = true;
-	UpdateCounterText();
 }
 
 void URoundPrepareWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)

@@ -35,6 +35,8 @@ namespace
 		case PKT_C2S_READY_REQ:
 		case PKT_C2S_ROOM_SLOT_SELECT_REQ:
 		case PKT_C2S_ROOM_LEAVE_REQ:
+		case PKT_C2S_ROUND_LOAD_COMPLETE_REQ:
+		case PKT_C2S_ROUND_COUNTDOWN_READY_REQ:
 		case PKT_C2S_MOVE_KEYINPUT:
 		case PKT_C2S_JUMP_KEYINPUT:
 		case PKT_C2S_ATTACK_KEYINPUT:
@@ -106,7 +108,9 @@ namespace
 				|| packetID == PKT_C2S_OBJECT_HIT_REQ
 				|| packetID == PKT_C2S_ICE_FLOOR_STAND_REQ
 				|| packetID == PKT_C2S_GRENADE_BLACKHOLE_REQ
-				|| packetID == PKT_C2S_ROLE_SKILL_REQ;
+				|| packetID == PKT_C2S_ROLE_SKILL_REQ
+				|| packetID == PKT_C2S_ROUND_LOAD_COMPLETE_REQ
+				|| packetID == PKT_C2S_ROUND_COUNTDOWN_READY_REQ;
 
 		default:
 			return false;

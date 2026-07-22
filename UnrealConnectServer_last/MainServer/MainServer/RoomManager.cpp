@@ -502,6 +502,40 @@ void Room::ReturnMembersToLobby()
     }
 }
 
+void Room::SetMembersInGame()
+{
+    std::lock_guard<std::mutex> lock(m_RoomLock);
+
+    for (Session* member : m_Members)
+    {
+        if (!member || !member->isConnected)
+        {
+            continue;
+        }
+
+        SessionManager::GetInstance()->SetState(
+            member->sessionID,
+            ESessionState::INGAME
+        );
+    }
+}
+
+std::vector<int> Room::GetConnectedSessionIDs()
+{
+    std::lock_guard<std::mutex> lock(m_RoomLock);
+
+    std::vector<int> result;
+    for (Session* member : m_Members)
+    {
+        if (member && member->isConnected)
+        {
+            result.push_back(member->sessionID);
+        }
+    }
+
+    return result;
+}
+
 std::vector<RoomMemberPacket> Room::GetMemberInfoList()
 {
     std::lock_guard<std::mutex> lock(m_RoomLock);
@@ -832,8 +866,8 @@ void RoomManager::GameStart(Session* client)
     logic->ownerRoom = room;
     logic->SetAvailableMaps(AvailableMaps);
 
-    room->SetState(ERoomState::PLAYING);
     room->InitGameLogic(logic);
+    room->SetMembersInGame();
     m_Server->BroadcastRoomList();
 
     LOG_INFO("Game Started! Room [%d]", client->roomID);

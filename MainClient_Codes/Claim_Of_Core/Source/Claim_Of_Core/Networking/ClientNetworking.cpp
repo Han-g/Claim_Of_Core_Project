@@ -428,6 +428,21 @@ void ClientNetworking::GameStartRequest()
     EnqueueSendCommand(PKT_C2S_GAME_START_REQ);
 }
 
+void ClientNetworking::RoundLoadCompleteRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ROUND_LOAD_COMPLETE_REQ);
+}
+
+void ClientNetworking::RoundCountdownReadyRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ROUND_COUNTDOWN_READY_REQ);
+}
+
+void ClientNetworking::AttackInputRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ATTACK_KEYINPUT);
+}
+
 void ClientNetworking::RoleSkillRequest()
 {
     EnqueueSendCommand(PKT_C2S_ROLE_SKILL_REQ);

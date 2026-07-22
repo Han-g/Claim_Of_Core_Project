@@ -1,8 +1,8 @@
 #include "Database.h"
 
-DBHelper::DBHelper()
-    : hEnv(SQL_NULL_HANDLE), hDbc(SQL_NULL_HANDLE), m_IsConnected(false)
+DBHelper::DBHelper() : hEnv(SQL_NULL_HANDLE), hDbc(SQL_NULL_HANDLE), m_IsConnected(false)
 {
+
 }
 
 DBHelper::~DBHelper()
@@ -12,19 +12,21 @@ DBHelper::~DBHelper()
 
 bool DBHelper::Connect()
 {
+    Disconnect();
+
     SQLRETURN ret;
 
     // 1. Allocate the ODBC environment handle.
     ret = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &hEnv);
-    if (!SQL_SUCCEEDED(ret)) return false;
+    if (!SQL_SUCCEEDED(ret)) { Disconnect(); return false; }
 
     // 2. Select the ODBC 3.x API version.
     ret = SQLSetEnvAttr(hEnv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
-    if (!SQL_SUCCEEDED(ret)) return false;
+    if (!SQL_SUCCEEDED(ret)) { Disconnect(); return false; }
 
     // 3. Allocate the database connection handle.
     ret = SQLAllocHandle(SQL_HANDLE_DBC, hEnv, &hDbc);
-    if (!SQL_SUCCEEDED(ret)) return false;
+    if (!SQL_SUCCEEDED(ret)) { Disconnect(); return false; }
 
     // 4. Fail fast if the login handshake takes too long.
     SQLSetConnectAttr(hDbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
@@ -82,10 +84,60 @@ void DBHelper::Disconnect()
     {
         SQLDisconnect(hDbc);
         SQLFreeHandle(SQL_HANDLE_DBC, hDbc);
+        hDbc = SQL_NULL_HANDLE;
     }
-    if (hEnv != SQL_NULL_HANDLE) { SQLFreeHandle(SQL_HANDLE_ENV, hEnv); }
+
+    if (hEnv != SQL_NULL_HANDLE) 
+    { 
+        SQLFreeHandle(SQL_HANDLE_ENV, hEnv);
+        hEnv = SQL_NULL_HANDLE;
+    }
 
     m_IsConnected = false;
+}
+
+bool DBHelper::IsConnectionLost(SQLHANDLE handle, SQLSMALLINT type)
+{
+    SQLSMALLINT i = 0;
+    SQLINTEGER native = 0;
+    SQLWCHAR state[7] = {};
+    SQLWCHAR text[256] = {};
+    SQLSMALLINT len = 0;
+
+    while (SQLGetDiagRec(type, handle, ++i, state, &native, text,
+        sizeof(text) / sizeof(SQLWCHAR), &len) == SQL_SUCCESS)
+    {
+        if (wcsncmp((wchar_t*)state, L"08", 2) == 0)
+        {
+            return true;
+             // 08003: connection does not exist
+             // 08006: connection failure
+             // 08S01: communication link failure
+        }
+
+        if (wcscmp((wchar_t*)state, L"HYT00") == 0 ||   // timeout expired
+            wcscmp((wchar_t*)state, L"HYT01") == 0)     // connection timeout expired
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool DBHelper::Reconnect()
+{
+    LOG_WARN("[DB] reconnect requested");
+    Disconnect();
+
+    if (!Connect())
+    {
+        LOG_ERROR("[DB] reconnect failed");
+        return false;
+    }
+
+    LOG_INFO("[DB] reconnect success");
+    return true;
 }
 
 void DBHelper::PrintError(SQLHANDLE handle, SQLSMALLINT type)
@@ -114,87 +166,335 @@ void DBHelper::PrintError(SQLHANDLE handle, SQLSMALLINT type)
 
 bool DBHelper::CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID)
 {
-    if (!m_IsConnected) { return false; }
+    playerUID = -1;
 
-    // Allocate a fresh statement handle for this login request.
-    SQLHSTMT hStmt = SQL_NULL_HANDLE;
-    bool bSuccess = false;
-
-    if (SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt) != SQL_SUCCESS) {
-        LOG_ERROR("Failed to Allocate Statement Handle in CheckLogin");
+    if (!m_IsConnected && !Reconnect())
+    {
         return false;
     }
 
-    // Prepare a parameterized stored procedure call.
-    SQLWCHAR* query = (SQLWCHAR*)L"{call SP_LoginAccess(?, ?)}";
-    if (SQLPrepare(hStmt, query, SQL_NTS) != SQL_SUCCESS) { 
-        LOG_ERROR("SQL Prepare Failed!"); 
-        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-        return false; 
+    EDBQueryResult result = CheckLoginOnce(userID, userPW, playerUID);
+    if (result == EDBQueryResult::Success)
+    {
+        return true;
     }
 
-    // SQL_NTS tells ODBC to treat the bound string as null-terminated.
-    SQLLEN idLen = SQL_NTS;
-    SQLLEN pwLen = SQL_NTS;
+    if (result == EDBQueryResult::ConnectionLost)
+    {
+        LOG_WARN("[DB] CheckLogin detected lost connection. retrying once.");
 
-    // Bind the input values to the prepared procedure parameters.
-    SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
-        userID.length(), 0, (SQLPOINTER)userID.c_str(), 0, &idLen);
-    SQLBindParameter(hStmt, 2, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
-        userPW.length(), 0, (SQLPOINTER)userPW.c_str(), 0, &pwLen);
-
-    // Execute the stored procedure.
-    if (SQLExecDirect(hStmt, query, SQL_NTS) != SQL_SUCCESS) { 
-        SQLWCHAR sqlState[6], message[SQL_MAX_MESSAGE_LENGTH];
-        SQLINTEGER nativeError;
-        SQLSMALLINT textLength;
-
-        SQLGetDiagRec(SQL_HANDLE_STMT, hStmt, 1, sqlState, &nativeError, message, sizeof(message) / sizeof(SQLWCHAR), &textLength);
-
-        LOG_ERROR("DB Query Failed! State: %ls, Msg: %ls", sqlState, message);
-        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-        return false; 
-    }
-
-    if (SQLFetch(hStmt) == SQL_SUCCESS) {
-        int loginResult = 0;
-        SQLLEN len = 0;
-
-        SQLGetData(hStmt, 1, SQL_C_LONG, &loginResult, sizeof(int), &len);
-
-        if (loginResult == 0) {
-            LOG_ERROR("Failed to Server Login - ID / PW is InValid");
-            SQLCloseCursor(hStmt); // Close the cursor before releasing the statement handle.
-            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+        if (!Reconnect())
+        {
             return false;
         }
 
-        else {
-            int accountUID = 0;
-            SQLGetData(hStmt, 2, SQL_C_LONG, &accountUID, sizeof(int), &len);
-
-            playerUID = accountUID;
-
-            SQLCloseCursor(hStmt);
-            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-            return true;
-        }
+        result = CheckLoginOnce(userID, userPW, playerUID);
+        return result == EDBQueryResult::Success;
     }
 
-    SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
     return false;
 }
 
-bool DBHelper::IsValidAccountString(const std::wstring& inputStr)
+EDBQueryResult DBHelper::CheckLoginOnce(const std::wstring& userID, const std::wstring& userPW, int& playerUID)
 {
-    // ^          : start of the string
-    // [a-zA-Z0-9]: letters and digits only
-    // {4,12}     : 4 to 12 characters
-    // $          : end of the string
-    std::wregex pattern(L"^[a-zA-Z0-9]{4,12}$");
+    if (!m_IsConnected)
+    {
+        return EDBQueryResult::ConnectionLost;
+    }
 
-    return std::regex_match(inputStr, pattern);
+    SQLHSTMT hStmt = SQL_NULL_HANDLE;
+
+    auto CleanupStmt = [&]() {
+        if (hStmt != SQL_NULL_HANDLE)
+        {
+            SQLCloseCursor(hStmt);
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+            hStmt = SQL_NULL_HANDLE;
+        }
+        };
+
+    if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt)))
+    {
+        LOG_ERROR("Failed to Allocate Statement Handle in CheckLogin");
+        return EDBQueryResult::Failed;
+    }
+
+    SQLSetStmtAttr(hStmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)5, 0);
+
+    SQLWCHAR* query = (SQLWCHAR*)L"{call dbo.SP_LoginAccess(?, ?)}";
+
+    if (!SQL_SUCCEEDED(SQLPrepare(hStmt, query, SQL_NTS)))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+
+        bool lost = IsConnectionLost(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+
+        if (lost)
+        {
+            m_IsConnected = false;
+            return EDBQueryResult::ConnectionLost;
+        }
+
+        return EDBQueryResult::Failed;
+    }
+
+    SQLLEN idLen = SQL_NTS;
+    SQLLEN pwLen = SQL_NTS;
+
+    SQLBindParameter(
+        hStmt,
+        1,
+        SQL_PARAM_INPUT,
+        SQL_C_WCHAR,
+        SQL_WVARCHAR,
+        userID.length(),
+        0,
+        (SQLPOINTER)userID.c_str(),
+        0,
+        &idLen
+    );
+
+    SQLBindParameter(
+        hStmt,
+        2,
+        SQL_PARAM_INPUT,
+        SQL_C_WCHAR,
+        SQL_WVARCHAR,
+        userPW.length(),
+        0,
+        (SQLPOINTER)userPW.c_str(),
+        0,
+        &pwLen
+    );
+
+    SQLRETURN execRet = SQLExecute(hStmt);
+    if (!SQL_SUCCEEDED(execRet))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+
+        bool lost = IsConnectionLost(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+
+        if (lost)
+        {
+            m_IsConnected = false;
+            return EDBQueryResult::ConnectionLost;
+        }
+
+        return EDBQueryResult::Failed;
+    }
+
+    SQLRETURN fetchRet = SQLFetch(hStmt);
+    if (!SQL_SUCCEEDED(fetchRet))
+    {
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    int loginResult = 0;
+    SQLLEN len = 0;
+
+    if (!SQL_SUCCEEDED(SQLGetData(hStmt, 1, SQL_C_LONG, &loginResult, sizeof(int), &len)))
+    {
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    if (loginResult == 0)
+    {
+        LOG_ERROR("Failed to Server Login - ID / PW is Invalid");
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    int accountUID = 0;
+    if (!SQL_SUCCEEDED(SQLGetData(hStmt, 2, SQL_C_LONG, &accountUID, sizeof(int), &len)))
+    {
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    playerUID = accountUID;
+
+    CleanupStmt();
+    return EDBQueryResult::Success;
+} 
+
+
+bool DBHelper::CreateAccount(const std::wstring& userID, const std::wstring& userPW)
+{
+    if (!m_IsConnected || (!IsValidUserID(userID)) || !IsValidUserPW(userPW)) { return false; }
+
+
+    if (!m_IsConnected && !Reconnect()) { return false; }
+
+    EDBQueryResult result = CreateAccountOnce(userID, userPW);
+    if (result == EDBQueryResult::Success)
+    {
+        return true;
+    }
+
+    if (result == EDBQueryResult::ConnectionLost)
+    {
+        LOG_WARN("[DB] CreateAccount detected lost connection. retrying once.");
+
+        if (!Reconnect())
+        {
+            return false;
+        }
+
+        result = CreateAccountOnce(userID, userPW);
+        return result == EDBQueryResult::Success;
+    }
+    
+    return false;
 }
+
+EDBQueryResult DBHelper::CreateAccountOnce(const std::wstring& userID, const std::wstring& userPW)
+{
+    if (!m_IsConnected)
+    {
+        return EDBQueryResult::ConnectionLost;
+    }
+
+    SQLHSTMT hStmt = SQL_NULL_HANDLE;
+    bool bSuccess = false;
+
+
+    auto CleanupStmt = [&]() {
+        if (hStmt != SQL_NULL_HANDLE)
+        {
+            SQLCloseCursor(hStmt);
+            SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
+            hStmt = SQL_NULL_HANDLE;
+        }
+        };
+
+    if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt)))
+    {
+        LOG_ERROR("Failed to Allocate Statement Handle in CreateAccount");
+        return EDBQueryResult::Failed;
+    }
+
+    SQLSetStmtAttr(hStmt, SQL_ATTR_QUERY_TIMEOUT, (SQLPOINTER)5, 0);
+
+    SQLWCHAR* query = (SQLWCHAR*)L"{call dbo.SP_CreateAccount(?, ?)}";
+
+    if (!SQL_SUCCEEDED(SQLPrepare(hStmt, query, SQL_NTS)))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+
+        bool lost = IsConnectionLost(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+
+        if (lost)
+        {
+            m_IsConnected = false;
+            return EDBQueryResult::ConnectionLost;
+        }
+
+        return EDBQueryResult::Failed;
+    }
+
+    SQLLEN idLen = SQL_NTS;
+    SQLLEN pwLen = SQL_NTS;
+
+    if (!SQL_SUCCEEDED(SQLBindParameter(
+        hStmt,
+        1,
+        SQL_PARAM_INPUT,
+        SQL_C_WCHAR,
+        SQL_WVARCHAR,
+        userID.length(),
+        0,
+        (SQLPOINTER)userID.c_str(),
+        0,
+        &idLen)))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    if (!SQL_SUCCEEDED(SQLBindParameter(
+        hStmt,
+        2,
+        SQL_PARAM_INPUT,
+        SQL_C_WCHAR,
+        SQL_WVARCHAR,
+        userPW.length(),
+        0,
+        (SQLPOINTER)userPW.c_str(),
+        0,
+        &pwLen)))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    SQLRETURN execRet = SQLExecute(hStmt);
+    if (!SQL_SUCCEEDED(execRet))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+
+        bool lost = IsConnectionLost(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+
+        if (lost)
+        {
+            m_IsConnected = false;
+            return EDBQueryResult::ConnectionLost;
+        }
+
+        return EDBQueryResult::Failed;
+    }
+
+    SQLRETURN fetchRet = SQLFetch(hStmt);
+    if (fetchRet == SQL_NO_DATA)
+    {
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    if (!SQL_SUCCEEDED(fetchRet))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+
+        bool lost = IsConnectionLost(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+
+        if (lost)
+        {
+            m_IsConnected = false;
+            return EDBQueryResult::ConnectionLost;
+        }
+
+        return EDBQueryResult::Failed;
+    }
+
+    int resultCode = 0;
+    SQLLEN len = 0;
+
+    if (!SQL_SUCCEEDED(SQLGetData(hStmt, 1, SQL_C_LONG, &resultCode, sizeof(int), &len)))
+    {
+        PrintError(hStmt, SQL_HANDLE_STMT);
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    if (resultCode == -1)
+    {
+        LOG_WARN("Create Account Failed - UserID Already Exists! [%ls]", userID.c_str());
+        CleanupStmt();
+        return EDBQueryResult::Failed;
+    }
+
+    CleanupStmt();
+    return EDBQueryResult::Success;
+}
+
 
 bool DBHelper::IsValidUserID(const std::wstring& inputID)
 {
@@ -236,63 +536,13 @@ bool DBHelper::IsValidUserPW(const std::wstring& inputPW)
     return std::regex_match(inputPW, pattern);
 }
 
-bool DBHelper::CreateAccount(const std::wstring& userID, const std::wstring& userPW)
+bool DBHelper::IsValidAccountString(const std::wstring& inputStr)
 {
-    if (!m_IsConnected || (!IsValidUserID(userID)) || !IsValidUserPW(userPW)) { return false; }
+    // ^          : start of the string
+    // [a-zA-Z0-9]: letters and digits only
+    // {4,12}     : 4 to 12 characters
+    // $          : end of the string
+    std::wregex pattern(L"^[a-zA-Z0-9]{4,12}$");
 
-    SQLHSTMT hStmt = SQL_NULL_HANDLE;
-    bool bSuccess = false;
-
-    // Allocate a fresh statement handle for this account creation request.
-    if (SQLAllocHandle(SQL_HANDLE_STMT, hDbc, &hStmt) != SQL_SUCCESS) {
-        LOG_ERROR("Failed to Allocate Statement Handle in CreateAccount");
-        return false;
-    }
-
-    // Prepare the stored procedure call.
-    SQLWCHAR* query = (SQLWCHAR*)L"{call SP_CreateAccount(?, ?)}";
-    if (SQLPrepare(hStmt, query, SQL_NTS) != SQL_SUCCESS) {
-        LOG_ERROR("SQL Prepare Failed in CreateAccount");
-        SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-        return false;
-    }
-
-    // Bind the input values to the prepared procedure parameters.
-    SQLLEN idLen = SQL_NTS;
-    SQLLEN pwLen = SQL_NTS;
-
-    SQLBindParameter(hStmt, 1, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
-        userID.length(), 0, (SQLPOINTER)userID.c_str(), 0, &idLen);
-    SQLBindParameter(hStmt, 2, SQL_PARAM_INPUT, SQL_C_WCHAR, SQL_WVARCHAR,
-        userPW.length(), 0, (SQLPOINTER)userPW.c_str(), 0, &pwLen);
-
-    // Execute the stored procedure.
-    if (SQLExecDirect(hStmt, query, SQL_NTS) != SQL_SUCCESS) {
-        LOG_ERROR("DB Query Failed: SP_CreateAccount for ID: %ls", userID.c_str());
-        SQLFreeStmt(hStmt, SQL_CLOSE);
-        return false;
-    }
-
-    // Read the stored procedure result.
-    if (SQLFetch(hStmt) == SQL_SUCCESS) {
-        int resultCode = 0;
-        SQLLEN len = 0;
-
-        // The first column returns either an error code or the new AccountUID.
-        SQLGetData(hStmt, 1, SQL_C_LONG, &resultCode, sizeof(int), &len);
-
-        if (resultCode == -1) {
-            // -1 indicates that the requested user ID already exists.
-            LOG_WARN("Create Account Failed - UserID Already Exists! [%ls]", userID.c_str());
-            SQLCloseCursor(hStmt);
-            return false;
-        }
-        else {
-            SQLCloseCursor(hStmt);
-            return true;
-        }
-    }
-
-    SQLFreeHandle(SQL_HANDLE_STMT, hStmt);
-    return false;
+    return std::regex_match(inputStr, pattern);
 }

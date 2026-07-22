@@ -28,10 +28,20 @@ Session* SessionManager::AcceptNewClient(SOCKET clientSocket)
 
     // Reset session-owned socket and identity data.
     session->socket = clientSocket;
+    session->generation++;
+    session->isClosing = false;
+    session->pendingIo = 0;
+
     session->isConnected = true;
     session->roomID = -1;
     session->playerUID = -1;
     session->now_state = ESessionState::LOGIN;
+
+    session->roomSlot = -1;
+    session->teamID = -1;
+    session->isReady = false;
+    session->isAttack = false;
+    session->isGrounded = true;
 
     // Reset gameplay state for the reused session slot.
     session->gameDatas.isConnected = true;
@@ -42,13 +52,28 @@ Session* SessionManager::AcceptNewClient(SOCKET clientSocket)
 
     ZeroMemory(session->TempBuffer, sizeof(session->TempBuffer));
     ZeroMemory(&session->recvBuffer, sizeof(s_ringbuf));
+
     ZeroMemory(&session->recvOverlapped, sizeof(OverlappedEx));
     session->recvOverlapped.type = IO_OPERATION::RECV;
+    session->recvOverlapped.sessionID = session->sessionID;
+    session->recvOverlapped.generation = session->generation;
 
-    session->isSending = false;
-    while (!session->sendQueue.empty()) session->sendQueue.pop();
+    {
+        std::lock_guard<std::mutex> sendLock(session->sendLock);
 
-    ZeroMemory(&session->sendOverlapped, sizeof(OverlappedEx));
+        session->isSending = false;
+
+        while (!session->sendQueue.empty())
+        {
+            session->sendQueue.pop();
+        }
+
+        ZeroMemory(&session->sendOverlapped, sizeof(OverlappedEx));
+        session->sendOverlapped.type = IO_OPERATION::SEND;
+        session->sendOverlapped.sessionID = session->sessionID;
+        session->sendOverlapped.generation = session->generation;
+    }
+
     return session;
 }
 
@@ -60,7 +85,10 @@ void SessionManager::DisconnectClient(int clientID)
     }
 
     Session* session = m_Sessions[clientID];
+    if (session->isClosing.exchange(true)) { return; }
+
     int roomToLeave = -1;
+
 
     // Phase 1: Mark session as disconnected and close socket.
     // Keep the slot reserved (not yet returned to FreeSessionQueue) so that
@@ -90,6 +118,8 @@ void SessionManager::DisconnectClient(int clientID)
     }
 
     // Phase 3: Reset the remaining fields and return the slot to the free queue.
+    bool shouldTryRecycle = false;
+
     {
         std::lock_guard<std::mutex> lock(m_SessionLock);
 
@@ -108,7 +138,12 @@ void SessionManager::DisconnectClient(int clientID)
         session->playerName.clear();
         session->now_state = ESessionState::LOGIN;
 
-        m_FreeSessionQueue.push(clientID);
+        shouldTryRecycle = (session->pendingIo == 0);
+    }
+
+    if (shouldTryRecycle)
+    {
+        TryRecycleSession(clientID);
     }
 }
 
@@ -145,4 +180,44 @@ bool SessionManager::TryBindLoggedInUser(int userUID, int sessionID)
 
     m_LoggedInUsers[userUID] = sessionID;
     return true;
+}
+
+void SessionManager::TryRecycleSession(int clientID)
+{
+    if (clientID < 0 || clientID >= MAXCLIENT)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(m_SessionLock);
+
+    Session* session = m_Sessions[clientID];
+
+    if (!session->isClosing)
+    {
+        return;
+    }
+
+    if (session->pendingIo != 0)
+    {
+        return;
+    }
+
+    session->roomID = -1;
+    session->roomSlot = -1;
+    session->teamID = -1;
+    session->isReady = false;
+    session->isAttack = false;
+    session->playerUID = -1;
+    session->playerName.clear();
+    session->now_state = ESessionState::LOGIN;
+    session->isSending = false;
+    session->isClosing = false;
+
+    while (!session->sendQueue.empty())
+    {
+        session->sendQueue.pop();
+    }
+
+    m_FreeSessionQueue.push(clientID);
 }

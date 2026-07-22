@@ -43,6 +43,12 @@ UNetworkInstance::UNetworkInstance()
 		RoomWidgetClass = ROOM_BP.Class;
 	}
 
+	static ConstructorHelpers::FClassFinder<UUserWidget> ROUND_PREPARE_BP(TEXT("/Game/Game/UI/WB_RoundPrepare.WB_RoundPrepare_C"));
+	if (ROUND_PREPARE_BP.Succeeded())
+	{
+		RoundPrepareWidgetClass = ROUND_PREPARE_BP.Class;
+	}
+
 	// Initial map Setting
 	InGameLevel = TSoftObjectPtr<UWorld>(
 		FSoftObjectPath(TEXT("/Game/Game/Map/Stage/BuildingStage.BuildingStage"))
@@ -258,6 +264,8 @@ void UNetworkInstance::RequestRoomSlotSelect(int32 SlotIndex)
 
 void UNetworkInstance::ShowLoginHUD()
 {
+	SetCanSendGameplayPackets(false);
+
 	UE_LOG(LogTemp, Warning, TEXT("Called ShowLoginHUD Function!"));
 
 	if (LoginWidgetClass == nullptr)
@@ -336,22 +344,28 @@ void UNetworkInstance::LoadComplete(const float LoadTime, const FString& MapName
 {
 	Super::LoadComplete(LoadTime, MapName);
 
-	if (!bPendingReturnToLobby)
+	if (bPendingReturnToLobby && MapName.Contains(TEXT("GameLobby")))
 	{
+		bPendingReturnToLobby = false;
+		ShowLobbyHUD();
 		return;
 	}
 
-	if (!MapName.Contains(TEXT("GameLobby")))
+	if (bPendingRoundLoadCompleteAck && !MapName.Contains(TEXT("GameLobby")))
 	{
-		return;
-	}
+		bPendingRoundLoadCompleteAck = false;
 
-	bPendingReturnToLobby = false;
-	ShowLobbyHUD();
+		if (Client.IsValid())
+		{
+			Client->RoundLoadCompleteRequest();
+		}
+	}
 }
 
 void UNetworkInstance::ShowLobbyHUD()
 {
+	SetCanSendGameplayPackets(false);
+
 	if (!LobbyWidgetClass)
 	{
 		UE_LOG(LogTemp, Error, TEXT("LobbyWidgetClass is Not Assignment, Check Blueprint."));
@@ -415,6 +429,8 @@ void UNetworkInstance::JoinRoom(int32 RoomID)
 
 void UNetworkInstance::RequestLeaveRoom()
 {
+	SetCanSendGameplayPackets(false);
+
 	if (Client.IsValid())
 	{
 		Client->LeaveRoomRequest();
@@ -469,14 +485,19 @@ void UNetworkInstance::RequestAttackInput(int32 AttackType)
 		return;
 	}
 
-	if (!bClientOnlyTestMode)
+	if (bClientOnlyTestMode)
 	{
-		SendGameplayAttackPacket(PKT_C2S_ATTACK_KEYINPUT);
+		UE_LOG(LogTemp, Display, TEXT("[ClientTest] Send test packet: %d"), PKT_C2S_ATTACK_KEYINPUT);
+		DispatchTestAttackAction(AttackType);
 		return;
 	}
 
-	UE_LOG(LogTemp, Display, TEXT("[ClientTest] Send test packet: %d"), PKT_C2S_ATTACK_KEYINPUT);
-	DispatchTestAttackAction(AttackType);
+	if (!CanSendGameplayPackets())
+	{
+		return;
+	}
+
+	Client->AttackInputRequest();
 }
 
 void UNetworkInstance::RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, int32 AttackType)
@@ -484,6 +505,11 @@ void UNetworkInstance::RequestAttackHitReport(uint32 AttackSeq, int32 TargetID, 
 	if (!Client.IsValid())
 	{
 		return;
+	}
+
+	if (!CanSendGameplayPackets()) 
+	{ 
+		return; 
 	}
 
 	if (AttackSeq == 0 || TargetID <= 0)
@@ -498,11 +524,15 @@ void UNetworkInstance::RequestJumpInput()
 {
 	if (!Client.IsValid()) { return; }
 
+	if (!CanSendGameplayPackets()) { return; }
+
 	Client->SendJumpInput();
 }
 
 void UNetworkInstance::RequestRoleSkillActivate()
 {
+	if (!CanSendGameplayPackets()) { return; }
+
 	if (Client.IsValid())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[RoleSkill][ClientReq] Send C2S"));
@@ -514,6 +544,8 @@ void UNetworkInstance::RequestItemPickup(int32 ItemID)
 {
 	if (!Client.IsValid()) { return; }
 
+	if (!CanSendGameplayPackets()) { return; }
+
 	if (ItemID < 0) { return; }
 
 	Client->ItemPickupRequest(ItemID);
@@ -522,6 +554,8 @@ void UNetworkInstance::RequestItemPickup(int32 ItemID)
 void UNetworkInstance::RequestItemDrop(int32 ItemID)
 { 
 	if (!Client.IsValid()) { return; }
+
+	if (!CanSendGameplayPackets()) { return; }
 
 	if (ItemID < 0) { return; }
 
@@ -532,6 +566,8 @@ void UNetworkInstance::RequestObjectHit(int32 ObjectID, int32 ObjectType, int32 
 {
 	if (!Client.IsValid()) { return; }
 
+	if (!CanSendGameplayPackets()) { return; }
+
 	Client->ObjectHitRequest(ObjectID, ObjectType, SubID, HitKind);
 }
 
@@ -540,6 +576,11 @@ void UNetworkInstance::RequestHitscanShot(int32 ItemID, int32 TargetID, const FV
 	if (!Client.IsValid())
 	{
 		return;
+	}
+
+	if (!CanSendGameplayPackets()) 
+	{ 
+		return; 
 	}
 
 	if (ItemID < 0 || TraceDirection.IsNearlyZero())
@@ -563,6 +604,11 @@ void UNetworkInstance::RequestIceFloorStanding(int32 FloorID, int32 PieceIndex)
 		return;
 	}
 
+	if (!CanSendGameplayPackets())
+	{
+		return;
+	}
+
 	Client->IceFloorStandRequest(FloorID, PieceIndex);
 }
 
@@ -571,6 +617,11 @@ void UNetworkInstance::RequestGrenadeBlackHoleSpawn(int32 ItemID, const FVector&
 	if (!Client.IsValid())
 	{
 		return;
+	}
+
+	if (!CanSendGameplayPackets()) 
+	{ 
+		return; 
 	}
 
 	if (ItemID < 0)
@@ -586,6 +637,8 @@ void UNetworkInstance::SendMoveInputToServer(const FMovePacket& MoveData)
 {
 	if (!Client.IsValid()) { return; }
 
+	if (!CanSendGameplayPackets()) { return; }
+
 	Client->SendMoveInput(MoveData);
 }
 
@@ -596,6 +649,8 @@ void UNetworkInstance::SendGameplayAttackPacket(PacketID TestPacket)
 		UE_LOG(LogTemp, Warning, TEXT("[ClientTest] Client is invalid."));
 		return;
 	}
+
+	if (!CanSendGameplayPackets()) { return; }
 
 	Client->TestFuncInput(TestPacket);
 }
@@ -760,6 +815,8 @@ void UNetworkInstance::HandleRoleChanged(const FRoleChangePacket& Packet)
 
 void UNetworkInstance::HandleMatchStart(const FMatchStartPacket& Packet)
 {
+	SetCanSendGameplayPackets(false);
+
 	UE_LOG(LogTemp, Display,
 		TEXT("Match Start. MaxRound=%d RequiredWinScore=%d"),
 		Packet.maxRound,
@@ -790,6 +847,8 @@ void UNetworkInstance::HandleMatchStart(const FMatchStartPacket& Packet)
 
 void UNetworkInstance::HandleRoundStart(const FRoundStartPacket& Packet)
 {
+	SetCanSendGameplayPackets(false);
+
 	UE_LOG(LogTemp, Display,
 		TEXT("Round Start. Round=%d/%d Map=%d Score=%d:%d"),
 		Packet.currentRound,
@@ -799,9 +858,9 @@ void UNetworkInstance::HandleRoundStart(const FRoundStartPacket& Packet)
 		Packet.team2Score
 	);
 
-	ApplySelectedMap(Packet.currentMap);
+	//ApplySelectedMap(Packet.currentMap);
 
-	if (RoundPrepareWidgetInstance)
+	/*if (RoundPrepareWidgetInstance)
 	{
 		RoundPrepareWidgetInstance->RemoveFromParent();
 		RoundPrepareWidgetInstance = nullptr;
@@ -812,7 +871,7 @@ void UNetworkInstance::HandleRoundStart(const FRoundStartPacket& Packet)
 
 	bLocalInitialTransformApplied = false;
 	bPendingInitialSpawnLock = true;
-	bLocalSpawnLockApplied = false;
+	bLocalSpawnLockApplied = false;*/
 
 	if (APlayerController* PC = GetFirstLocalPlayerController())
 	{
@@ -820,7 +879,25 @@ void UNetworkInstance::HandleRoundStart(const FRoundStartPacket& Packet)
 		PC->SetInputMode(FInputModeGameOnly());
 	}
 
-	if (InGameLevel.IsNull())
+	const float CountdownSec = bHasCachedRoundPreparePacket
+		? CachedRoundPreparePacket.mapSelectTime
+		: 5.0f;
+
+	ShowRoundCountdownWidget(CountdownSec);
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(RoundCountdownReadyTimerHandle);
+		World->GetTimerManager().SetTimer(
+			RoundCountdownReadyTimerHandle,
+			this,
+			&UNetworkInstance::NotifyRoundCountdownReady,
+			CountdownSec,
+			false
+		);
+	}
+
+	/*if (InGameLevel.IsNull())
 	{
 		UE_LOG(LogTemp, Error, TEXT("InGameLevel is not set before RoundStart. Map=%d"), Packet.currentMap);
 		return;
@@ -833,7 +910,7 @@ void UNetworkInstance::HandleRoundStart(const FRoundStartPacket& Packet)
 
 	MarkPendingGameplayActivation();
 
-	UGameplayStatics::OpenLevel(this, LevelName);
+	UGameplayStatics::OpenLevel(this, LevelName);*/
 }
 
 void UNetworkInstance::HandleMatchEnd()
@@ -926,6 +1003,8 @@ void UNetworkInstance::HandleConnectFailed()
 
 void UNetworkInstance::HandleDisconnected()
 {
+	SetCanSendGameplayPackets(false);
+
 	UE_LOG(LogTemp, Warning, TEXT("Disconnected from server. Requesting reconnect..."));
 
 	if (Client.IsValid())
@@ -936,12 +1015,20 @@ void UNetworkInstance::HandleDisconnected()
 
 void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 {
+	SetCanSendGameplayPackets(false);
+
+	ApplySelectedMap(Packet.currentMap);
+
+	CachedRoundPreparePacket = Packet;
+	bHasCachedRoundPreparePacket = true;
+	bPendingRoundLoadCompleteAck = true;
+
 	if (RoomWidgetInstance)
 	{
 		RoomWidgetInstance->SetRoomActionsEnabled(false);
+		RoomWidgetInstance->RemoveFromParent();
+		RoomWidgetInstance = nullptr;
 	}
-
-	ApplySelectedMap(Packet.currentMap);
 
 	if (RoundPrepareWidgetInstance)
 	{
@@ -949,12 +1036,27 @@ void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 		RoundPrepareWidgetInstance = nullptr;
 	}
 
-	if (!RoundPrepareWidgetClass)
+	bHasPendingSnapshot = false;
+	PendingSnapshotList.Empty();
+
+	bLocalInitialTransformApplied = false;
+	bPendingInitialSpawnLock = true;
+	bLocalSpawnLockApplied = false;
+
+	if (InGameLevel.IsNull())
 	{
+		UE_LOG(LogTemp, Error, TEXT("InGameLevel is not set before RoundPrepare. Map=%d"), Packet.currentMap);
 		return;
 	}
 
-	RoundPrepareWidgetInstance = CreateWidget<UUserWidget>(this, RoundPrepareWidgetClass);
+	const FName LevelName =
+		FName(*FPackageName::ObjectPathToPackageName(InGameLevel.ToString()));
+
+	MarkPendingGameplayActivation();
+
+	UGameplayStatics::OpenLevel(this, LevelName);
+
+	/*RoundPrepareWidgetInstance = CreateWidget<UUserWidget>(this, RoundPrepareWidgetClass);
 	if (!RoundPrepareWidgetInstance)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("RoundPrepareWidgetInstance create failed"));
@@ -979,7 +1081,7 @@ void UNetworkInstance::HandleRoundPrepare(const FRoundPreparePacket& Packet)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("RoundPrepareWidget cast failed. Class=%s"),
 			*RoundPrepareWidgetInstance->GetClass()->GetName());
-	}
+	}*/
 }
 
 void UNetworkInstance::ApplySelectedMap(int32 MapType)
@@ -1103,6 +1205,14 @@ void UNetworkInstance::HandleSnapshotReceived(const TArray<GameData>& SnapshotLi
 			const FVector After = RemoteCharacter->GetActorLocation();
 
 			RemoteCharacter->SetAnimationFromNetwork(Data.animationNum);
+
+			UE_LOG(LogTemp, Display,
+				TEXT("[RemoteAnim] UID=%d Anim=%d Pos=(%.1f %.1f %.1f)"),
+				Data.userUID,
+				Data.animationNum,
+				Data.x,
+				Data.y,
+				Data.z);
 		}
 	}
 }
@@ -1357,6 +1467,11 @@ void UNetworkInstance::HandleGameTimeSynced(float SyncedGameTime)
 
 void UNetworkInstance::HandlePhaseChanged(const FPhaseChangePacket& Packet)
 {
+	const bool bRoundPlaying =
+		Packet.roundState == static_cast<int32>(ERoundState::Playing);
+
+	SetCanSendGameplayPackets(bRoundPlaying);
+
 	if (UWorld* World = GetWorld())
     {
         if (AInGame_GameState* GS = World->GetGameState<AInGame_GameState>())
@@ -1777,6 +1892,55 @@ void UNetworkInstance::HandleStatusEffect(const FStatusEffectPacket& Packet)
 	}
 }
 
+void UNetworkInstance::ShowRoundCountdownWidget(float CountdownSec)
+{
+	if (!bHasCachedRoundPreparePacket)
+	{
+		return;
+	}
+
+	if (!RoundPrepareWidgetClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[RoundCountdown] RoundPrepareWidgetClass is null"));
+		return;
+	}
+
+	if (RoundPrepareWidgetInstance)
+	{
+		RoundPrepareWidgetInstance->RemoveFromParent();
+		RoundPrepareWidgetInstance = nullptr;
+	}
+
+	RoundPrepareWidgetInstance = CreateWidget<UUserWidget>(this, RoundPrepareWidgetClass);
+	if (!RoundPrepareWidgetInstance)
+	{
+		return;
+	}
+
+	RoundPrepareWidgetInstance->AddToViewport();
+
+	if (URoundPrepareWidget* Widget = Cast<URoundPrepareWidget>(RoundPrepareWidgetInstance))
+	{
+		Widget->SetSelectedMap(CachedRoundPreparePacket.currentMap);
+
+		Widget->SetRoundPrepareInfo(
+			CachedRoundPreparePacket.currentRound,
+			CachedRoundPreparePacket.maxRound,
+			CachedRoundPreparePacket.team1Score,
+			CachedRoundPreparePacket.team2Score,
+			CountdownSec
+		);
+	}
+}
+
+void UNetworkInstance::NotifyRoundCountdownReady()
+{
+	if (Client.IsValid())
+	{
+		Client->RoundCountdownReadyRequest();
+	}
+}
+
 void UNetworkInstance::MarkPendingGameplayActivation()
 {
 	bPendingGameplayActivation = true;
@@ -1791,6 +1955,26 @@ bool UNetworkInstance::ConsumePendingGameplayActivation()
 
 	bPendingGameplayActivation = false;
 	return true;
+}
+
+bool UNetworkInstance::CanSendGameplayPackets() const
+{
+	if (!Client.IsValid())
+	{
+		return false;
+	}
+
+	if (bClientOnlyTestMode)
+	{
+		return true;
+	}
+
+	return bCanSendGameplayPackets;
+}
+
+void UNetworkInstance::SetCanSendGameplayPackets(bool bEnable)
+{
+	bCanSendGameplayPackets = bEnable;
 }
 
 AMyCharacter* UNetworkInstance::FindCharacterByUID(int32 UID) const

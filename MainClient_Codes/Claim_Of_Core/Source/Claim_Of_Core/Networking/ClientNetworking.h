@@ -43,7 +43,10 @@ public:
     void RoomSlotSelectRequest(int32 SlotIndex);
     void ReadyToggleRequest();
     void GameStartRequest();
+    void RoundLoadCompleteRequest();
+    void RoundCountdownReadyRequest();
 
+    void AttackInputRequest();
     void RoleSkillRequest();
     void ItemPickupRequest(int32 ItemID);
     void ItemDropRequest(int32 ItemID);
