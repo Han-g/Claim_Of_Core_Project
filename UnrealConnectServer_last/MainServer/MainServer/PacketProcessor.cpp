@@ -34,6 +34,8 @@ void PacketProcessor::InitHandler()
 	m_FuncHandlerMap[PKT_C2S_ROOM_SLOT_SELECT_REQ] = &PacketProcessor::Handle_Slot_ChangeReq;
 
 	m_FuncHandlerMap[PKT_C2S_GAME_START_REQ] = &PacketProcessor::Handle_Game_StartReq;
+	m_FuncHandlerMap[PKT_C2S_ROUND_LOAD_COMPLETE_REQ] = &PacketProcessor::Handle_RoundLoadCompleteReq;
+	m_FuncHandlerMap[PKT_C2S_ROUND_COUNTDOWN_READY_REQ] = &PacketProcessor::Handle_RoundCountdownReadyReq;
 	m_FuncHandlerMap[PKT_C2S_CHARACTER_SELECT_REQ] = &PacketProcessor::Handle_Character_SelectReq;
 	m_FuncHandlerMap[PKT_C2S_READY_REQ] = &PacketProcessor::Handle_Game_ReadyReq;
 
@@ -88,7 +90,7 @@ void PacketProcessor::Handle_LoginReq(IOCPServer* server, Session* session, Pack
 		return;
 	}
 
-	server->PushDBTask({ session->sessionID, ID, PW, EDBTaskType::LOGIN });
+	server->PushDBTask({ session->sessionID,session->generation, ID, PW, EDBTaskType::LOGIN });
 }
 
 void PacketProcessor::Handle_RegisterReq(IOCPServer* server, Session* session, PacketReader& reader)
@@ -103,7 +105,7 @@ void PacketProcessor::Handle_RegisterReq(IOCPServer* server, Session* session, P
 		return;
 	}
 
-	server->PushDBTask({ session->sessionID, ID, PW, EDBTaskType::REGISTER });
+	server->PushDBTask({ session->sessionID, session->generation, ID, PW, EDBTaskType::REGISTER });
 }
 
 void PacketProcessor::Handle_Room_CreateReq(IOCPServer* server, Session* session, PacketReader& /*reader*/)
@@ -163,6 +165,30 @@ void PacketProcessor::Handle_Slot_ChangeReq(IOCPServer* server, Session* session
 void PacketProcessor::Handle_Game_StartReq(IOCPServer* server, Session* session, PacketReader& reader)
 {
 	server->GameStartTry(session);
+}
+
+void PacketProcessor::Handle_RoundLoadCompleteReq(
+	IOCPServer* server,
+	Session* session,
+	PacketReader& /*reader*/
+)
+{
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	logic->MarkClientLoaded(session->sessionID);
+}
+
+void PacketProcessor::Handle_RoundCountdownReadyReq(
+	IOCPServer* server,
+	Session* session,
+	PacketReader& /*reader*/
+)
+{
+	GameLogic* logic = GameLogicHelper(server, session);
+	if (!logic) { return; }
+
+	logic->MarkClientCountdownReady(session->sessionID);
 }
 
 void PacketProcessor::Handle_Character_SelectReq(IOCPServer* server, Session* session, PacketReader& reader)

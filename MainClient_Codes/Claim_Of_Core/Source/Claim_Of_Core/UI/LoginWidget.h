@@ -7,6 +7,7 @@
 #include "Components/EditableTextBox.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
+#include "Components/Widget.h"
 #include "LoginWidget.generated.h"
 
 /**
@@ -30,8 +31,21 @@ public:
 protected:
 	virtual void NativeConstruct() override;
 	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 private:
+	UPROPERTY(meta = (BindWidget))
+	UWidget* BG_Overlay;
+
+	UPROPERTY(meta = (BindWidget))
+	UWidget* LoginBorder;
+
+	UPROPERTY(meta = (BindWidget))
+	UWidget* LoginBox;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* ClickToStartText;
+
 	UPROPERTY(meta = (BindWidget))
 	UEditableTextBox* ID_BOX;
 
@@ -49,9 +63,14 @@ private:
 
 	FTimerHandle FailPopupTimerHandle;
 
+	bool bLoginUIOpened = false;
+
+	UFUNCTION()
+	void OpenLoginUI();
+
 	UFUNCTION()
 	void OnLoginClicked();
 
 	UFUNCTION()
-	void OnRegisterCliecked();
+	void OnRegisterClicked();
 };

@@ -35,16 +35,31 @@ void GameLogic::Update(float deltaTime)
         return;
     }
 
-    if (matchFlowState == EMatchFlow::MapSelectedWait)
+    if (matchFlowState == EMatchFlow::MapLoading)
     {
         matchFlowRemainTime -= deltaTime;
-        if (matchFlowRemainTime <= 0.0f)
-        {
-            matchFlowState = EMatchFlow::RoundPlaying;
 
-            ownerRoom->BroadcastToMembers(PKT_S2C_GAME_START_BRD, nullptr, 0);
-            ownerRoom->BeginDeferredRoundStart(roundStartDelay);
+        if (AreAllConnectedMembersReady(LoadedRoundSessions) || matchFlowRemainTime <= 0.0f)
+        {
+            StartRoundCountdown();
         }
+
+        return;
+    }
+
+    if (matchFlowState == EMatchFlow::RoundCountdown)
+    {
+        matchFlowRemainTime -= deltaTime;
+
+        const bool bCountdownTimeEnded = (matchFlowRemainTime <= 0.0f);
+        const bool bAllClientsFinishedCountdown =
+            AreAllConnectedMembersReady(CountdownReadySessions);
+
+        if (bCountdownTimeEnded && bAllClientsFinishedCountdown)
+        {
+            StartRoundPlaying();
+        }
+
         return;
     }
 
@@ -82,8 +97,6 @@ void GameLogic::Update(float deltaTime)
             continue;
         }
     }
-
-
 
     // Update map-specific hazard logic.
     if      (mapType == 1)  { UpdateBuildingMap(deltaTime); } 
@@ -291,6 +304,19 @@ void GameLogic::StartMatch()
     roundState = ERoundState::Waiting;
     matchFlowState = EMatchFlow::Robby;
 
+    if (ownerRoom)
+    {
+        MatchStartPacket pkt{};
+        pkt.maxRound = maxRound;
+        pkt.requiredWinScore = requiredWinScore;
+
+        ownerRoom->BroadcastToMembers(
+            PKT_S2C_MATCH_START_BRD,
+            reinterpret_cast<const char*>(&pkt),
+            sizeof(pkt)
+        );
+    }
+
     BeginRoundPrepare();
 }
 
@@ -311,8 +337,11 @@ void GameLogic::BeginRoundPrepare()
 
     umbrellaDebrisIgnoreUntilByUID.clear();
 
-    matchFlowState = EMatchFlow::MapSelectedWait;
-    matchFlowRemainTime = mapSelectTime;
+    LoadedRoundSessions.clear();
+    CountdownReadySessions.clear();
+
+    matchFlowState = EMatchFlow::MapLoading;
+    matchFlowRemainTime = maxLoadWaitTime;
 
     if (!TrySelectMap())
     {
@@ -327,21 +356,51 @@ void GameLogic::BeginRoundPrepare()
 
     ownerRoom->InitRoundCharacters(this);
 
+    /*RoundStartPacket pkt{};
+    pkt.currentRound = currentRound;
+    pkt.maxRound = maxRound;
+    pkt.currentMap = mapType;
+    pkt.team1Score = team1Score;
+    pkt.team2Score = team2Score;*/
+
     RoundPreparePacket pkt{};
     pkt.currentRound = currentRound;
-    pkt.maxRound = availableMaps.size();
+    pkt.maxRound = maxRound;
+    pkt.currentMap = mapType;
     pkt.team1Score = team1Score;
     pkt.team2Score = team2Score;
-    pkt.mapSelectTime = mapSelectTime;
-
-    ownerRoom->BroadcastToMembers(PKT_S2C_ROUND_PREPARE_BRD,
-        reinterpret_cast<const char*>(&pkt), sizeof(pkt));
+    pkt.mapSelectTime = roundCountdownTime;
 
     ownerRoom->BroadcastToMembers(
-        PKT_S2C_MAP_SELECT_NOTICE,
-        reinterpret_cast<const char*>(&selectedMapType),
-        sizeof(selectedMapType)
+        PKT_S2C_ROUND_PREPARE_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
     );
+}
+
+void GameLogic::MarkClientLoaded(int sessionID)
+{
+    if (matchFlowState != EMatchFlow::MapLoading)
+    {
+        return;
+    }
+
+    LoadedRoundSessions.insert(sessionID);
+
+    if (AreAllConnectedMembersReady(LoadedRoundSessions))
+    {
+        StartRoundCountdown();
+    }
+}
+
+void GameLogic::MarkClientCountdownReady(int sessionID)
+{
+    if (matchFlowState != EMatchFlow::RoundCountdown)
+    {
+        return;
+    }
+
+    CountdownReadySessions.insert(sessionID);
 }
 
 void GameLogic::SetAvailableMaps(const std::vector<int>& maps)
@@ -379,30 +438,7 @@ bool GameLogic::TrySelectMap()
 
 void GameLogic::FinishMapSelection()
 {
-    if (matchFlowState != EMatchFlow::MapSelecting)
-    {
-        return;
-    }
-
-    if (selectedMapType < 1) {
-        if (!TrySelectMap()) {
-            return;
-        }
-    }
-
-    mapType = selectedMapType;
-
-    ownerRoom->SelectStage(selectedMapType);
-    ownerRoom->LoadStage(selectedMapType);
-
-    ownerRoom->BroadcastToMembers(
-        PKT_S2C_MAP_SELECT_NOTICE,
-        reinterpret_cast<const char*>(&selectedMapType),
-        sizeof(selectedMapType)
-    );
-
-    matchFlowState = EMatchFlow::MapSelectedWait;
-    matchFlowRemainTime = roundStartDelay;
+    // Map selection is now handled by BeginRoundPrepare().
 }
 
 void GameLogic::BeginNextRoundOrEndMatch()
@@ -443,6 +479,59 @@ void GameLogic::EndMatch()
 
     ownerRoom->ReturnMembersToLobby();
     ownerRoom->SetState(ERoomState::FINISHED);
+}
+
+bool GameLogic::AreAllConnectedMembersReady(const std::unordered_set<int>& ReadySet) const
+{
+    if (!ownerRoom)
+    {
+        return false;
+    }
+
+    const std::vector<int> sessionIDs = ownerRoom->GetConnectedSessionIDs();
+    if (sessionIDs.empty())
+    {
+        return false;
+    }
+
+    for (int sessionID : sessionIDs)
+    {
+        if (ReadySet.find(sessionID) == ReadySet.end())
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+void GameLogic::StartRoundCountdown()
+{
+    if (matchFlowState != EMatchFlow::MapLoading) { return; }
+
+    matchFlowState = EMatchFlow::RoundCountdown;
+    matchFlowRemainTime = roundCountdownTime;
+
+    RoundStartPacket pkt{};
+    pkt.currentRound = currentRound;
+    pkt.maxRound = maxRound;
+    pkt.currentMap = mapType;
+    pkt.team1Score = team1Score;
+    pkt.team2Score = team2Score;
+
+    ownerRoom->BroadcastToMembers(
+        PKT_S2C_ROUND_START_BRD,
+        reinterpret_cast<const char*>(&pkt),
+        sizeof(pkt)
+    );
+}
+
+void GameLogic::StartRoundPlaying()
+{
+    if (matchFlowState != EMatchFlow::RoundCountdown) { return; }
+
+    matchFlowState = EMatchFlow::RoundPlaying;
+    StartGameRound();
 }
 
 
@@ -1436,8 +1525,11 @@ void GameLogic::HandleAttackInput(int sessionID)
             return;
         }
 
+        const float AttackWindow =
+            (attackType == 1 || attackType == 2) ? 1.8f : 1.2f;
+
         attackerSession->isAttack = true;
-        attackerSession->attackRemainTime = 1.2f;
+        attackerSession->attackRemainTime = AttackWindow;
         attackerSession->attackSeq++;
         attackerSession->hasAttackHit = false;
     }

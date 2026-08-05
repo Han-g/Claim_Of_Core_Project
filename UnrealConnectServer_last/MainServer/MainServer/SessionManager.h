@@ -28,6 +28,7 @@ public:
 	Session* GetSession(int sessionID);
 
 	bool TryBindLoggedInUser(int userUID, int sessionID);
+	void TryRecycleSession(int clientID);
 
 private:
 	SessionManager() {}

@@ -157,9 +157,12 @@ void ClientNetworking::PumpEvents()
             OnMapSelected.Broadcast(Evt.SelectedMapType);
             break;
 
-        case ENetEventType::GameStart:
-            UE_LOG(LogTemp, Display, TEXT("Game Start!"));
-            OnGameStart.Broadcast();
+        case ENetEventType::MatchStart:
+            OnMatchStart.Broadcast(Evt.MatchStart);
+            break;
+
+        case ENetEventType::RoundStart:
+            OnRoundStart.Broadcast(Evt.RoundStart);
             break;
 
         case ENetEventType::RoundResult:
@@ -423,6 +426,21 @@ void ClientNetworking::ReadyToggleRequest()
 void ClientNetworking::GameStartRequest()
 {
     EnqueueSendCommand(PKT_C2S_GAME_START_REQ);
+}
+
+void ClientNetworking::RoundLoadCompleteRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ROUND_LOAD_COMPLETE_REQ);
+}
+
+void ClientNetworking::RoundCountdownReadyRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ROUND_COUNTDOWN_READY_REQ);
+}
+
+void ClientNetworking::AttackInputRequest()
+{
+    EnqueueSendCommand(PKT_C2S_ATTACK_KEYINPUT);
 }
 
 void ClientNetworking::RoleSkillRequest()

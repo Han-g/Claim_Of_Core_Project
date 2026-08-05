@@ -73,6 +73,9 @@ struct FRoleVisualData
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<UAnimMontage> AttackMontage = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<TObjectPtr<UMaterialInterface>> Materials;
 };
 
 
@@ -87,15 +90,6 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UTextRenderComponent* HPTextComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UTextRenderComponent* RoleTextComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UTextRenderComponent* DeathUITextComponent;
 
 protected:
 	UPROPERTY(EditAnywhere, Category = "Input")
@@ -461,6 +455,18 @@ public:
 	void ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocation);
 	void RefreshCurrentItemAttachOffset();
 
+	UFUNCTION(exec)
+	void ItemAttachLocation(float X, float Y, float Z);
+
+	UFUNCTION(exec)
+	void ItemAttachRotation(float Pitch, float Yaw, float Roll);
+
+	UFUNCTION(exec)
+	void ItemAttachScale(float X, float Y, float Z);
+
+	UFUNCTION(exec)
+	void PrintItemAttachOffset();
+
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void AnimNotify_AttackHit();
 
@@ -528,10 +534,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Death")
 	float SpectateInputUnlockDelay = 3.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Death")
-	float SpectatingUITextDuration = 2.0f;
-
-	FTimerHandle SpectatingUIHideTimerHandle;
 	FTimerHandle SpectateInputUnlockTimerHandle;
 
 	bool bCorpseHidden = false;
@@ -664,8 +666,6 @@ private:
 	float GetSkillCoolTime() const;
 
 	void SetCurrentHP(int32 NewHP);
-	void UpdateHPText();
-	void UpdateRoleText();
 
 	static FString RoleTypeToString(ERecRoleType InType);
 	static float GetRoleSpeedMultiplier(ERecRoleType InType);
@@ -706,10 +706,6 @@ private:
 
 	void SetDeathVisualsEnabled(bool bEnabled);
 	void SetPlayerControlLocked(bool bLocked);
-
-	void UpdateDeathUI();
-	void ShowSpectatingUI();
-	void HideDeathUI();
 
 	void EndRoleSkill();
 	void RespawnAtPlayerStart();

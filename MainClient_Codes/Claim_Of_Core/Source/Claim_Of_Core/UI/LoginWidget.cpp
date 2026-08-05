@@ -11,6 +11,11 @@ void ULoginWidget::FocusInitialWidget()
 		return;
 	}
 
+	if (ID_BOX)
+	{
+		ID_BOX->SetKeyboardFocus();
+	}
+
 	if (APlayerController* PC = GetOwningPlayer())
 	{
 		ID_BOX->SetUserFocus(PC);
@@ -45,11 +50,37 @@ void ULoginWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
+	bLoginUIOpened = false;
+
+	if (BG_Overlay)
+	{
+		BG_Overlay->SetVisibility(ESlateVisibility::Visible);
+		BG_Overlay->SetRenderOpacity(0.0f);
+	}
+
+	if (LoginBorder)
+	{
+		LoginBorder->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	if (LoginBox)
+	{
+		LoginBox->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	if (ClickToStartText)
+	{
+		ClickToStartText->SetVisibility(ESlateVisibility::Visible);
+	}
+
 	// Popup Setting
 	if (FailLoginPopUp)
 	{
 		FailLoginPopUp->SetVisibility(ESlateVisibility::Hidden);
 	}
+
+	SetIsFocusable(true);
+	SetKeyboardFocus();
 
 	// Click Event
 	if (LoginButton)
@@ -59,12 +90,18 @@ void ULoginWidget::NativeConstruct()
 
 	if (RegisterButton)
 	{
-		RegisterButton->OnClicked.AddDynamic(this, &ULoginWidget::OnRegisterCliecked);
+		RegisterButton->OnClicked.AddDynamic(this, &ULoginWidget::OnRegisterClicked);
 	}
 }
 
 FReply ULoginWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
+	if (!bLoginUIOpened)
+	{
+		OpenLoginUI();
+		return FReply::Handled();
+	}
+
 	if (FailLoginPopUp && FailLoginPopUp->GetVisibility() == ESlateVisibility::Visible) {
 		HidePopup();
 
@@ -72,6 +109,45 @@ FReply ULoginWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const 
 	}
 
 	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+FReply ULoginWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (!bLoginUIOpened)
+	{
+		OpenLoginUI();
+		return FReply::Handled();
+	}
+
+	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
+}
+
+void ULoginWidget::OpenLoginUI()
+{
+	bLoginUIOpened = true;
+
+	if (ClickToStartText)
+	{
+		ClickToStartText->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	if (BG_Overlay)
+	{
+		BG_Overlay->SetVisibility(ESlateVisibility::Visible);
+		BG_Overlay->SetRenderOpacity(1.0f);
+	}
+
+	if (LoginBorder)
+	{
+		LoginBorder->SetVisibility(ESlateVisibility::Visible);
+	}
+
+	if (LoginBox)
+	{
+		LoginBox->SetVisibility(ESlateVisibility::Visible);
+	}
+
+	FocusInitialWidget();
 }
 
 void ULoginWidget::OnLoginClicked()
@@ -90,7 +166,7 @@ void ULoginWidget::OnLoginClicked()
 	}
 }
 
-void ULoginWidget::OnRegisterCliecked()
+void ULoginWidget::OnRegisterClicked()
 {
 	if (ID_BOX && PW_BOX)
 	{

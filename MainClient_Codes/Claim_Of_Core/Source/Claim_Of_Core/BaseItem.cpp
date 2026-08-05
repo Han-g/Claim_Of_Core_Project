@@ -76,28 +76,6 @@ void ABaseItem::OnEndOverlap(
 	}
 }
 
-UAnimMontage* ABaseItem::GetAttackMontageByRole(ERecRoleType InRole) const
-{
-	switch (InRole)
-	{
-	case ERecRoleType::Striker:     return StrikerMontage;
-	case ERecRoleType::Guardian:    return GuardianMontage;
-	case ERecRoleType::Manipulator: return ManipulatorMontage;
-	default:                        return nullptr;
-	}
-}
-
-FTransform ABaseItem::GetAttachOffsetByRole(ERecRoleType InRole) const
-{
-	switch (InRole)
-	{
-	case ERecRoleType::Striker:     return StrikerAttachOffset;
-	case ERecRoleType::Guardian:    return GuardianAttachOffset;
-	case ERecRoleType::Manipulator: return ManipulatorAttachOffset;
-	default:                        return FTransform::Identity;
-	}
-}
-
 void ABaseItem::StartUse()
 {
 	if (!OwnerCharacter) return;
@@ -239,8 +217,7 @@ void ABaseItem::OnStartUse()
 {
 	if (!OwnerCharacter) return;
 
-	const ERecRoleType CurrentRole = OwnerCharacter->GetRoleType();
-	UAnimMontage* AttackMontage = GetAttackMontageByRole(CurrentRole);
+	UAnimMontage* MontageToPlay = AttackMontage;
 
 	UAnimInstance* AnimInstance = OwnerCharacter->GetMesh() ? OwnerCharacter->GetMesh()->GetAnimInstance() : nullptr;
 	if (!AnimInstance)
@@ -249,19 +226,19 @@ void ABaseItem::OnStartUse()
 		return;
 	}
 
-	if (!AttackMontage)
+	if (!MontageToPlay)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[Item] Role montage NULL (Role=%d)"), (int32)CurrentRole);
+		UE_LOG(LogTemp, Error, TEXT("[Item] AttackMontage NULL"));
 		return;
 	}
 
-	if (AnimInstance->Montage_IsPlaying(AttackMontage))
+	if (AnimInstance->Montage_IsPlaying(MontageToPlay))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[Item] Montage already playing"));
 		return;
 	}
 
-	AnimInstance->Montage_Play(AttackMontage);
+	AnimInstance->Montage_Play(MontageToPlay);
 
 }
 

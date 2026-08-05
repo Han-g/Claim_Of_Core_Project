@@ -4,6 +4,7 @@
 
 #include "Engine/GameInstance.h"
 #include "Tickable.h"
+#include "TimerManager.h"
 #include "ClientNetworkTypes.h"
 #include "Blueprint/UserWidget.h"
 
@@ -98,7 +99,8 @@ public:
 	void HandleRoomListUpdate(const TArray<FRoomInfoData>& RoomList);
 	void HandleRoomEnterResult(bool bSuccess, const TArray<FRoomMemberInfo>& playerList);
 	void HandleRoleChanged(const FRoleChangePacket& Packet);
-	void HandleGameStart();
+	void HandleMatchStart(const FMatchStartPacket& Packet);
+	void HandleRoundStart(const FRoundStartPacket& Packet);
 	void HandleMatchEnd();
 
 	// Server Setting Packet
@@ -108,7 +110,7 @@ public:
 
 	// Game Logic Packet
 	void HandleRoundPrepare(const FRoundPreparePacket& Packet);
-	void HandleMapSelected(int32 MapType);
+	void ApplySelectedMap(int32 MapType);
 	void HandleSnapshotReceived(const TArray<GameData>& SnapshotList);
 
 	void HandleAttackActionReceived(const FAttackActionPacket& Packet);
@@ -170,6 +172,19 @@ private:
 	bool bReadySent = false;
 	int32 CachedSelectedRoleType = -1;
 
+	// Round Prepare
+	FRoundPreparePacket CachedRoundPreparePacket{};
+	bool bHasCachedRoundPreparePacket = false;
+	bool bPendingRoundLoadCompleteAck = false;
+	//bool bPendingRoundPrepareUI = false;
+	//double CachedRoundPrepareReceivedTimeSec = 0.0;
+
+	FTimerHandle RoundCountdownReadyTimerHandle;
+
+	//void ShowCachedRoundPrepareWidget();
+	void ShowRoundCountdownWidget(float CountdownSec);
+	void NotifyRoundCountdownReady();
+
 	// Getter Function For Map Control 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level", meta = (AllowPrivateAccess =
 		"true"))
@@ -179,6 +194,10 @@ public:
 	// In Game Play Setting Function
 	void MarkPendingGameplayActivation();
 	bool ConsumePendingGameplayActivation();
+
+	// Gameplay packet gate
+	bool CanSendGameplayPackets() const;
+	void SetCanSendGameplayPackets(bool bEnable);
 
 	// Character Setting Function
 	AMyCharacter* FindCharacterByUID(int32 UID) const;
@@ -207,6 +226,7 @@ private:
 	bool bLocalInitialTransformApplied = false;
 	bool bPendingInitialSpawnLock = false;
 	bool bLocalSpawnLockApplied = false;
+	bool bCanSendGameplayPackets = false;
 
 	// Cached snapshot received before the local player was ready.
 	TArray<GameData> PendingSnapshotList;

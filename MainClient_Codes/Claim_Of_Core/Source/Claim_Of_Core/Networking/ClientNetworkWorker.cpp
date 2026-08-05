@@ -460,10 +460,30 @@ void FClientNetworkWorker::HandlePacket(FPacketHeader* Header, uint8* PayloadDat
         PushEvent(MoveTemp(Evt));
         break;
     }
-    case PKT_S2C_GAME_START_BRD:
+    case PKT_S2C_MATCH_START_BRD:
     {
+        if (PayloadSize < sizeof(FMatchStartPacket)) { break; }
+
+        FMatchStartPacket Packet{};
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FMatchStartPacket));
+
         FNetEvent Evt;
-        Evt.Type = ENetEventType::GameStart;
+        Evt.Type = ENetEventType::MatchStart;
+        Evt.MatchStart = Packet;
+        PushEvent(MoveTemp(Evt));
+        break;
+    }
+
+    case PKT_S2C_ROUND_START_BRD:
+    {
+        if (PayloadSize < sizeof(FRoundStartPacket)) { break; }
+
+        FRoundStartPacket Packet{};
+        FMemory::Memcpy(&Packet, PayloadData, sizeof(FRoundStartPacket));
+
+        FNetEvent Evt;
+        Evt.Type = ENetEventType::RoundStart;
+        Evt.RoundStart = Packet;
         PushEvent(MoveTemp(Evt));
         break;
     }

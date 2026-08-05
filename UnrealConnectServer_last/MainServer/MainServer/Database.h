@@ -15,6 +15,13 @@
 
 #pragma comment(lib, "odbc32.lib")
 
+enum class EDBQueryResult
+{
+    Success,
+    Failed,
+    ConnectionLost
+};
+
 enum class EDBTaskType
 {
     LOGIN,
@@ -23,10 +30,11 @@ enum class EDBTaskType
 
 struct DBData
 {
-    int SessionIndex;
+    int SessionIndex = -1;
+    uint64_t SessionGeneration = 0;
     std::wstring UserID;
     std::wstring UserPW;
-    EDBTaskType TaskType;
+    EDBTaskType TaskType = EDBTaskType::LOGIN;
 };
 
 class DBHelper
@@ -39,11 +47,19 @@ public:
 
     // Closes the active database connection and releases ODBC handles.
     void Disconnect();
+    // Check Database Connection.
+    bool IsConnectionLost(SQLHANDLE handle, SQLSMALLINT type);
+    // Attempt to connect to the database when the database connection is lost.
+    bool Reconnect();
 
     // Validates login credentials and returns the matching player UID on success.
     bool CheckLogin(const std::wstring& userID, const std::wstring& userPW, int& playerUID);
+    EDBQueryResult CheckLoginOnce(const std::wstring& userID, const std::wstring& userPW, int& playerUID);
+
     // Creates a new account after validating the requested ID and password.
     bool CreateAccount(const std::wstring& userID, const std::wstring& userPW);
+    EDBQueryResult CreateAccountOnce(const std::wstring& userID, const std::wstring& userPW);
+
     // Applies the basic length and character rules shared by account strings.
     bool IsValidAccountString(const std::wstring& inputStr);
     // Validates the user ID format and rejects reserved words.
@@ -64,7 +80,6 @@ private:
 private:
     SQLHENV hEnv;   // ODBC environment handle.
     SQLHDBC hDbc;   // Database connection handle.
-    SQLHSTMT hStmt; // Statement handle used for query execution.
 
 public:
     bool m_IsConnected = false;

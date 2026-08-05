@@ -66,8 +66,6 @@ public:
 	// Returns the spawn location used when players enter or respawn.
 	Vector3 GetRespawnLocation(int slot) const;
 	float GetSpawnYawBySlot(int slot) const;
-	// Placeholder for future matchmaking-driven room assembly.
-	void MatchMaking();
 
 	// Ticks room-owned game logic when the room is in PLAYING state.
 	void BeginDeferredRoundStart(float DelaySec);
@@ -88,8 +86,10 @@ public:
 
 	// Return to Lobby when End Game
 	void ReturnMembersToLobby();
+	void SetMembersInGame();
 
 
+	std::vector<int> GetConnectedSessionIDs();
 	// Builds the serialized room member list used by room UI packets.
 	std::vector<RoomMemberPacket> GetMemberInfoList();
 	// Broadcasts a packet to room members, optionally excluding one session.

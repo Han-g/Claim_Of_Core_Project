@@ -20,7 +20,7 @@ struct GameData;
 enum ERecCharacterState { Alive, Dead };
 enum ERecRoleType { Striker, Guardian, Manipulator };
 enum ERoundState { Waiting, Playing, Finished };
-enum EMatchFlow { Robby, MapSelecting, MapSelectedWait, RoundPlaying, RoundFinish, MatchFinish };
+enum EMatchFlow { Robby, MapLoading, RoundCountdown, RoundPlaying, RoundFinish, MatchFinish };
 enum class EDamageType : int32_t;
 
 namespace GameMath {
@@ -262,6 +262,8 @@ private:
 public:
 	void StartMatch();
 	void BeginRoundPrepare();
+	void MarkClientLoaded(int sessionID);
+	void MarkClientCountdownReady(int sessionID);
 	void SetAvailableMaps(const std::vector<int>& maps);
 	bool TrySelectMap();
 	void FinishMapSelection();
@@ -269,6 +271,16 @@ public:
 	void EndMatch();
 
 private:
+	bool AreAllConnectedMembersReady(const std::unordered_set<int>& ReadySet) const;
+	void StartRoundCountdown();
+	void StartRoundPlaying();
+
+	std::unordered_set<int> LoadedRoundSessions;
+	std::unordered_set<int> CountdownReadySessions;
+
+	float maxLoadWaitTime = 5.0f;
+	float roundCountdownTime = 5.0f;
+
 	int maxRound = 5;
 	int currentRound = 0;
 

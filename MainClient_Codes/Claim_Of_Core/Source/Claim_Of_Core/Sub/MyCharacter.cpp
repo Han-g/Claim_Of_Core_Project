@@ -8,7 +8,6 @@
 #include "UI/NetworkInstance.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/TextRenderComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -74,7 +73,7 @@ AMyCharacter::AMyCharacter()
 	FollowCamera->bUsePawnControlRotation = false;
 
 	HandCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("HandCollision"));
-	HandCollision->SetupAttachment(GetMesh(), TEXT("LeftHandSocket"));
+	HandCollision->SetupAttachment(GetMesh(), TEXT("hand_l"));
 	HandCollision->SetBoxExtent(FVector(50.f, 50.f, 50.f));
 	HandCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	HandCollision->SetCollisionObjectType(ECC_WorldDynamic);
@@ -101,44 +100,10 @@ AMyCharacter::AMyCharacter()
 		FrozenOverlayMeshComponent->SetStaticMesh(FrozenOverlayMesh);
 	}
 
-
-	HPTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("HPText"));
-	HPTextComponent->SetupAttachment(GetMesh());
-	HPTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 220.f));
-	HPTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
-	HPTextComponent->SetHorizontalAlignment(EHTA_Center);
-	HPTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
-	HPTextComponent->SetWorldSize(20.f);
-	HPTextComponent->SetText(FText::FromString(TEXT("HP: 100/100")));
-	HPTextComponent->SetVisibility(true);
-
-	RoleTextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("RoleText"));
-	RoleTextComponent->SetupAttachment(GetMesh());
-	RoleTextComponent->SetRelativeLocation(FVector(0.f, 0.f, 255.f));
-	RoleTextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
-	RoleTextComponent->SetHorizontalAlignment(EHTA_Center);
-	RoleTextComponent->SetVerticalAlignment(EVRTA_TextCenter);
-	RoleTextComponent->SetWorldSize(18.f);
-	RoleTextComponent->SetText(FText::FromString(TEXT("Role: Guardian")));
-	RoleTextComponent->SetVisibility(true);
-
-	DeathUITextComponent = CreateDefaultSubobject<UTextRenderComponent>(TEXT("DeathUIText"));
-	DeathUITextComponent->SetupAttachment(FollowCamera);
-	DeathUITextComponent->SetRelativeLocation(FVector(160.f, 0.f, -25.f));
-	DeathUITextComponent->SetRelativeRotation(FRotator(0.f, 180.f, 0.f));
-	DeathUITextComponent->SetHorizontalAlignment(EHTA_Center);
-	DeathUITextComponent->SetVerticalAlignment(EVRTA_TextCenter);
-	DeathUITextComponent->SetWorldSize(24.f);
-	DeathUITextComponent->SetText(FText::GetEmpty());
-	DeathUITextComponent->SetVisibility(false);
-	DeathUITextComponent->SetHiddenInGame(true);
-	DeathUITextComponent->SetOnlyOwnerSee(true);
-	DeathUITextComponent->SetCastShadow(false);
-
 	MaxHP = 100;
 	CurrentHP = MaxHP;
 	CharacterState = ERecCharacterState::Alive;
-	RoleType = ERecRoleType::Guardian;
+	RoleType = ERecRoleType::Striker;
 }
 
 void AMyCharacter::BeginPlay()
@@ -179,8 +144,6 @@ void AMyCharacter::BeginPlay()
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
 
-	UpdateHPText();
-	UpdateRoleText();
 	UpdateLowHPEffectState();
 	ApplyCharacterState();
 
@@ -191,6 +154,11 @@ void AMyCharacter::BeginPlay()
 void AMyCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (CurrentItem && CurrentItem->bPreviewAttachOffsetInGame)
+	{
+		RefreshCurrentItemAttachOffset();
+	}
 
 	// Temporary Movement Threat 20fps transform send
 	if (IsLocallyControlled() && !IsDead())
@@ -478,7 +446,6 @@ void AMyCharacter::SetIceMovement(bool bNew)
 
 void AMyCharacter::OnRep_CurrentHP()
 {
-	UpdateHPText();
 	UpdateLowHPEffectState();
 }
 
@@ -492,47 +459,17 @@ void AMyCharacter::OnRep_RoleType()
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 }
 
 void AMyCharacter::OnRep_RoleSkillActive()
 {
 	ApplyRoleStats();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 }
 
 float AMyCharacter::GetSkillCoolTime() const
 {
 	return CurrentCoolTime;
-}
-
-void AMyCharacter::UpdateHPText()
-{
-	if (!HPTextComponent)
-	{
-		return;
-	}
-
-	const FString Str = FString::Printf(TEXT("HP: %d/%d"), CurrentHP, MaxHP);
-	HPTextComponent->SetText(FText::FromString(Str));
-}
-
-void AMyCharacter::UpdateRoleText()
-{
-	if (!RoleTextComponent)
-	{
-		return;
-	}
-
-	FString Str = FString::Printf(TEXT("Role: %s"), *RoleTypeToString(RoleType));
-
-	if (bRoleSkillActive)
-	{
-		Str += FString::Printf(TEXT("\nSkill: %s"), *GetCurrentRoleSkillName());
-	}
-
-	RoleTextComponent->SetText(FText::FromString(Str));
 }
 
 float AMyCharacter::GetRoleSpeedMultiplier(ERecRoleType InType)
@@ -702,32 +639,40 @@ void AMyCharacter::ApplyRoleVisual()
 		SkelComp->SetAnimInstanceClass(Data.AnimBPClass);
 	}
 
+	for (int32 MaterialIndex = 0; MaterialIndex < Data.Materials.Num(); ++MaterialIndex)
+	{
+		if (Data.Materials[MaterialIndex])
+		{
+			SkelComp->SetMaterial(MaterialIndex, Data.Materials[MaterialIndex]);
+		}
+	}
+
 	switch (RoleType)
 	{
 	case ERecRoleType::Striker:
-		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		GetMesh()->SetRelativeScale3D(FVector(3.5f, 3.5f, 4.0f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("LeftHandSocket")
+			TEXT("hand_l")
 		);
 		break;
 
 	case ERecRoleType::Guardian:
-		GetMesh()->SetRelativeScale3D(FVector(1.f));
+		GetMesh()->SetRelativeScale3D(FVector(4.0f, 4.0f, 4.5f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("hand_l")
 		);
 		break;
 
 	case ERecRoleType::Manipulator:
-		GetMesh()->SetRelativeScale3D(FVector(0.6f));
+		GetMesh()->SetRelativeScale3D(FVector(5.f));
 		HandCollision->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("hand_l")
 		);
 		break;
 
@@ -791,7 +736,6 @@ FString AMyCharacter::RoleTypeToString(ERecRoleType InType)
 void AMyCharacter::SetCurrentHP(int32 NewHP)
 {
 	CurrentHP = FMath::Clamp(NewHP, 0, MaxHP);
-	UpdateHPText();
 	UpdateLowHPEffectState();
 
 	if (HasAuthority() && !IsDead() && CurrentHP <= 0)
@@ -879,7 +823,6 @@ void AMyCharacter::ResetHP()
 	if (CharacterState == ERecCharacterState::Dead)
 	{
 		CurrentHP = MaxHP;
-		UpdateHPText();
 		UpdateLowHPEffectState();
 
 		SetCharacterState(ERecCharacterState::Alive);
@@ -916,7 +859,6 @@ void AMyCharacter::ActivateRoleSkill()
 
 	ApplyRoleStats();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 	ForceNetUpdate();
 
 	if (GetWorld())
@@ -953,7 +895,6 @@ void AMyCharacter::EndRoleSkill()
 
 	ApplyRoleStats();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 	ForceNetUpdate();
 }
 
@@ -998,7 +939,6 @@ void AMyCharacter::ServerCycleRole_Implementation()
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 	ForceNetUpdate();
 }
 
@@ -2033,66 +1973,6 @@ void AMyCharacter::SetPlayerControlLocked(bool bLocked)
 	}
 }
 
-void AMyCharacter::UpdateDeathUI()
-{
-	if (!IsLocallyControlled() || !DeathUITextComponent)
-	{
-		return;
-	}
-
-	DeathUITextComponent->SetHiddenInGame(false);
-	DeathUITextComponent->SetVisibility(true);
-
-	if (bAwaitingSpectateInput)
-	{
-		if (bSpectateInputUnlocked)
-		{
-			DeathUITextComponent->SetText(FText::FromString(TEXT("YOU DIED\nPress Space")));
-		}
-		else
-		{
-			DeathUITextComponent->SetText(FText::FromString(TEXT("YOU DIED")));
-		}
-	}
-	else if (bCanSpectate)
-	{
-		DeathUITextComponent->SetText(FText::FromString(TEXT("SPECTATING")));
-	}
-	else
-	{
-		DeathUITextComponent->SetText(FText::FromString(TEXT("YOU DIED")));
-	}
-}
-
-void AMyCharacter::ShowSpectatingUI()
-{
-	UpdateDeathUI();
-
-	if (GetWorld())
-	{
-		GetWorldTimerManager().ClearTimer(SpectatingUIHideTimerHandle);
-		GetWorldTimerManager().SetTimer(
-			SpectatingUIHideTimerHandle,
-			this,
-			&AMyCharacter::HideDeathUI,
-			SpectatingUITextDuration,
-			false
-		);
-	}
-}
-
-void AMyCharacter::HideDeathUI()
-{
-	if (!DeathUITextComponent)
-	{
-		return;
-	}
-
-	DeathUITextComponent->SetText(FText::GetEmpty());
-	DeathUITextComponent->SetVisibility(false);
-	DeathUITextComponent->SetHiddenInGame(true);
-}
-
 void AMyCharacter::ShowCorpse()
 {
 	bCorpseHidden = false;
@@ -2102,18 +1982,6 @@ void AMyCharacter::ShowCorpse()
 		MeshComp->SetVisibility(true, false);
 		MeshComp->SetHiddenInGame(false, true);
 		MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-	}
-
-	if (HPTextComponent)
-	{
-		HPTextComponent->SetVisibility(true);
-		HPTextComponent->SetHiddenInGame(false);
-	}
-
-	if (RoleTextComponent)
-	{
-		RoleTextComponent->SetVisibility(true);
-		RoleTextComponent->SetHiddenInGame(false);
 	}
 }
 
@@ -2134,18 +2002,6 @@ void AMyCharacter::HideCorpse()
 		MeshComp->SetVisibility(false, true);
 		MeshComp->SetHiddenInGame(true, true);
 	}
-
-	if (HPTextComponent)
-	{
-		HPTextComponent->SetVisibility(false);
-		HPTextComponent->SetHiddenInGame(true);
-	}
-
-	if (RoleTextComponent)
-	{
-		RoleTextComponent->SetVisibility(false);
-		RoleTextComponent->SetHiddenInGame(true);
-	}
 }
 
 void AMyCharacter::EnterDeathWaitingState()
@@ -2156,7 +2012,6 @@ void AMyCharacter::EnterDeathWaitingState()
 
 	SetDeathVisualsEnabled(true);
 	SetPlayerControlLocked(true);
-	UpdateDeathUI();
 
 	if (CameraBoom && !bCameraDetached)
 	{
@@ -2184,7 +2039,6 @@ void AMyCharacter::UnlockSpectateInput()
 	}
 
 	bSpectateInputUnlocked = true;
-	UpdateDeathUI();
 }
 
 void AMyCharacter::EnterSpectateMode()
@@ -2219,8 +2073,6 @@ void AMyCharacter::EnterSpectateMode()
 				ETeleportType::TeleportPhysics
 			);
 		}
-
-		ShowSpectatingUI();
 	}
 }
 
@@ -2263,7 +2115,6 @@ void AMyCharacter::ApplyAliveState()
 {
 	if (GetWorld())
 	{
-		GetWorldTimerManager().ClearTimer(SpectatingUIHideTimerHandle);
 		GetWorldTimerManager().ClearTimer(SpectateInputUnlockTimerHandle);
 	}
 
@@ -2299,11 +2150,6 @@ void AMyCharacter::ApplyAliveState()
 		MoveComp->StopMovementImmediately();
 	}
 
-	ApplyRoleStats();
-	ApplyRoleSkillState();
-	UpdateHPText();
-	UpdateRoleText();
-
 	StopDeathCameraShake();
 
 	if (CameraBoom)
@@ -2315,7 +2161,6 @@ void AMyCharacter::ApplyAliveState()
 	if (IsLocallyControlled())
 	{
 		SetPlayerControlLocked(false);
-		HideDeathUI();
 
 		if (CameraBoom && bCameraDetached)
 		{
@@ -2328,6 +2173,10 @@ void AMyCharacter::ApplyAliveState()
 
 		UpdateLowHPEffectState();
 	}
+
+	ApplyRoleStats();
+	ApplyRoleVisual();
+	ApplyRoleSkillState();
 }
 
 void AMyCharacter::RespawnAtPlayerStart()
@@ -2509,7 +2358,7 @@ void AMyCharacter::Attack()
 	if (UNetworkInstance* NetworkInstance = GetGameInstance<UNetworkInstance>())
 	{
 		const int32 AttackType = CurrentItem ? 1 : 0;
-		NetworkInstance->RequestAttackInput(0);
+		NetworkInstance->RequestAttackInput(AttackType);
 	}
 }
 
@@ -2539,12 +2388,9 @@ void AMyCharacter::PlayAttackMontageFromServer(int32 AttackType, uint32 AttackSe
 	const FRoleVisualData& Data = GetVisualData(RoleType);
 
 	UAnimMontage* AttackMontage = Data.AttackMontage;
-	if (CurrentItem)
+	if (CurrentItem && CurrentItem->AttackMontage)
 	{
-		if (UAnimMontage* ItemMontage = CurrentItem->GetAttackMontageByRole(RoleType))
-		{
-			AttackMontage = ItemMontage;
-		}
+		AttackMontage = CurrentItem->AttackMontage;
 	}
 
 	if (!AnimInstance || !AttackMontage)
@@ -2594,7 +2440,6 @@ void AMyCharacter::SetRoleFromNetwork(int32 InRoleType)
 	ApplyRoleStats();
 	ApplyRoleVisual();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 }
 
 void AMyCharacter::SetTeamFromNetwork(int32 InTeamType)
@@ -2630,7 +2475,6 @@ void AMyCharacter::SetTeamFromNetwork(int32 InTeamType)
 
 	ApplyTeamVisual();
 	UpdateTeamOutlinePostProcess();
-	UpdateRoleText();
 }
 
 void AMyCharacter::SetHPFromNetwork(int32 InHP)
@@ -3248,10 +3092,74 @@ void AMyCharacter::RefreshCurrentItemAttachOffset()
 		return;
 	}
 
-	const FTransform AttachOffset = CurrentItem->GetAttachOffsetByRole(RoleType);
+	const FTransform& AttachOffset = CurrentItem->AttachOffset;
 	CurrentItem->SetActorRelativeLocation(AttachOffset.GetLocation());
 	CurrentItem->SetActorRelativeRotation(AttachOffset.GetRotation());
-	CurrentItem->SetActorRelativeScale3D(CurrentItemAttachBaseScale * AttachOffset.GetScale3D());
+
+	if (USceneComponent* ItemRoot = CurrentItem->GetRootComponent()) {
+		ItemRoot->SetUsingAbsoluteScale(true);
+		ItemRoot->SetWorldScale3D(CurrentItemAttachBaseScale * AttachOffset.GetScale3D());
+	}
+}
+
+void AMyCharacter::ItemAttachLocation(float X, float Y, float Z)
+{
+	if (!CurrentItem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ItemAttachOffset] No current item."));
+		return;
+	}
+
+	CurrentItem->AttachOffset.SetLocation(FVector(X, Y, Z));
+	RefreshCurrentItemAttachOffset();
+	PrintItemAttachOffset();
+}
+
+void AMyCharacter::ItemAttachRotation(float Pitch, float Yaw, float Roll)
+{
+	if (!CurrentItem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ItemAttachOffset] No current item."));
+		return;
+	}
+
+	CurrentItem->AttachOffset.SetRotation(FRotator(Pitch, Yaw, Roll).Quaternion());
+	RefreshCurrentItemAttachOffset();
+	PrintItemAttachOffset();
+}
+
+void AMyCharacter::ItemAttachScale(float X, float Y, float Z)
+{
+	if (!CurrentItem)
+		{
+		UE_LOG(LogTemp, Warning, TEXT("[ItemAttachOffset] No current item."));
+		return;
+		}
+	
+		CurrentItem->AttachOffset.SetScale3D(FVector(X, Y, Z));
+	RefreshCurrentItemAttachOffset();
+	PrintItemAttachOffset();
+}
+
+void AMyCharacter::PrintItemAttachOffset()
+{
+	if (!CurrentItem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ItemAttachOffset] No current item."));
+		return;
+	}
+
+	const FTransform& AttachOffset = CurrentItem->AttachOffset;
+	const FVector Location = AttachOffset.GetLocation();
+	const FRotator Rotation = AttachOffset.GetRotation().Rotator();
+	const FVector Scale = AttachOffset.GetScale3D();
+
+	UE_LOG(LogTemp, Display,
+		TEXT("[ItemAttachOffset] Item=%s Location=(%.2f, %.2f, %.2f) Rotation=(Pitch=%.2f, Yaw=%.2f, Roll=%.2f) Scale=(%.2f, %.2f, %.2f)"),
+		*GetNameSafe(CurrentItem),
+		Location.X, Location.Y, Location.Z,
+		Rotation.Pitch, Rotation.Yaw, Rotation.Roll,
+		Scale.X, Scale.Y, Scale.Z);
 }
 
 void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
@@ -3295,7 +3203,7 @@ void AMyCharacter::ApplyEquipItemVisual(ABaseItem* Item)
 		CurrentItem->AttachToComponent(
 			MeshComp,
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("RightHandSocket")
+			TEXT("hand_l")
 		);
 		RefreshCurrentItemAttachOffset();
 	}
@@ -3317,10 +3225,17 @@ void AMyCharacter::ApplyDropItemVisual(ABaseItem* Item, const FVector& DropLocat
 	if (OverlappingItem == Item) { OverlappingItem = nullptr; }
 
 	Item->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	
+	if (USceneComponent* ItemRoot = Item->GetRootComponent())
+	{
+		ItemRoot->SetUsingAbsoluteScale(false);
+	}
+
 	if (bWasCurrentItem)
 	{
 		Item->SetActorScale3D(DropItemBaseScale);
 	}
+
 	Item->SetOwnerCharacter(nullptr);
 	Item->SetActorLocation(DropLocation);
 	Item->SetActorEnableCollision(true);
@@ -3416,7 +3331,6 @@ void AMyCharacter::SetRoleSkillStateFromNetwork(bool bActive, float Duration)
 
 	ApplyRoleStats();
 	ApplyRoleSkillState();
-	UpdateRoleText();
 
 	UE_LOG(LogTemp, Warning, TEXT("[RoleSkill][StateApplied] Role=%d Active=%d JumpMaxCount=%d"),
 		static_cast<int32>(RoleType),

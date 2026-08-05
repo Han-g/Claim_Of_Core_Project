@@ -53,9 +53,7 @@ m_ListenSocket(INVALID_SOCKET), m_IsRunning(false), m_MaxSessionCount(0),
 m_RoomManager(RoomManager::GetInstance()), m_DB(DBHelper::GetInstance()), m_SessionManager(SessionManager::GetInstance()) { }
 
 IOCPServer::~IOCPServer() {
-	m_IsRunning = false;
-	closesocket(m_ListenSocket);
-	WSACleanup();
+	Stop();
 }
 
 void IOCPServer::InitLogger() {
@@ -117,7 +115,58 @@ void IOCPServer::Start() {
 	LOG_INFO("Server Start Successful!");
 
 	m_DBConnectThread = std::thread([this]() {this->DBWorkerThread(); });
-	LOG_INFO("DB Connect Successful!");
+}
+
+void IOCPServer::Stop()
+{
+	const bool wasRunning = m_IsRunning.exchange(false);
+	if (!wasRunning) { return; }
+
+	if (m_ListenSocket != INVALID_SOCKET)
+	{
+		shutdown(m_ListenSocket, SD_BOTH);
+		closesocket(m_ListenSocket);
+		m_ListenSocket = INVALID_SOCKET;
+	}
+
+	m_DBControler.notify_all();
+
+	if (m_hIOCP && m_hIOCP != INVALID_HANDLE_VALUE)
+	{
+		for (size_t i = 0; i < m_WorkerThreads.size(); ++i)
+		{
+			PostQueuedCompletionStatus(m_hIOCP, 0, 0, nullptr);
+		}
+	}
+
+	if (m_AcceptThread.joinable())
+	{
+		m_AcceptThread.join();
+	}
+
+	for (std::thread& worker : m_WorkerThreads)
+	{
+		if (worker.joinable())
+		{
+			worker.join();
+		}
+	}
+	m_WorkerThreads.clear();
+
+	if (m_DBConnectThread.joinable())
+	{
+		m_DBConnectThread.join();
+	}
+
+	m_DB->Disconnect();
+
+	if (m_hIOCP && m_hIOCP != INVALID_HANDLE_VALUE)
+	{
+		CloseHandle(m_hIOCP);
+		m_hIOCP = INVALID_HANDLE_VALUE;
+	}
+
+	WSACleanup();
 }
 
 void IOCPServer::AcceptThread() {
@@ -126,13 +175,22 @@ void IOCPServer::AcceptThread() {
 		int addrLen = sizeof(clientAddr);
 		SOCKET clientSocket = accept(m_ListenSocket, (SOCKADDR*)&clientAddr, &addrLen);
 
-		if (clientSocket == INVALID_SOCKET) { continue; }
+		if (clientSocket == INVALID_SOCKET) {
+			if (!m_IsRunning)
+			{
+				break;
+			}
+
+			LOG_ERROR("accept failed. error=%d", WSAGetLastError());
+
+			continue; 
+		}
 
 		// Allocate a session slot for the accepted socket.
 		Session* newSession = m_SessionManager->AcceptNewClient(clientSocket);
 
 		// Reject the connection when all session slots are already in use.
-		if (newSession == nullptr) {
+		if (!newSession) {
 			LOG_ERROR("User can't connect by Session is full!");
 			closesocket(clientSocket);
 			continue;
@@ -142,48 +200,94 @@ void IOCPServer::AcceptThread() {
 	}
 }
 
-void IOCPServer::WorkerThread() {
-    DWORD transferredBytes = 0;
-    ULONG_PTR completionKey = 0;
-    LPOVERLAPPED p_Overlapped = nullptr;
+void IOCPServer::WorkerThread() 
+{
+	while (true) {
+		DWORD transferredBytes = 0;
+		ULONG_PTR completionKey = 0;
+		LPOVERLAPPED p_Overlapped = nullptr;
 
-	while (m_IsRunning) {
 		BOOL ret = GetQueuedCompletionStatus(m_hIOCP, &transferredBytes, &completionKey,
 			&p_Overlapped, INFINITE);
+
+		if (!m_IsRunning && p_Overlapped == nullptr)
+		{
+			break;
+		}
+
+		if (p_Overlapped == nullptr)
+		{
+			continue;
+		}
+
 		Session* session = reinterpret_cast<Session*> (completionKey);
 		OverlappedEx* p_Ex = static_cast<OverlappedEx*> (p_Overlapped);
 
-		if (!ret || (ret && transferredBytes == 0)) {
-			if (session) { 
-				LOG_ERROR("[ID: %d] Fail to Register IOCP handle", session->sessionID); 
-				OnDisconnect(session->sessionID); 
+		if (session == nullptr)
+		{
+			continue;
+		}
+
+		auto CompleteIo = [this](Session* session)
+		{
+			unsigned int value = session->pendingIo.load();
+
+			while (value > 0 &&
+				!session->pendingIo.compare_exchange_weak(value, value - 1))
+			{
 			}
 
+			m_SessionManager->TryRecycleSession(session->sessionID);
+		};
+
+		if (p_Ex->sessionID != session->sessionID ||
+			p_Ex->generation != session->generation)
+		{
+			LOG_WARN("[IOCP] stale completion ignored. session=%d", p_Ex->sessionID);
+
+			CompleteIo(session);
+			continue;
+		}
+
+		if (!ret || transferredBytes == 0) {
+			if (session && m_IsRunning) {
+				LOG_INFO("[ID: %d] client disconnected or IO completed with zero bytes", session->sessionID);
+				OnDisconnect(session->sessionID);
+			}
+
+			CompleteIo(session);
 			continue;
 		}
 
 		// Dispatch the completion based on the operation type.
-		if (p_Ex->type == IO_OPERATION::RECV) { 
-			OnRecv(session->sessionID, transferredBytes); 
+		if (p_Ex->type == IO_OPERATION::RECV) {
+			OnRecv(session->sessionID, transferredBytes);
 		}
-		
+
 		else if (p_Ex->type == IO_OPERATION::SEND) {
 			OnSend(session->sessionID, transferredBytes);
 		}
-		
+
 		else if (p_Ex->type == IO_OPERATION::AWAIT) {
 			// Reserved for future await-style completions.
 		}
-		
+
 		else {
 			// Reserved for unsupported or invalid completion types.
 		}
+
+		CompleteIo(session);
 	}
 }
 
 void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
-	// Associate the accepted socket with the IOCP handle.
-	CreateIoCompletionPort((HANDLE)newSession->socket, m_hIOCP, (ULONG_PTR)newSession, 0);
+	// Verify CreateIoCompletionProt function is Called Sueccesfully
+	HANDLE h = CreateIoCompletionPort((HANDLE)newSession->socket, m_hIOCP, (ULONG_PTR)newSession, 0);
+	if (h == nullptr) {
+		LOG_ERROR("CreateIoCompletionPort failed. err=%d", GetLastError());
+		OnDisconnect(newSession->sessionID);
+		return;
+	}
 
 	GameDataPacket loginPacket;
 	loginPacket.Session_ID = newSession->sessionID;
@@ -198,10 +302,24 @@ void IOCPServer::OnConnect(Session* newSession, SOCKADDR_IN clientAddr) {
 	wsaBuf.len = sizeof(newSession->TempBuffer);
 
 	// Initialize the overlapped structure before WSARecv.
-	ZeroMemory(&newSession->recvOverlapped, sizeof(WSAOVERLAPPED));
+	ZeroMemory(&newSession->recvOverlapped, sizeof(OverlappedEx));
 	newSession->recvOverlapped.type = IO_OPERATION::RECV;
+	newSession->recvOverlapped.sessionID = newSession->sessionID;
+	newSession->recvOverlapped.generation = newSession->generation;
 
-	WSARecv(newSession->socket, &wsaBuf, 1, &recvBytes, &flags, (LPWSAOVERLAPPED)&newSession->recvOverlapped, nullptr);
+	newSession->pendingIo++;
+
+	int ret = WSARecv(newSession->socket, &wsaBuf, 1, &recvBytes, &flags, (LPWSAOVERLAPPED)&newSession->recvOverlapped, nullptr);
+
+	if (ret == SOCKET_ERROR) {
+		int err = WSAGetLastError();
+		if (err != ERROR_IO_PENDING) {
+			LOG_ERROR("First WSARecv failed. session=%d err=%d", newSession->sessionID, err);
+			newSession->pendingIo--;
+			OnDisconnect(newSession->sessionID);
+			return;
+		}
+	}
 }
 
 void IOCPServer::OnDisconnect(int sessionIndex) {
@@ -229,9 +347,20 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		PacketHeader header;
 		RingBufPeek(&recvSession->recvBuffer, (char*)&header, sizeof(PacketHeader));
 
+		if (!IsValidPacketHeader(header))
+		{
+			LOG_WARN("[Session: %d] Invalid packet header. size=%u id=%u",
+				sessionIndex,
+				header.packet_size,
+				header.packet_ID);
+
+			OnDisconnect(sessionIndex);
+			return;
+		}
+
 		// Wait for the remainder when the full packet body has not arrived yet.
 		if (GetRingBufSize(&recvSession->recvBuffer) < header.packet_size) {
-			LOG_WARN("Entire Data doesn't receive wait next Recv");
+			//LOG_WARN("Entire Data doesn't receive wait next Recv");
 			break; 
 		}
 
@@ -241,6 +370,17 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 		RingBufPeek(&recvSession->recvBuffer, packetData.data(), header.packet_size);
 
 		RingBufpop(&recvSession->recvBuffer, header.packet_size);
+
+		if (!IsPacketAllowedInState(recvSession->now_state, header.packet_ID))
+		{
+			LOG_WARN("[Session: %d] Packet not allowed in state. state=%d id=%u",
+				sessionIndex,
+				static_cast<int>(recvSession->now_state),
+				header.packet_ID);
+
+			OnDisconnect(sessionIndex);
+			return;
+		}
 
 		// Hand the decoded packet to the packet processor.
 		PacketProcess(sessionIndex, header.packet_ID, packetData);
@@ -252,13 +392,20 @@ void IOCPServer::OnRecv(int sessionIndex, DWORD transferredBytes) {
 	wsaBuf.buf = recvSession->TempBuffer;
 	wsaBuf.len = sizeof(recvSession->TempBuffer);
 
-	ZeroMemory(&recvSession->recvOverlapped, sizeof(WSAOVERLAPPED));
+	ZeroMemory(&recvSession->recvOverlapped, sizeof(OverlappedEx));
 	recvSession->recvOverlapped.type = IO_OPERATION::RECV;
+	recvSession->recvOverlapped.sessionID = recvSession->sessionID;
+	recvSession->recvOverlapped.generation = recvSession->generation;
+
+	recvSession->pendingIo++;
 
 	if (WSARecv(recvSession->socket, &wsaBuf, 1, &recvBytes, &flags,
 		(LPWSAOVERLAPPED)&recvSession->recvOverlapped, nullptr) == SOCKET_ERROR &&
-		WSAGetLastError() != ERROR_IO_PENDING) {
+		WSAGetLastError() != ERROR_IO_PENDING) 
+	{
 		LOG_ERROR("[ID: %d] Failed to Register IOCP Recv Process", sessionIndex);
+
+		recvSession->pendingIo--;
 		OnDisconnect(sessionIndex);
 	}
 }
@@ -279,6 +426,11 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 	if (session == nullptr) {
 		LOG_ERROR("Session is Invalid Session");
 		return; 
+	}
+
+	if (session->isClosing)
+	{
+		return;
 	}
 
 	PacketHeader header;
@@ -309,8 +461,9 @@ void IOCPServer::SendPacket(int sessionIndex, int packetID, const char* data, in
 }
 
 void IOCPServer::SendProtocol(Session* session) {
-	if (session->sendQueue.empty()) {
+	if (session->isClosing || session->sendQueue.empty()) {
 		LOG_ERROR("Send data is not exist");
+		session->isSending = false;
 		return;
 	}
 
@@ -326,8 +479,12 @@ void IOCPServer::SendProtocol(Session* session) {
 	DWORD sentBytes = 0;
 	DWORD flags = 0;
 
-	ZeroMemory(&session->sendOverlapped, sizeof(WSAOVERLAPPED));
+	ZeroMemory(&session->sendOverlapped, sizeof(OverlappedEx));
 	session->sendOverlapped.type = IO_OPERATION::SEND;
+	session->sendOverlapped.sessionID = session->sessionID;
+	session->sendOverlapped.generation = session->generation;
+
+	session->pendingIo++;
 
 	// Submit the asynchronous send request.
 	if (WSASend(session->socket, &wsaBuf, 1, &sentBytes, flags,
@@ -335,6 +492,7 @@ void IOCPServer::SendProtocol(Session* session) {
 		if (WSAGetLastError() != ERROR_IO_PENDING) {
 			LOG_ERROR("WSASend Failed! Error: %d", WSAGetLastError());
 			session->isSending = false;
+			session->pendingIo--;
 			OnDisconnect(session->sessionID);
 		}
 	}
@@ -358,9 +516,11 @@ void IOCPServer::DBWorkerThread()
 {
 	if (!m_DB->Connect()) {
 		LOG_ERROR("DB Connection Failed!");
+		return;
 	}
 
-	while (m_IsRunning) {
+	LOG_INFO("DB Connect Successful!");
+	while (m_IsRunning || !m_DBLoginQueue.empty()) {
 		DBData data;
 
 		{
@@ -373,8 +533,14 @@ void IOCPServer::DBWorkerThread()
 			m_DBLoginQueue.pop();
 		}
 
-
 		int userUID = -1;
+
+		// Verify DB generation
+		Session* session = m_SessionManager->GetSession(data.SessionIndex);
+		if (!session || session->generation != data.SessionGeneration) {
+			LOG_WARN("[DB] stale DB result ignored. session=%d", data.SessionIndex);
+			continue;
+		}
 
 		switch (data.TaskType)
 		{
@@ -388,7 +554,7 @@ void IOCPServer::DBWorkerThread()
 					ErrorCodePacket failPacket;
 					failPacket.ErrorCode = 6; // duplicate login
 					SendPacket(data.SessionIndex, PKT_S2C_LOGIN_DENY, (char*)&failPacket, sizeof(failPacket));
-					break;
+					continue;
 				}
 
 				// Cache player identity data on the session object.
@@ -448,6 +614,7 @@ void IOCPServer::DBWorkerThread()
 		
 	}
 
+	m_DB->Disconnect();
 	LOG_INFO("DB is Disconnected!");
 }
 
