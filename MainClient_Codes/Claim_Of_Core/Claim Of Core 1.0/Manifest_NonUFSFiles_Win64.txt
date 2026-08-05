@@ -1,4 +1,4 @@
-Claim_Of_Core/Binaries/Win64/Claim_Of_Core-Win64-Shipping.exe	2026-07-22T13:17:26.503Z
+Claim_Of_Core/Binaries/Win64/Claim_Of_Core-Win64-Shipping.exe	2026-07-27T07:09:39.052Z
 Claim_Of_Core/Binaries/Win64/D3D12/x64/D3D12Core.dll	2026-06-25T14:20:52.096Z
 Claim_Of_Core/Binaries/Win64/D3D12/x64/d3d12SDKLayers.dll	2026-06-25T14:20:52.129Z
 Claim_Of_Core/Binaries/Win64/DML/x64/DirectML.dll	2026-06-25T14:20:18.134Z
@@ -16,5 +16,5 @@ Engine/Binaries/ThirdParty/Windows/XAudio2_9/x64/xaudio2_9redist.dll	2026-06-25T
 Engine/Content/Renderer/TessellationTable.bin	2026-06-25T14:05:11.260Z
 Engine/Content/Slate/Cursor/invisible.cur	2026-06-25T14:05:11.267Z
 Engine/Plugins/NNE/NNERuntimeORT/Binaries/ThirdParty/Onnxruntime/Win64/onnxruntime.dll	2026-06-25T14:16:49.627Z
-Engine/Config/StagedBuild_Claim_Of_Core.ini	2026-07-22T14:25:28.555Z
-Claim_Of_Core.exe	2026-07-22T14:25:28.550Z
+Engine/Config/StagedBuild_Claim_Of_Core.ini	2026-07-27T07:10:40.987Z
+Claim_Of_Core.exe	2026-07-27T07:10:40.983Z

@@ -51,7 +51,11 @@ void GameLogic::Update(float deltaTime)
     {
         matchFlowRemainTime -= deltaTime;
 
-        if (AreAllConnectedMembersReady(CountdownReadySessions) || matchFlowRemainTime <= 0.0f)
+        const bool bCountdownTimeEnded = (matchFlowRemainTime <= 0.0f);
+        const bool bAllClientsFinishedCountdown =
+            AreAllConnectedMembersReady(CountdownReadySessions);
+
+        if (bCountdownTimeEnded && bAllClientsFinishedCountdown)
         {
             StartRoundPlaying();
         }
@@ -397,11 +401,6 @@ void GameLogic::MarkClientCountdownReady(int sessionID)
     }
 
     CountdownReadySessions.insert(sessionID);
-
-    if (AreAllConnectedMembersReady(CountdownReadySessions))
-    {
-        StartRoundPlaying();
-    }
 }
 
 void GameLogic::SetAvailableMaps(const std::vector<int>& maps)
@@ -1526,8 +1525,11 @@ void GameLogic::HandleAttackInput(int sessionID)
             return;
         }
 
+        const float AttackWindow =
+            (attackType == 1 || attackType == 2) ? 1.8f : 1.2f;
+
         attackerSession->isAttack = true;
-        attackerSession->attackRemainTime = 1.2f;
+        attackerSession->attackRemainTime = AttackWindow;
         attackerSession->attackSeq++;
         attackerSession->hasAttackHit = false;
     }

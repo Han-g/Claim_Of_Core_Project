@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="StressClient/StressClient.vcxproj" />
+  <Project Path="StressClient/StressClient.vcxproj" Id="44bdcd66-6e31-4ed8-b635-d16e25422491" />
 </Solution>

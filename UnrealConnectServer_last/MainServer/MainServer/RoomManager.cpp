@@ -763,24 +763,37 @@ bool RoomManager::JoinRoom(Session* client, int roomID)
     if (client == nullptr) { LOG_ERROR("Client is not exist to join GameRoom"); return false; }
    
     Room* room = GetRoom(roomID);
-    if (room == nullptr) {
+    auto SendJoinError = [&](int16_t errorCode)
+        {
+            ErrorCodePacket failPacket{};
+            failPacket.ErrorCode = errorCode;
+
+            m_Server->SendPacket(
+                client->sessionID,
+                PKT_S2C_ERROR,
+                reinterpret_cast<char*>(&failPacket),
+                sizeof(failPacket)
+            );
+        };
+
+    if (room == nullptr)
+    {
         LOG_ERROR("Room [%d] does not exist", roomID);
+        SendJoinError(3);
         return false;
     }
 
     if (room->GetState() != ERoomState::WAITING)
     {
         LOG_WARN("JoinRoom failed - Room [%d] is not waiting", roomID);
-
-        ErrorCodePacket failPacket{};
-        failPacket.ErrorCode = 3; // Room error
-        m_Server->SendPacket(client->sessionID, PKT_S2C_ERROR, (char*)&failPacket, sizeof(failPacket));
-
+        SendJoinError(3);
         return false;
     }
-    
-    if (!room->addMember(client)) {
-        LOG_ERROR("Room is full");
+
+    if (!room->addMember(client))
+    {
+        LOG_ERROR("Room [%d] is full", roomID);
+        SendJoinError(3);
         return false;
     }
 

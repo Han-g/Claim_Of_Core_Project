@@ -16,6 +16,9 @@ enum PacketID : uint16_t
     PKT_S2C_ROOM_ENTER = 106,
     PKT_S2C_ROOM_INFO_BRD = 110,
     PKT_S2C_MATCH_START_BRD = 112,
+    PKT_S2C_ROUND_START_BRD = 113,
+    PKT_S2C_ROUND_PREPARE_BRD = 154,
+    PKT_S2C_MATCH_END_BRD = 155,
     PKT_S2C_SNAPSHOT_NOTICE = 0,
     PKT_S2C_ERROR = 1000,
 
@@ -26,6 +29,8 @@ enum PacketID : uint16_t
     PKT_C2S_GAME_START_REQ = 509,
     PKT_C2S_READY_REQ = 510,
     PKT_C2S_ROOM_LEAVE_REQ = 512,
+    PKT_C2S_ROUND_LOAD_COMPLETE_REQ = 513,
+    PKT_C2S_ROUND_COUNTDOWN_READY_REQ = 514,
     PKT_C2S_MOVE_KEYINPUT = 520,
 };
 
@@ -94,5 +99,12 @@ inline std::vector<char> MakeMoveBody(float x, float y, float z, float yaw, floa
 
     std::vector<char> body(sizeof(MovePacket));
     memcpy(body.data(), &packet, sizeof(MovePacket));
+    return body;
+}
+
+inline std::vector<char> MakeRoomJoinBody(int32_t roomId)
+{
+    std::vector<char> body(sizeof(roomId));
+    memcpy(body.data(), &roomId, sizeof(roomId));
     return body;
 }

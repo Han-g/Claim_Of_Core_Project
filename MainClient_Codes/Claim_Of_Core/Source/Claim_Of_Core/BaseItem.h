@@ -80,22 +80,13 @@ public:
 	float Radius = 80.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
-	FTransform StrikerAttachOffset = FTransform::Identity;
+	FTransform AttachOffset = FTransform::Identity;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
-	FTransform GuardianAttachOffset = FTransform::Identity;
+	bool bPreviewAttachOffsetInGame = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Attach")
-	FTransform ManipulatorAttachOffset = FTransform::Identity;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
-	UAnimMontage* GuardianMontage;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
-	UAnimMontage* ManipulatorMontage;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mongtage")
-	UAnimMontage* StrikerMontage;
-	UAnimMontage* GetAttackMontageByRole(ERecRoleType InRole) const;
-	FTransform GetAttachOffsetByRole(ERecRoleType InRole) const;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Montage")
+	UAnimMontage * AttackMontage;
 
 	UPROPERTY()
 	AMyCharacter* OwnerCharacter;
